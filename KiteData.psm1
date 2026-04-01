@@ -190,10 +190,10 @@ function Resolve-KiteAccessToken {
     Write-Host ''
     Write-Host '  After login, copy the request_token from the redirect URL.' -ForegroundColor Yellow
     Write-Host ''
-    $input = Read-Host '  Paste the request_token here'
-    $input = $input.Trim()
-    if (-not $input) { return $null }
-    return (Exchange-KiteRequestToken -ApiKey $ApiKey -ApiSecret $ApiSecret -ReqToken $input -TokenFilePath $TokenFilePath)
+    $userInput = Read-Host '  Paste the request_token here'
+    $userInput = $userInput.Trim()
+    if (-not $userInput) { return $null }
+    return (Exchange-KiteRequestToken -ApiKey $ApiKey -ApiSecret $ApiSecret -ReqToken $userInput -TokenFilePath $TokenFilePath)
 }
 
 # ══════════════════════════════════════════════════════════════
@@ -603,3 +603,226 @@ function Show-KitePresets {
 
 # ── Module exports ─────────────────────────────────────────
 Export-ModuleMember -Function Get-KiteCandles, Search-KiteInstrument, Show-KitePresets
+
+# ══════════════════════════════════════════════════════════════
+# FUNCTION: Get-KiteLiveCandles
+# WebSocket streaming + real-time candle builder
+# ══════════════════════════════════════════════════════════════
+function Get-KiteLiveCandles {
+    param(
+        [string]$TradingSymbol  = 'NIFTY',
+        [int]$InstrumentToken,
+        [ValidateSet('minute','3minute','5minute','10minute','15minute','30minute','60minute')]
+        [string]$TimeFrame      = '5minute',
+        [int]$CandlesToShow     = 10,
+        [switch]$FullMode,
+        [switch]$ListSymbols,
+        [string]$AccessToken,
+        [string]$API_Key        = '0fvxhlacu555dhp0'
+    )
+
+    # --- List symbols ---
+    if ($ListSymbols) {
+        Show-KiteSymbols
+        return
+    }
+
+    # --- Resolve symbol ---
+    $sym = $TradingSymbol.ToUpper().Trim()
+    if ($InstrumentToken -gt 0) {
+        $instToken = $InstrumentToken
+        $label = $sym
+    } else {
+        $preset = Resolve-KiteSymbol $sym
+        if ($preset) {
+            $instToken = $preset.Token
+            $label = $preset.Label
+        } else {
+            Write-Host "  Unknown symbol: $TradingSymbol. Use -ListSymbols to see presets." -ForegroundColor Red
+            return
+        }
+    }
+
+    # --- Interval ---
+    $intMin   = Get-IntervalMinutes $TimeFrame
+    $intLabel = Get-IntervalLabel $intMin
+
+    # --- Auth ---
+    if (-not $AccessToken) {
+        Write-Host '  No token. Exiting.' -ForegroundColor Red; return
+    }
+
+    # --- Candle state ---
+    $script:candleStore = @{}
+    $script:buildingCdl = @{}
+    $script:totalTicks  = 0
+
+    $getCandleKey = {
+        $now = Get-Date
+        $bucket = [Math]::Floor($now.Minute / $intMin) * $intMin
+        return $now.ToString('yyyy-MM-dd HH:') + $bucket.ToString('00')
+    }
+
+    $updateCandle = {
+        param([int]$tk, [double]$ltp, [int]$vol, [double]$opn, [double]$hi, [double]$lo, [double]$cls, [int]$oi)
+        $script:totalTicks++
+        $mk = & $getCandleKey
+        if (-not $script:candleStore.ContainsKey($tk)) {
+            $script:candleStore[$tk] = [System.Collections.ArrayList]::new()
+        }
+        $cur = $script:buildingCdl[$tk]
+        if (($null -eq $cur) -or ($cur.MK -ne $mk)) {
+            if ($null -ne $cur) {
+                $null = $script:candleStore[$tk].Add([PSCustomObject]@{
+                    MK=$cur.MK; O=$cur.O; H=$cur.H; L=$cur.L; C=$cur.C; V=$cur.V; OI=$cur.OI; T=$cur.T
+                })
+            }
+            $script:buildingCdl[$tk] = @{
+                MK=$mk; O=$ltp; H=$ltp; L=$ltp; C=$ltp; V=0; LV=$vol; OI=$oi; T=1
+                DO=$opn; DH=$hi; DL=$lo; DC=$cls
+            }
+        } else {
+            $cur.H  = [Math]::Max($cur.H, $ltp)
+            $cur.L  = [Math]::Min($cur.L, $ltp)
+            $cur.C  = $ltp
+            $cur.OI = $oi
+            $cur.T++
+            if ($hi -gt 0)  { $cur.DH = $hi }
+            if ($lo -gt 0)  { $cur.DL = $lo }
+            if ($opn -gt 0) { $cur.DO = $opn }
+            if ($cls -gt 0) { $cur.DC = $cls }
+            if (($vol -gt $cur.LV) -and ($cur.LV -gt 0)) { $cur.V += ($vol - $cur.LV) }
+            $cur.LV = $vol
+        }
+    }
+
+    $showTable = {
+        param([int]$tk)
+        $all = @()
+        $done = $script:candleStore[$tk]
+        if ($done -and $done.Count -gt 0) { $all += $done.ToArray() }
+        $cur = $script:buildingCdl[$tk]
+        if ($null -ne $cur) {
+            $all += [PSCustomObject]@{ MK=$cur.MK; O=$cur.O; H=$cur.H; L=$cur.L; C=$cur.C; V=$cur.V; OI=$cur.OI; T=$cur.T }
+        }
+        if ($all.Count -eq 0) { return }
+        $disp = $all | Select-Object -Last $CandlesToShow
+
+        Clear-Host
+        Write-Host ''
+        Write-Host '  ================================================' -ForegroundColor Cyan
+        Write-Host "  $label - Live $intLabel Candles (WebSocket)" -ForegroundColor Cyan
+        Write-Host '  ================================================' -ForegroundColor Cyan
+        Write-Host "  Symbol  : $sym  |  Token: $instToken  |  TimeFrame: $TimeFrame"
+        Write-Host "  Ticks   : $($script:totalTicks)"
+        Write-Host "  Candles : $($all.Count) total | Showing $($disp.Count)"
+        Write-Host "  Time    : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+        if ($null -ne $cur) {
+            Write-Host "  LTP     : $($cur.C.ToString('N2'))  |  Day O/H/L/C: $($cur.DO.ToString('N2'))/$($cur.DH.ToString('N2'))/$($cur.DL.ToString('N2'))/$($cur.DC.ToString('N2'))" -ForegroundColor Green
+        }
+        Write-Host ''
+        $fmt = ' {0,-18} {1,14} {2,14} {3,14} {4,14} {5,10} {6,8} {7,5}'
+        Write-Host ($fmt -f 'Time','Open','High','Low','Close','Volume','OI','Ticks') -ForegroundColor Cyan
+        Write-Host (' ' + ('-' * 102)) -ForegroundColor DarkGray
+        for ($i = 0; $i -lt $disp.Count; $i++) {
+            $c = $disp[$i]
+            $ln = $fmt -f $c.MK, ('{0:N2}' -f $c.O), ('{0:N2}' -f $c.H), ('{0:N2}' -f $c.L), ('{0:N2}' -f $c.C), ('{0:N0}' -f $c.V), ('{0:N0}' -f $c.OI), $c.T
+            if ($i -eq ($disp.Count - 1)) { Write-Host $ln -ForegroundColor Yellow } else { Write-Host $ln }
+        }
+        Write-Host ''
+        Write-Host '  Press Ctrl+C to stop' -ForegroundColor DarkGray
+    }
+
+    # --- WebSocket ---
+    $wsUri = "wss://ws.kite.trade?api_key=$API_Key" + "&access_token=$AccessToken"
+    $modeStr = if ($FullMode) { 'full' } else { 'quote' }
+
+    Write-Host ''
+    Write-Host '  ================================================' -ForegroundColor Cyan
+    Write-Host '  Zerodha WebSocket - Live Candle Data' -ForegroundColor Cyan
+    Write-Host '  ================================================' -ForegroundColor Cyan
+    Write-Host "  Symbol   : $label ($sym)"
+    Write-Host "  Token    : $instToken"
+    Write-Host "  TimeFrame: $TimeFrame ($($intMin)m candles)"
+    Write-Host "  Mode     : $modeStr"
+    Write-Host ''
+    Write-Host '  Connecting...' -ForegroundColor Yellow
+
+    $ws  = [System.Net.WebSockets.ClientWebSocket]::new()
+    $ws.Options.SetRequestHeader('X-Kite-Version', '3')
+    $cts = [System.Threading.CancellationTokenSource]::new()
+
+    try {
+        $ct = $ws.ConnectAsync([Uri]$wsUri, $cts.Token)
+        if (-not $ct.Wait(15000)) { Write-Host '  Connection timed out.' -ForegroundColor Red; return }
+        if ($ws.State -ne [System.Net.WebSockets.WebSocketState]::Open) {
+            Write-Host "  Connection failed. State: $($ws.State)" -ForegroundColor Red; return
+        }
+        Write-Host '  Connected!' -ForegroundColor Green
+
+        # Subscribe + set mode
+        $subB = [System.Text.Encoding]::UTF8.GetBytes('{"a":"subscribe","v":[' + $instToken + ']}')
+        $ws.SendAsync([System.ArraySegment[byte]]::new($subB), [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait(5000)
+        Write-Host "  Subscribed to $label" -ForegroundColor Green
+
+        $modB = [System.Text.Encoding]::UTF8.GetBytes('{"a":"mode","v":["' + $modeStr + '",[' + $instToken + ']]}')
+        $ws.SendAsync([System.ArraySegment[byte]]::new($modB), [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait(5000)
+        Write-Host "  Mode: $modeStr" -ForegroundColor Green
+        Write-Host ''
+        Write-Host '  Waiting for market ticks...' -ForegroundColor Yellow
+
+        $buf = New-Object byte[] 65536
+
+        while ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
+            $seg = [System.ArraySegment[byte]]::new($buf)
+            try {
+                $rt = $ws.ReceiveAsync($seg, $cts.Token)
+                if (-not $rt.Wait(30000)) { continue }
+                $res = $rt.Result
+            } catch {
+                if ($ws.State -ne [System.Net.WebSockets.WebSocketState]::Open) { break }
+                continue
+            }
+
+            if ($res.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Close) {
+                Write-Host '  Server closed connection.' -ForegroundColor Yellow; break
+            }
+            if ($res.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Text) {
+                if ($res.Count -gt 1) {
+                    $txt = [System.Text.Encoding]::UTF8.GetString($buf, 0, $res.Count)
+                    try { $jm = $txt | ConvertFrom-Json -ErrorAction SilentlyContinue; if ($jm.type -eq 'error') { Write-Host "  ERROR: $($jm.data)" -ForegroundColor Red } } catch {}
+                }
+                continue
+            }
+            if (($res.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Binary) -and ($res.Count -gt 2)) {
+                $mb = New-Object byte[] $res.Count
+                [Array]::Copy($buf, $mb, $res.Count)
+                $ticks = Parse-KiteTicks $mb $res.Count
+                foreach ($tk in $ticks) {
+                    if ($tk.LTP -gt 0) { & $updateCandle $tk.Tok $tk.LTP $tk.Vol $tk.O $tk.H $tk.L $tk.C $tk.OI }
+                }
+                & $showTable $instToken
+            }
+        }
+    }
+    catch {
+        Write-Host "  Error: $($_.Exception.Message)" -ForegroundColor Red
+        if ($_.Exception.InnerException) { Write-Host "  Detail: $($_.Exception.InnerException.Message)" -ForegroundColor DarkRed }
+    }
+    finally {
+        if ($ws -and ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open)) {
+            try { $ws.CloseAsync([System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure, 'Done', $cts.Token).Wait(5000) } catch {}
+        }
+        if ($ws)  { $ws.Dispose() }
+        if ($cts) { $cts.Dispose() }
+        Write-Host ''
+        Write-Host '  Disconnected.' -ForegroundColor Yellow
+        $cnt = 0
+        if ($script:candleStore[$instToken]) { $cnt += $script:candleStore[$instToken].Count }
+        if ($script:buildingCdl[$instToken]) { $cnt++ }
+        Write-Host "  $label : $cnt candle(s) from $($script:totalTicks) ticks" -ForegroundColor Gray
+        Write-Host ''
+    }
+}
+
+Export-ModuleMember -Function Get-KiteLiveCandles, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol
