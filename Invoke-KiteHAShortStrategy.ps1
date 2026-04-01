@@ -1,24 +1,24 @@
 <#
 .SYNOPSIS
-  Heikin-Ashi Long-only strategy with order file logging.
+  Heikin-Ashi Short-only strategy with order file logging.
 .DESCRIPTION
   Streams live HA candles via Kite WebSocket. When the current HA candle's
-  Close crosses above the previous HA candle's High, a Long Entry file is
-  created. When it crosses below the previous HA candle's Low, a Long Exit
-  file is created. Only one Long position at a time.
+  Close drops below the previous HA candle's Low, a Short Entry file is
+  created. When it rises above the previous HA candle's High, a Short Exit
+  file is created. Only one Short position at a time.
   Order files are saved to PlacedOrders/ in the script directory.
 .EXAMPLE
-  .\Invoke-KiteHALongStrategy.ps1
-  .\Invoke-KiteHALongStrategy.ps1 -TradingSymbol BANKNIFTY -TimeFrame 5minute
-  .\Invoke-KiteHALongStrategy.ps1 -TradingSymbol RELIANCE -TimeFrame minute
-  .\Invoke-KiteHALongStrategy.ps1 -ListSymbols
+  .\Invoke-KiteHAShortStrategy.ps1
+  .\Invoke-KiteHAShortStrategy.ps1 -TradingSymbol BANKNIFTY -TimeFrame 5minute
+  .\Invoke-KiteHAShortStrategy.ps1 -TradingSymbol RELIANCE -TimeFrame minute
+  .\Invoke-KiteHAShortStrategy.ps1 -ListSymbols
 #>
 
 param(
     [string]$TradingSymbol  = 'NIFTY',
     [int]$InstrumentToken,
     [ValidateSet('minute','3minute','5minute','10minute','15minute','30minute','60minute')]
-    [string]$TimeFrame      = 'minute',
+    [string]$TimeFrame      = '5minute',
     [int]$CandlesToShow     = 10,
     [switch]$FullMode,
     [switch]$ListSymbols,
@@ -72,4 +72,4 @@ if ($InstrumentToken -gt 0) { $splat.InstrumentToken = $InstrumentToken }
 if ($FullMode)     { $splat.FullMode     = $true }
 if ($ListSymbols)  { $splat.ListSymbols  = $true }
 
-Invoke-KiteHALongStrategy @splat
+Invoke-KiteHAShortStrategy @splat

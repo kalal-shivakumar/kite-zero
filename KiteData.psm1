@@ -1595,5 +1595,387 @@ function Invoke-KiteHALongStrategy {
     Write-Host ''
 }
 
+# ══════════════════════════════════════════════════════════════
+# FUNCTION: Invoke-KiteHAShortStrategy
+# Heikin-Ashi Short-only strategy with order file logging
+# Entry: current HA Close < previous HA Low
+# Exit:  current HA Close > previous HA High
+# ══════════════════════════════════════════════════════════════
+function Invoke-KiteHAShortStrategy {
+    param(
+        [string]$TradingSymbol  = 'NIFTY',
+        [int]$InstrumentToken,
+        [ValidateSet('minute','3minute','5minute','10minute','15minute','30minute','60minute')]
+        [string]$TimeFrame      = '5minute',
+        [int]$CandlesToShow     = 10,
+        [switch]$FullMode,
+        [switch]$ListSymbols,
+        [string]$AccessToken,
+        [string]$API_Key        = '0fvxhlacu555dhp0',
+        [string]$OrdersFolder
+    )
+
+    if ($ListSymbols) { Show-KiteSymbols; return }
+
+    # --- Resolve symbol ---
+    $sym = $TradingSymbol.ToUpper().Trim()
+    if ($InstrumentToken -gt 0) {
+        $instToken = $InstrumentToken
+        $label = $sym
+    } else {
+        $preset = Resolve-KiteSymbol $sym
+        if ($preset) {
+            $instToken = $preset.Token
+            $label = $preset.Label
+        } else {
+            Write-Host "  Unknown symbol: $TradingSymbol. Use -ListSymbols to see presets." -ForegroundColor Red
+            return
+        }
+    }
+
+    $intMin   = Get-IntervalMinutes $TimeFrame
+    $intLabel = Get-IntervalLabel $intMin
+
+    if (-not $AccessToken) { Write-Host '  No token. Exiting.' -ForegroundColor Red; return }
+
+    # --- Ensure PlacedOrders folder exists ---
+    if (-not $OrdersFolder) { $OrdersFolder = Join-Path (Split-Path $MyInvocation.ScriptName -Parent) 'PlacedOrders' }
+    if (-not (Test-Path $OrdersFolder)) { New-Item -ItemType Directory -Path $OrdersFolder -Force | Out-Null }
+
+    # --- HA + Strategy state ---
+    $script:SHR_CompletedCandles = @{}
+    $script:SHR_ActiveCandle     = @{}
+    $script:SHR_PreviousHA       = @{}
+    $script:SHR_TickCount        = 0
+    $script:SHR_IntervalMinutes  = $intMin
+    $script:SHR_DisplayConfig    = @{
+        SymbolName=$sym; SymbolLabel=$label; InstrumentToken=$instToken
+        TimeFrame=$TimeFrame; IntervalLabel=$intLabel; MaxCandles=$CandlesToShow
+    }
+    $script:SHR_LastDisplayTime   = [datetime]::MinValue
+    $script:SHR_DisplayIntervalMs = 250
+
+    # Strategy state
+    $script:ShortOrderPlaced     = $false
+    $script:ShortEntryPrice      = 0.0
+    $script:ShortEntryTime       = ''
+    $script:ShortOrdersFolder    = $OrdersFolder
+    $script:ShortSignals         = [System.Collections.Generic.List[string]]::new()
+
+    function script:Get-SHR-TimeBucket {
+        $now = Get-Date
+        $bucketMinute = [Math]::Floor($now.Minute / $script:SHR_IntervalMinutes) * $script:SHR_IntervalMinutes
+        return $now.ToString('yyyy-MM-dd HH:') + $bucketMinute.ToString('00')
+    }
+
+    function script:Convert-ToHA-Short([hashtable]$rawCandle, [hashtable]$previousHA) {
+        $haClose = ($rawCandle.Open + $rawCandle.High + $rawCandle.Low + $rawCandle.Close) / 4.0
+        if ($null -ne $previousHA) {
+            $haOpen = ($previousHA.Open + $previousHA.Close) / 2.0
+        } else {
+            $haOpen = ($rawCandle.Open + $rawCandle.Close) / 2.0
+        }
+        $haHigh = [Math]::Max($rawCandle.High, [Math]::Max($haOpen, $haClose))
+        $haLow  = [Math]::Min($rawCandle.Low,  [Math]::Min($haOpen, $haClose))
+        return @{ Open=$haOpen; High=$haHigh; Low=$haLow; Close=$haClose }
+    }
+
+    function script:Check-ShortStrategy([int]$instrumentToken, [double]$lastPrice) {
+        $completedList = $script:SHR_CompletedCandles[$instrumentToken]
+        if (-not $completedList -or $completedList.Count -lt 1) { return }
+
+        $previousCandle = $completedList[$completedList.Count - 1]
+
+        $currentRaw = $script:SHR_ActiveCandle[$instrumentToken]
+        if ($null -eq $currentRaw) { return }
+        $prevHA = $script:SHR_PreviousHA[$instrumentToken]
+        $liveHA = script:Convert-ToHA-Short $currentRaw $prevHA
+
+        $timeStamp = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
+
+        # SHORT ENTRY: current HA Close < previous HA Low (and no open position)
+        if ((-not $script:ShortOrderPlaced) -and ($liveHA.Close -lt $previousCandle.Low)) {
+            $script:ShortOrderPlaced = $true
+            $script:ShortEntryPrice  = $lastPrice
+            $script:ShortEntryTime   = $timeStamp
+
+            $fileName = "Short-Entry-$($lastPrice.ToString('F2'))-$timeStamp.txt"
+            $filePath = Join-Path $script:ShortOrdersFolder $fileName
+            $content  = "SHORT ENTRY`nSymbol: $($script:SHR_DisplayConfig.SymbolName)`nLTP: $lastPrice`nHA Close: $([Math]::Round($liveHA.Close,2))`nPrev HA Low: $($previousCandle.Low)`nTime: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+            Set-Content -Path $filePath -Value $content
+            $script:ShortSignals.Add("ENTRY @ $lastPrice ($timeStamp)")
+        }
+
+        # SHORT EXIT: current HA Close > previous HA High (and position is open)
+        if ($script:ShortOrderPlaced -and ($liveHA.Close -gt $previousCandle.High)) {
+            $pnl = $script:ShortEntryPrice - $lastPrice
+
+            $fileName = "Short-Exit-$($lastPrice.ToString('F2'))-$timeStamp.txt"
+            $filePath = Join-Path $script:ShortOrdersFolder $fileName
+            $content  = "SHORT EXIT`nSymbol: $($script:SHR_DisplayConfig.SymbolName)`nLTP: $lastPrice`nHA Close: $([Math]::Round($liveHA.Close,2))`nPrev HA High: $($previousCandle.High)`nEntry: $($script:ShortEntryPrice) @ $($script:ShortEntryTime)`nP&L: $([Math]::Round($pnl,2))`nTime: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+            Set-Content -Path $filePath -Value $content
+            $script:ShortSignals.Add("EXIT  @ $lastPrice  P&L: $([Math]::Round($pnl,2)) ($timeStamp)")
+
+            $script:ShortOrderPlaced = $false
+            $script:ShortEntryPrice  = 0.0
+            $script:ShortEntryTime   = ''
+        }
+    }
+
+    function script:Update-ShortStrategyFromTick([int]$instrumentToken, [double]$lastPrice, [int]$volume, [double]$dayOpen, [double]$dayHigh, [double]$dayLow, [double]$dayClose, [int]$openInterest) {
+        $script:SHR_TickCount++
+        $timeBucket = script:Get-SHR-TimeBucket
+
+        if (-not $script:SHR_CompletedCandles.ContainsKey($instrumentToken)) {
+            $script:SHR_CompletedCandles[$instrumentToken] = [System.Collections.Generic.List[PSCustomObject]]::new()
+        }
+
+        $currentCandle = $script:SHR_ActiveCandle[$instrumentToken]
+
+        if (($null -eq $currentCandle) -or ($currentCandle.TimeBucket -ne $timeBucket)) {
+            if ($null -ne $currentCandle) {
+                $prevHA = $script:SHR_PreviousHA[$instrumentToken]
+                $ha = script:Convert-ToHA-Short $currentCandle $prevHA
+                $closedHA = @{ Open=$ha.Open; High=$ha.High; Low=$ha.Low; Close=$ha.Close }
+                $script:SHR_PreviousHA[$instrumentToken] = $closedHA
+
+                $script:SHR_CompletedCandles[$instrumentToken].Add([PSCustomObject]@{
+                    TimeBucket=$currentCandle.TimeBucket
+                    Open=[Math]::Round($ha.Open, 2); High=[Math]::Round($ha.High, 2)
+                    Low=[Math]::Round($ha.Low, 2); Close=[Math]::Round($ha.Close, 2)
+                    Volume=$currentCandle.Volume; OpenInterest=$currentCandle.OpenInterest
+                    TicksInCandle=$currentCandle.TicksInCandle
+                })
+            }
+            $script:SHR_ActiveCandle[$instrumentToken] = @{
+                TimeBucket=$timeBucket; Open=$lastPrice; High=$lastPrice; Low=$lastPrice; Close=$lastPrice
+                Volume=0; PreviousVolume=$volume; OpenInterest=$openInterest; TicksInCandle=1
+                DayOpen=$dayOpen; DayHigh=$dayHigh; DayLow=$dayLow; DayClose=$dayClose
+            }
+        } else {
+            $currentCandle.High  = [Math]::Max($currentCandle.High, $lastPrice)
+            $currentCandle.Low   = [Math]::Min($currentCandle.Low, $lastPrice)
+            $currentCandle.Close = $lastPrice
+            $currentCandle.OpenInterest = $openInterest
+            $currentCandle.TicksInCandle++
+            if ($dayHigh -gt 0)  { $currentCandle.DayHigh  = $dayHigh }
+            if ($dayLow -gt 0)   { $currentCandle.DayLow   = $dayLow }
+            if ($dayOpen -gt 0)  { $currentCandle.DayOpen  = $dayOpen }
+            if ($dayClose -gt 0) { $currentCandle.DayClose = $dayClose }
+            if (($volume -gt $currentCandle.PreviousVolume) -and ($currentCandle.PreviousVolume -gt 0)) {
+                $currentCandle.Volume += ($volume - $currentCandle.PreviousVolume)
+            }
+            $currentCandle.PreviousVolume = $volume
+        }
+
+        script:Check-ShortStrategy $instrumentToken $lastPrice
+    }
+
+    function script:Render-ShortStrategyDisplay([int]$instrumentToken) {
+        $now = [datetime]::Now
+        if (($now - $script:SHR_LastDisplayTime).TotalMilliseconds -lt $script:SHR_DisplayIntervalMs) { return }
+        $script:SHR_LastDisplayTime = $now
+
+        $config = $script:SHR_DisplayConfig
+        $allCandles = [System.Collections.Generic.List[PSCustomObject]]::new()
+
+        $closedCandles = $script:SHR_CompletedCandles[$instrumentToken]
+        if ($closedCandles -and $closedCandles.Count -gt 0) { $allCandles.AddRange($closedCandles) }
+
+        $currentCandle = $script:SHR_ActiveCandle[$instrumentToken]
+        if ($null -ne $currentCandle) {
+            $prevHA = $script:SHR_PreviousHA[$instrumentToken]
+            $ha = script:Convert-ToHA-Short $currentCandle $prevHA
+            $allCandles.Add([PSCustomObject]@{
+                TimeBucket=$currentCandle.TimeBucket
+                Open=[Math]::Round($ha.Open, 2); High=[Math]::Round($ha.High, 2)
+                Low=[Math]::Round($ha.Low, 2); Close=[Math]::Round($ha.Close, 2)
+                Volume=$currentCandle.Volume; OpenInterest=$currentCandle.OpenInterest
+                TicksInCandle=$currentCandle.TicksInCandle
+            })
+        }
+        if ($allCandles.Count -eq 0) { return }
+
+        $skipCount = [Math]::Max(0, $allCandles.Count - $config.MaxCandles)
+        $visibleCandles = if ($skipCount -gt 0) { $allCandles.GetRange($skipCount, $allCandles.Count - $skipCount) } else { $allCandles }
+
+        $sb = [System.Text.StringBuilder]::new(2048)
+        $null = $sb.AppendLine('')
+        $null = $sb.AppendLine("  ================================================")
+        $null = $sb.AppendLine("  $($config.SymbolLabel) - HA Short Strategy (WebSocket)")
+        $null = $sb.AppendLine("  ================================================")
+        $null = $sb.AppendLine("  Symbol  : $($config.SymbolName)  |  Token: $($config.InstrumentToken)  |  TimeFrame: $($config.TimeFrame)")
+        $null = $sb.AppendLine("  Ticks   : $($script:SHR_TickCount)")
+        $null = $sb.AppendLine("  Candles : $($allCandles.Count) total | Showing $($visibleCandles.Count)")
+        $null = $sb.AppendLine("  Time    : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
+
+        if ($script:ShortOrderPlaced) {
+            $null = $sb.AppendLine("  POSITION: SHORT ACTIVE  Entry: $($script:ShortEntryPrice.ToString('N2')) @ $($script:ShortEntryTime)")
+            if ($null -ne $currentCandle) {
+                $unrealizedPnL = $script:ShortEntryPrice - $currentCandle.Close
+                $null = $sb.AppendLine("  LTP     : $($currentCandle.Close.ToString('N2'))  |  Unrealized P&L: $($unrealizedPnL.ToString('N2'))")
+            }
+        } else {
+            $null = $sb.AppendLine("  POSITION: FLAT  (Waiting for Short Entry signal)")
+            if ($null -ne $currentCandle) {
+                $null = $sb.AppendLine("  LTP     : $($currentCandle.Close.ToString('N2'))  |  Day O/H/L/C: $($currentCandle.DayOpen.ToString('N2'))/$($currentCandle.DayHigh.ToString('N2'))/$($currentCandle.DayLow.ToString('N2'))/$($currentCandle.DayClose.ToString('N2'))")
+            }
+        }
+
+        $null = $sb.AppendLine('')
+        $rowFormat = ' {0,-18} {1,14} {2,14} {3,14} {4,14} {5,10} {6,5} {7,6}'
+        $null = $sb.AppendLine(($rowFormat -f 'Time','HA Open','HA High','HA Low','HA Close','Volume','Ticks','Trend'))
+        $null = $sb.AppendLine(' ' + ('-' * 102))
+
+        Clear-Host
+        Write-Host $sb.ToString()
+
+        for ($rowIndex = 0; $rowIndex -lt $visibleCandles.Count; $rowIndex++) {
+            $candle = $visibleCandles[$rowIndex]
+            $trend = if ($candle.Close -ge $candle.Open) { '  UP' } else { 'DOWN' }
+            $color = if ($candle.Close -ge $candle.Open) { 'Green' } else { 'Red' }
+            $line = $rowFormat -f $candle.TimeBucket, ('{0:N2}' -f $candle.Open), ('{0:N2}' -f $candle.High), ('{0:N2}' -f $candle.Low), ('{0:N2}' -f $candle.Close), ('{0:N0}' -f $candle.Volume), $candle.TicksInCandle, $trend
+            if ($rowIndex -eq ($visibleCandles.Count - 1)) {
+                Write-Host $line -ForegroundColor Yellow
+            } else {
+                Write-Host $line -ForegroundColor $color
+            }
+        }
+
+        if ($script:ShortSignals.Count -gt 0) {
+            Write-Host ''
+            Write-Host '  --- Order Signals ---' -ForegroundColor Cyan
+            $showCount = [Math]::Min(5, $script:ShortSignals.Count)
+            for ($si = $script:ShortSignals.Count - $showCount; $si -lt $script:ShortSignals.Count; $si++) {
+                $sigColor = if ($script:ShortSignals[$si] -match 'ENTRY') { 'Magenta' } else { 'Cyan' }
+                Write-Host "    $($script:ShortSignals[$si])" -ForegroundColor $sigColor
+            }
+        }
+
+        Write-Host ''
+        Write-Host '  Press Ctrl+C to stop' -ForegroundColor DarkGray
+    }
+
+    # --- WebSocket ---
+    $wsUri = "wss://ws.kite.trade?api_key=$API_Key" + "&access_token=$AccessToken"
+    $modeStr = if ($FullMode) { 'full' } else { 'quote' }
+
+    Write-Host ''
+    Write-Host '  ================================================' -ForegroundColor Cyan
+    Write-Host '  Zerodha HA Short Strategy - Live' -ForegroundColor Cyan
+    Write-Host '  ================================================' -ForegroundColor Cyan
+    Write-Host "  Symbol   : $label ($sym)"
+    Write-Host "  Token    : $instToken"
+    Write-Host "  TimeFrame: $TimeFrame ($($intMin)m candles)"
+    Write-Host "  Mode     : $modeStr"
+    Write-Host "  Orders   : $OrdersFolder"
+    Write-Host ''
+    Write-Host '  Connecting...' -ForegroundColor Yellow
+
+    $maxRetries = 3
+    $retryCount = 0
+    $buf = New-Object byte[] 65536
+
+    while ($retryCount -le $maxRetries) {
+        $ws  = [System.Net.WebSockets.ClientWebSocket]::new()
+        $ws.Options.SetRequestHeader('X-Kite-Version', '3')
+        $cts = [System.Threading.CancellationTokenSource]::new()
+
+        try {
+            $ct = $ws.ConnectAsync([Uri]$wsUri, $cts.Token)
+            if (-not $ct.Wait(15000)) {
+                Write-Host '  Connection timed out.' -ForegroundColor Red
+                $retryCount++
+                if ($retryCount -le $maxRetries) {
+                    $wait = $retryCount * 5
+                    Write-Host "  Retrying in ${wait}s... ($retryCount/$maxRetries)" -ForegroundColor Yellow
+                    Start-Sleep -Seconds $wait
+                    continue
+                }
+                return
+            }
+            if ($ws.State -ne [System.Net.WebSockets.WebSocketState]::Open) {
+                Write-Host "  Connection failed. State: $($ws.State)" -ForegroundColor Red
+                return
+            }
+
+            $retryCount = 0
+            Write-Host '  Connected!' -ForegroundColor Green
+
+            $subB = [System.Text.Encoding]::UTF8.GetBytes('{"a":"subscribe","v":[' + $instToken + ']}')
+            $ws.SendAsync([System.ArraySegment[byte]]::new($subB), [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait(5000)
+            Write-Host "  Subscribed to $label" -ForegroundColor Green
+
+            $modB = [System.Text.Encoding]::UTF8.GetBytes('{"a":"mode","v":["' + $modeStr + '",[' + $instToken + ']]}')
+            $ws.SendAsync([System.ArraySegment[byte]]::new($modB), [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait(5000)
+            Write-Host "  Mode: $modeStr" -ForegroundColor Green
+            Write-Host ''
+            Write-Host '  Waiting for market ticks...' -ForegroundColor Yellow
+
+            while ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
+                $seg = [System.ArraySegment[byte]]::new($buf)
+                try {
+                    $rt = $ws.ReceiveAsync($seg, $cts.Token)
+                    if (-not $rt.Wait(30000)) { continue }
+                    $res = $rt.Result
+                } catch {
+                    if ($ws.State -ne [System.Net.WebSockets.WebSocketState]::Open) { break }
+                    continue
+                }
+
+                if ($res.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Close) {
+                    Write-Host '  Server closed connection.' -ForegroundColor Yellow; break
+                }
+                if ($res.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Text) {
+                    if ($res.Count -gt 1) {
+                        $txt = [System.Text.Encoding]::UTF8.GetString($buf, 0, $res.Count)
+                        try { $jm = $txt | ConvertFrom-Json -ErrorAction SilentlyContinue; if ($jm.type -eq 'error') { Write-Host "  ERROR: $($jm.data)" -ForegroundColor Red } } catch {}
+                    }
+                    continue
+                }
+                if (($res.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Binary) -and ($res.Count -gt 2)) {
+                    $ticks = Parse-KiteTicks $buf $res.Count
+                    foreach ($tick in $ticks) {
+                        if ($tick.LastPrice -gt 0) {
+                            script:Update-ShortStrategyFromTick $tick.InstrumentToken $tick.LastPrice $tick.Volume $tick.DayOpen $tick.DayHigh $tick.DayLow $tick.DayClose $tick.OpenInterest
+                        }
+                    }
+                    script:Render-ShortStrategyDisplay $instToken
+                }
+            }
+
+            $retryCount++
+            if ($retryCount -le $maxRetries) {
+                $wait = $retryCount * 5
+                Write-Host "  Connection lost. Reconnecting in ${wait}s... ($retryCount/$maxRetries)" -ForegroundColor Yellow
+                Start-Sleep -Seconds $wait
+            }
+        }
+        catch {
+            Write-Host "  Error: $($_.Exception.Message)" -ForegroundColor Red
+            if ($_.Exception.InnerException) { Write-Host "  Detail: $($_.Exception.InnerException.Message)" -ForegroundColor DarkRed }
+            $retryCount++
+            if ($retryCount -le $maxRetries) {
+                $wait = $retryCount * 5
+                Write-Host "  Retrying in ${wait}s... ($retryCount/$maxRetries)" -ForegroundColor Yellow
+                Start-Sleep -Seconds $wait
+            }
+        }
+        finally {
+            if ($ws -and ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open)) {
+                try { $ws.CloseAsync([System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure, 'Done', $cts.Token).Wait(5000) } catch {}
+            }
+            if ($ws)  { $ws.Dispose() }
+            if ($cts) { $cts.Dispose() }
+        }
+    }
+
+    Write-Host ''
+    Write-Host '  Disconnected.' -ForegroundColor Yellow
+    Write-Host "  Signals: $($script:ShortSignals.Count) total" -ForegroundColor Gray
+    foreach ($sig in $script:ShortSignals) { Write-Host "    $sig" -ForegroundColor DarkGray }
+    Write-Host ''
+}
+
 # ── Module exports (single consolidated statement) ─────────
-Export-ModuleMember -Function Get-KiteCandles, Search-KiteInstrument, Show-KitePresets, Get-KiteLiveCandles, Get-KiteHeikinAshiCandles, Invoke-KiteHALongStrategy, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol
+Export-ModuleMember -Function Get-KiteCandles, Search-KiteInstrument, Show-KitePresets, Get-KiteLiveCandles, Get-KiteHeikinAshiCandles, Invoke-KiteHALongStrategy, Invoke-KiteHAShortStrategy, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol
