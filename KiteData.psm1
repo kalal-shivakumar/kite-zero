@@ -882,11 +882,331 @@ function Get-KiteLiveCandles {
     Write-Host ''
     Write-Host '  Disconnected.' -ForegroundColor Yellow
     $cnt = 0
-    if ($script:candleStore[$instToken]) { $cnt += $script:candleStore[$instToken].Count }
-    if ($script:buildingCdl[$instToken]) { $cnt++ }
-    Write-Host "  $label : $cnt candle(s) from $($script:totalTicks) ticks" -ForegroundColor Gray
+    if ($script:CompletedCandles[$instToken]) { $cnt += $script:CompletedCandles[$instToken].Count }
+    if ($script:ActiveCandle[$instToken]) { $cnt++ }
+    Write-Host "  $label : $cnt candle(s) from $($script:TickCount) ticks" -ForegroundColor Gray
+    Write-Host ''
+}
+
+# ══════════════════════════════════════════════════════════════
+# FUNCTION: Get-KiteHeikinAshiCandles
+# WebSocket streaming + real-time Heikin-Ashi candle builder
+# ══════════════════════════════════════════════════════════════
+function Get-KiteHeikinAshiCandles {
+    param(
+        [string]$TradingSymbol  = 'NIFTY',
+        [int]$InstrumentToken,
+        [ValidateSet('minute','3minute','5minute','10minute','15minute','30minute','60minute')]
+        [string]$TimeFrame      = '5minute',
+        [int]$CandlesToShow     = 10,
+        [switch]$FullMode,
+        [switch]$ListSymbols,
+        [string]$AccessToken,
+        [string]$API_Key        = '0fvxhlacu555dhp0'
+    )
+
+    if ($ListSymbols) { Show-KiteSymbols; return }
+
+    # --- Resolve symbol ---
+    $sym = $TradingSymbol.ToUpper().Trim()
+    if ($InstrumentToken -gt 0) {
+        $instToken = $InstrumentToken
+        $label = $sym
+    } else {
+        $preset = Resolve-KiteSymbol $sym
+        if ($preset) {
+            $instToken = $preset.Token
+            $label = $preset.Label
+        } else {
+            Write-Host "  Unknown symbol: $TradingSymbol. Use -ListSymbols to see presets." -ForegroundColor Red
+            return
+        }
+    }
+
+    $intMin   = Get-IntervalMinutes $TimeFrame
+    $intLabel = Get-IntervalLabel $intMin
+
+    if (-not $AccessToken) { Write-Host '  No token. Exiting.' -ForegroundColor Red; return }
+
+    # --- Heikin-Ashi state ---
+    $script:HA_CompletedCandles = @{}   # token -> List of closed HA candles
+    $script:HA_ActiveCandle     = @{}   # token -> current building raw candle
+    $script:HA_PreviousCandle   = @{}   # token -> previous closed HA candle (for HA calc)
+    $script:HA_TickCount        = 0
+    $script:HA_IntervalMinutes  = $intMin
+    $script:HA_DisplayConfig    = @{
+        SymbolName      = $sym
+        SymbolLabel     = $label
+        InstrumentToken = $instToken
+        TimeFrame       = $TimeFrame
+        IntervalLabel   = $intLabel
+        MaxCandles      = $CandlesToShow
+    }
+    $script:HA_LastDisplayTime   = [datetime]::MinValue
+    $script:HA_DisplayIntervalMs = 250
+
+    function script:Get-HA-TimeBucket {
+        $now = Get-Date
+        $bucketMinute = [Math]::Floor($now.Minute / $script:HA_IntervalMinutes) * $script:HA_IntervalMinutes
+        return $now.ToString('yyyy-MM-dd HH:') + $bucketMinute.ToString('00')
+    }
+
+    function script:Convert-ToHeikinAshi([hashtable]$rawCandle, [hashtable]$previousHA) {
+        # Heikin-Ashi formulas:
+        #   HA_Close = (Open + High + Low + Close) / 4
+        #   HA_Open  = (prev_HA_Open + prev_HA_Close) / 2   (or raw Open for first candle)
+        #   HA_High  = Max(High, HA_Open, HA_Close)
+        #   HA_Low   = Min(Low, HA_Open, HA_Close)
+        $haClose = ($rawCandle.Open + $rawCandle.High + $rawCandle.Low + $rawCandle.Close) / 4.0
+        if ($null -ne $previousHA) {
+            $haOpen = ($previousHA.Open + $previousHA.Close) / 2.0
+        } else {
+            $haOpen = ($rawCandle.Open + $rawCandle.Close) / 2.0
+        }
+        $haHigh = [Math]::Max($rawCandle.High, [Math]::Max($haOpen, $haClose))
+        $haLow  = [Math]::Min($rawCandle.Low,  [Math]::Min($haOpen, $haClose))
+        return @{ Open=$haOpen; High=$haHigh; Low=$haLow; Close=$haClose }
+    }
+
+    function script:Update-HeikinAshiFromTick([int]$instrumentToken, [double]$lastPrice, [int]$volume, [double]$dayOpen, [double]$dayHigh, [double]$dayLow, [double]$dayClose, [int]$openInterest) {
+        $script:HA_TickCount++
+        $timeBucket = script:Get-HA-TimeBucket
+
+        if (-not $script:HA_CompletedCandles.ContainsKey($instrumentToken)) {
+            $script:HA_CompletedCandles[$instrumentToken] = [System.Collections.Generic.List[PSCustomObject]]::new()
+        }
+
+        $currentCandle = $script:HA_ActiveCandle[$instrumentToken]
+
+        if (($null -eq $currentCandle) -or ($currentCandle.TimeBucket -ne $timeBucket)) {
+            # Close previous candle — convert to Heikin-Ashi and store
+            if ($null -ne $currentCandle) {
+                $prevHA = $script:HA_PreviousCandle[$instrumentToken]
+                $ha = script:Convert-ToHeikinAshi $currentCandle $prevHA
+
+                $closedHA = @{
+                    Open=$ha.Open; High=$ha.High; Low=$ha.Low; Close=$ha.Close
+                }
+                $script:HA_PreviousCandle[$instrumentToken] = $closedHA
+
+                $script:HA_CompletedCandles[$instrumentToken].Add([PSCustomObject]@{
+                    TimeBucket=$currentCandle.TimeBucket
+                    Open=[Math]::Round($ha.Open, 2); High=[Math]::Round($ha.High, 2)
+                    Low=[Math]::Round($ha.Low, 2); Close=[Math]::Round($ha.Close, 2)
+                    Volume=$currentCandle.Volume; OpenInterest=$currentCandle.OpenInterest
+                    TicksInCandle=$currentCandle.TicksInCandle
+                })
+            }
+            # Start new raw candle
+            $script:HA_ActiveCandle[$instrumentToken] = @{
+                TimeBucket=$timeBucket; Open=$lastPrice; High=$lastPrice; Low=$lastPrice; Close=$lastPrice
+                Volume=0; PreviousVolume=$volume; OpenInterest=$openInterest; TicksInCandle=1
+                DayOpen=$dayOpen; DayHigh=$dayHigh; DayLow=$dayLow; DayClose=$dayClose
+            }
+        } else {
+            $currentCandle.High  = [Math]::Max($currentCandle.High, $lastPrice)
+            $currentCandle.Low   = [Math]::Min($currentCandle.Low, $lastPrice)
+            $currentCandle.Close = $lastPrice
+            $currentCandle.OpenInterest = $openInterest
+            $currentCandle.TicksInCandle++
+            if ($dayHigh -gt 0)  { $currentCandle.DayHigh  = $dayHigh }
+            if ($dayLow -gt 0)   { $currentCandle.DayLow   = $dayLow }
+            if ($dayOpen -gt 0)  { $currentCandle.DayOpen  = $dayOpen }
+            if ($dayClose -gt 0) { $currentCandle.DayClose = $dayClose }
+            if (($volume -gt $currentCandle.PreviousVolume) -and ($currentCandle.PreviousVolume -gt 0)) {
+                $currentCandle.Volume += ($volume - $currentCandle.PreviousVolume)
+            }
+            $currentCandle.PreviousVolume = $volume
+        }
+    }
+
+    function script:Render-HeikinAshiDisplay([int]$instrumentToken) {
+        $now = [datetime]::Now
+        if (($now - $script:HA_LastDisplayTime).TotalMilliseconds -lt $script:HA_DisplayIntervalMs) { return }
+        $script:HA_LastDisplayTime = $now
+
+        $config = $script:HA_DisplayConfig
+        $allCandles = [System.Collections.Generic.List[PSCustomObject]]::new()
+
+        $closedCandles = $script:HA_CompletedCandles[$instrumentToken]
+        if ($closedCandles -and $closedCandles.Count -gt 0) { $allCandles.AddRange($closedCandles) }
+
+        # Convert current building candle to live HA preview
+        $currentCandle = $script:HA_ActiveCandle[$instrumentToken]
+        if ($null -ne $currentCandle) {
+            $prevHA = $script:HA_PreviousCandle[$instrumentToken]
+            $ha = script:Convert-ToHeikinAshi $currentCandle $prevHA
+            $allCandles.Add([PSCustomObject]@{
+                TimeBucket=$currentCandle.TimeBucket
+                Open=[Math]::Round($ha.Open, 2); High=[Math]::Round($ha.High, 2)
+                Low=[Math]::Round($ha.Low, 2); Close=[Math]::Round($ha.Close, 2)
+                Volume=$currentCandle.Volume; OpenInterest=$currentCandle.OpenInterest
+                TicksInCandle=$currentCandle.TicksInCandle
+            })
+        }
+        if ($allCandles.Count -eq 0) { return }
+
+        $skipCount = [Math]::Max(0, $allCandles.Count - $config.MaxCandles)
+        $visibleCandles = if ($skipCount -gt 0) { $allCandles.GetRange($skipCount, $allCandles.Count - $skipCount) } else { $allCandles }
+
+        # Determine candle direction for coloring
+        $sb = [System.Text.StringBuilder]::new(2048)
+        $null = $sb.AppendLine('')
+        $null = $sb.AppendLine("  ================================================")
+        $null = $sb.AppendLine("  $($config.SymbolLabel) - Live $($config.IntervalLabel) Heikin-Ashi (WebSocket)")
+        $null = $sb.AppendLine("  ================================================")
+        $null = $sb.AppendLine("  Symbol  : $($config.SymbolName)  |  Token: $($config.InstrumentToken)  |  TimeFrame: $($config.TimeFrame)")
+        $null = $sb.AppendLine("  Ticks   : $($script:HA_TickCount)")
+        $null = $sb.AppendLine("  Candles : $($allCandles.Count) total | Showing $($visibleCandles.Count)")
+        $null = $sb.AppendLine("  Time    : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
+        if ($null -ne $currentCandle) {
+            $null = $sb.AppendLine("  LTP     : $($currentCandle.Close.ToString('N2'))  |  Day O/H/L/C: $($currentCandle.DayOpen.ToString('N2'))/$($currentCandle.DayHigh.ToString('N2'))/$($currentCandle.DayLow.ToString('N2'))/$($currentCandle.DayClose.ToString('N2'))")
+        }
+        $null = $sb.AppendLine('')
+        $rowFormat = ' {0,-18} {1,14} {2,14} {3,14} {4,14} {5,10} {6,8} {7,5} {8,6}'
+        $null = $sb.AppendLine(($rowFormat -f 'Time','HA Open','HA High','HA Low','HA Close','Volume','OI','Ticks','Trend'))
+        $null = $sb.AppendLine(' ' + ('-' * 112))
+
+        Clear-Host
+        Write-Host $sb.ToString()
+
+        # Write candle rows with color (green=bullish, red=bearish)
+        for ($rowIndex = 0; $rowIndex -lt $visibleCandles.Count; $rowIndex++) {
+            $candle = $visibleCandles[$rowIndex]
+            $trend = if ($candle.Close -ge $candle.Open) { '  UP' } else { 'DOWN' }
+            $color = if ($candle.Close -ge $candle.Open) { 'Green' } else { 'Red' }
+            $line = $rowFormat -f $candle.TimeBucket, ('{0:N2}' -f $candle.Open), ('{0:N2}' -f $candle.High), ('{0:N2}' -f $candle.Low), ('{0:N2}' -f $candle.Close), ('{0:N0}' -f $candle.Volume), ('{0:N0}' -f $candle.OpenInterest), $candle.TicksInCandle, $trend
+            if ($rowIndex -eq ($visibleCandles.Count - 1)) {
+                Write-Host $line -ForegroundColor Yellow
+            } else {
+                Write-Host $line -ForegroundColor $color
+            }
+        }
+        Write-Host ''
+        Write-Host '  Press Ctrl+C to stop' -ForegroundColor DarkGray
+    }
+
+    # --- WebSocket ---
+    $wsUri = "wss://ws.kite.trade?api_key=$API_Key" + "&access_token=$AccessToken"
+    $modeStr = if ($FullMode) { 'full' } else { 'quote' }
+
+    Write-Host ''
+    Write-Host '  ================================================' -ForegroundColor Cyan
+    Write-Host '  Zerodha WebSocket - Live Heikin-Ashi Candles' -ForegroundColor Cyan
+    Write-Host '  ================================================' -ForegroundColor Cyan
+    Write-Host "  Symbol   : $label ($sym)"
+    Write-Host "  Token    : $instToken"
+    Write-Host "  TimeFrame: $TimeFrame ($($intMin)m candles)"
+    Write-Host "  Mode     : $modeStr"
+    Write-Host ''
+    Write-Host '  Connecting...' -ForegroundColor Yellow
+
+    $maxRetries = 3
+    $retryCount = 0
+    $buf = New-Object byte[] 65536
+
+    while ($retryCount -le $maxRetries) {
+        $ws  = [System.Net.WebSockets.ClientWebSocket]::new()
+        $ws.Options.SetRequestHeader('X-Kite-Version', '3')
+        $cts = [System.Threading.CancellationTokenSource]::new()
+
+        try {
+            $ct = $ws.ConnectAsync([Uri]$wsUri, $cts.Token)
+            if (-not $ct.Wait(15000)) {
+                Write-Host '  Connection timed out.' -ForegroundColor Red
+                $retryCount++
+                if ($retryCount -le $maxRetries) {
+                    $wait = $retryCount * 5
+                    Write-Host "  Retrying in ${wait}s... ($retryCount/$maxRetries)" -ForegroundColor Yellow
+                    Start-Sleep -Seconds $wait
+                    continue
+                }
+                return
+            }
+            if ($ws.State -ne [System.Net.WebSockets.WebSocketState]::Open) {
+                Write-Host "  Connection failed. State: $($ws.State)" -ForegroundColor Red
+                return
+            }
+
+            $retryCount = 0
+            Write-Host '  Connected!' -ForegroundColor Green
+
+            $subB = [System.Text.Encoding]::UTF8.GetBytes('{"a":"subscribe","v":[' + $instToken + ']}')
+            $ws.SendAsync([System.ArraySegment[byte]]::new($subB), [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait(5000)
+            Write-Host "  Subscribed to $label" -ForegroundColor Green
+
+            $modB = [System.Text.Encoding]::UTF8.GetBytes('{"a":"mode","v":["' + $modeStr + '",[' + $instToken + ']]}')
+            $ws.SendAsync([System.ArraySegment[byte]]::new($modB), [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait(5000)
+            Write-Host "  Mode: $modeStr" -ForegroundColor Green
+            Write-Host ''
+            Write-Host '  Waiting for market ticks...' -ForegroundColor Yellow
+
+            while ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
+                $seg = [System.ArraySegment[byte]]::new($buf)
+                try {
+                    $rt = $ws.ReceiveAsync($seg, $cts.Token)
+                    if (-not $rt.Wait(30000)) { continue }
+                    $res = $rt.Result
+                } catch {
+                    if ($ws.State -ne [System.Net.WebSockets.WebSocketState]::Open) { break }
+                    continue
+                }
+
+                if ($res.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Close) {
+                    Write-Host '  Server closed connection.' -ForegroundColor Yellow; break
+                }
+                if ($res.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Text) {
+                    if ($res.Count -gt 1) {
+                        $txt = [System.Text.Encoding]::UTF8.GetString($buf, 0, $res.Count)
+                        try { $jm = $txt | ConvertFrom-Json -ErrorAction SilentlyContinue; if ($jm.type -eq 'error') { Write-Host "  ERROR: $($jm.data)" -ForegroundColor Red } } catch {}
+                    }
+                    continue
+                }
+                if (($res.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Binary) -and ($res.Count -gt 2)) {
+                    $ticks = Parse-KiteTicks $buf $res.Count
+                    foreach ($tick in $ticks) {
+                        if ($tick.LastPrice -gt 0) {
+                            script:Update-HeikinAshiFromTick $tick.InstrumentToken $tick.LastPrice $tick.Volume $tick.DayOpen $tick.DayHigh $tick.DayLow $tick.DayClose $tick.OpenInterest
+                        }
+                    }
+                    script:Render-HeikinAshiDisplay $instToken
+                }
+            }
+
+            $retryCount++
+            if ($retryCount -le $maxRetries) {
+                $wait = $retryCount * 5
+                Write-Host "  Connection lost. Reconnecting in ${wait}s... ($retryCount/$maxRetries)" -ForegroundColor Yellow
+                Start-Sleep -Seconds $wait
+            }
+        }
+        catch {
+            Write-Host "  Error: $($_.Exception.Message)" -ForegroundColor Red
+            if ($_.Exception.InnerException) { Write-Host "  Detail: $($_.Exception.InnerException.Message)" -ForegroundColor DarkRed }
+            $retryCount++
+            if ($retryCount -le $maxRetries) {
+                $wait = $retryCount * 5
+                Write-Host "  Retrying in ${wait}s... ($retryCount/$maxRetries)" -ForegroundColor Yellow
+                Start-Sleep -Seconds $wait
+            }
+        }
+        finally {
+            if ($ws -and ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open)) {
+                try { $ws.CloseAsync([System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure, 'Done', $cts.Token).Wait(5000) } catch {}
+            }
+            if ($ws)  { $ws.Dispose() }
+            if ($cts) { $cts.Dispose() }
+        }
+    }
+
+    Write-Host ''
+    Write-Host '  Disconnected.' -ForegroundColor Yellow
+    $cnt = 0
+    if ($script:HA_CompletedCandles[$instToken]) { $cnt += $script:HA_CompletedCandles[$instToken].Count }
+    if ($script:HA_ActiveCandle[$instToken]) { $cnt++ }
+    Write-Host "  $label : $cnt Heikin-Ashi candle(s) from $($script:HA_TickCount) ticks" -ForegroundColor Gray
     Write-Host ''
 }
 
 # ── Module exports (single consolidated statement) ─────────
-Export-ModuleMember -Function Get-KiteCandles, Search-KiteInstrument, Show-KitePresets, Get-KiteLiveCandles, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol
+Export-ModuleMember -Function Get-KiteCandles, Search-KiteInstrument, Show-KitePresets, Get-KiteLiveCandles, Get-KiteHeikinAshiCandles, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol
