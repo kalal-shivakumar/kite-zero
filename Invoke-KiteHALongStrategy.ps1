@@ -1,25 +1,24 @@
 <#
 .SYNOPSIS
-  Live Heikin-Ashi candle streaming via Kite Connect WebSocket.
+  Heikin-Ashi Long-only strategy with order file logging.
 .DESCRIPTION
-  Connects to wss://ws.kite.trade, subscribes to instruments,
-  parses binary tick packets, builds Heikin-Ashi OHLCV candles in real-time.
-  On first run (or after 10 hours), automatically prompts for login.
-  Ref: https://kite.trade/docs/connect/v3/websocket/
+  Streams live HA candles via Kite WebSocket. When the current HA candle's
+  Close crosses above the previous HA candle's High, a Long Entry file is
+  created. When it crosses below the previous HA candle's Low, a Long Exit
+  file is created. Only one Long position at a time.
+  Order files are saved to PlacedOrders/ in the script directory.
 .EXAMPLE
-  .\Get-KiteHeikinAshiCandles.ps1
-  .\Get-KiteHeikinAshiCandles.ps1 -TradingSymbol BANKNIFTY
-  .\Get-KiteHeikinAshiCandles.ps1 -TradingSymbol RELIANCE -TimeFrame 5minute
-  .\Get-KiteHeikinAshiCandles.ps1 -TradingSymbol SILVERM -TimeFrame 3minute -FullMode
-  .\Get-KiteHeikinAshiCandles.ps1 -InstrumentToken 260105 -TradingSymbol BANKNIFTY
-  .\Get-KiteHeikinAshiCandles.ps1 -ListSymbols
+  .\Invoke-KiteHALongStrategy.ps1
+  .\Invoke-KiteHALongStrategy.ps1 -TradingSymbol BANKNIFTY -TimeFrame 5minute
+  .\Invoke-KiteHALongStrategy.ps1 -TradingSymbol RELIANCE -TimeFrame minute
+  .\Invoke-KiteHALongStrategy.ps1 -ListSymbols
 #>
 
 param(
     [string]$TradingSymbol  = 'NIFTY',
     [int]$InstrumentToken,
     [ValidateSet('minute','3minute','5minute','10minute','15minute','30minute','60minute')]
-    [string]$TimeFrame      = 'minute',
+    [string]$TimeFrame      = '5minute',
     [int]$CandlesToShow     = 10,
     [switch]$FullMode,
     [switch]$ListSymbols,
@@ -59,15 +58,18 @@ if (-not $AccessToken) {
 Write-Host "  Access token ready." -ForegroundColor Green
 
 # Build params and call module function
+$ordersDir = Join-Path $scriptDir 'PlacedOrders'
+
 $splat = @{
     TradingSymbol = $TradingSymbol
     TimeFrame     = $TimeFrame
     CandlesToShow = $CandlesToShow
     AccessToken   = $AccessToken
     API_Key       = $API_Key
+    OrdersFolder  = $ordersDir
 }
 if ($InstrumentToken -gt 0) { $splat.InstrumentToken = $InstrumentToken }
 if ($FullMode)     { $splat.FullMode     = $true }
 if ($ListSymbols)  { $splat.ListSymbols  = $true }
 
-Get-KiteHeikinAshiCandles @splat
+Invoke-KiteHALongStrategy @splat
