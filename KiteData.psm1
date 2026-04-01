@@ -94,35 +94,44 @@ function Read-Int32BE([byte[]]$buf, [int]$pos) {
 # Parse binary tick message per Kite WebSocket docs
 # Ref: https://kite.trade/docs/connect/v3/websocket/
 # ══════════════════════════════════════════════════════════════
-function Parse-KiteTicks([byte[]]$data, [int]$len) {
-    if ($len -lt 4) { return @() }
-    $np = Read-Int16BE $data 0
-    $ticks = [System.Collections.Generic.List[hashtable]]::new($np)
-    $off = 2
-    for ($p = 0; $p -lt $np; $p++) {
-        if (($off + 2) -gt $len) { break }
-        $pl = Read-Int16BE $data $off
-        $off += 2
-        if (($pl -lt 4) -or (($off + $pl) -gt $len)) { break }
-        $s = $off
-        $div = 100.0
-        $t = @{ Tok=(Read-Int32BE $data $s); LTP=0.0; Vol=0; O=0.0; H=0.0; L=0.0; C=0.0; OI=0 }
-        switch ($pl) {
-            8   { $t.LTP = (Read-Int32BE $data ($s+4)) / $div }
-            28  { $t.LTP=(Read-Int32BE $data ($s+4))/$div; $t.H=(Read-Int32BE $data ($s+8))/$div; $t.L=(Read-Int32BE $data ($s+12))/$div; $t.O=(Read-Int32BE $data ($s+16))/$div; $t.C=(Read-Int32BE $data ($s+20))/$div }
-            32  { $t.LTP=(Read-Int32BE $data ($s+4))/$div; $t.H=(Read-Int32BE $data ($s+8))/$div; $t.L=(Read-Int32BE $data ($s+12))/$div; $t.O=(Read-Int32BE $data ($s+16))/$div; $t.C=(Read-Int32BE $data ($s+20))/$div }
-            44  { $t.LTP=(Read-Int32BE $data ($s+4))/$div; $t.Vol=Read-Int32BE $data ($s+16); $t.O=(Read-Int32BE $data ($s+28))/$div; $t.H=(Read-Int32BE $data ($s+32))/$div; $t.L=(Read-Int32BE $data ($s+36))/$div; $t.C=(Read-Int32BE $data ($s+40))/$div }
-            184 { $t.LTP=(Read-Int32BE $data ($s+4))/$div; $t.Vol=Read-Int32BE $data ($s+16); $t.O=(Read-Int32BE $data ($s+28))/$div; $t.H=(Read-Int32BE $data ($s+32))/$div; $t.L=(Read-Int32BE $data ($s+36))/$div; $t.C=(Read-Int32BE $data ($s+40))/$div; $t.OI=Read-Int32BE $data ($s+48) }
+function Parse-KiteTicks([byte[]]$packetData, [int]$packetLength) {
+    if ($packetLength -lt 4) { return @() }
+    $packetCount = Read-Int16BE $packetData 0
+    $parsedTicks = [System.Collections.Generic.List[hashtable]]::new($packetCount)
+    $offset = 2
+    for ($packetIndex = 0; $packetIndex -lt $packetCount; $packetIndex++) {
+        if (($offset + 2) -gt $packetLength) { break }
+        $payloadSize = Read-Int16BE $packetData $offset
+        $offset += 2
+        if (($payloadSize -lt 4) -or (($offset + $payloadSize) -gt $packetLength)) { break }
+        $payloadStart = $offset
+        $priceDivisor = 100.0
+        $tick = @{
+            InstrumentToken = Read-Int32BE $packetData $payloadStart
+            LastPrice       = 0.0
+            Volume          = 0
+            DayOpen         = 0.0
+            DayHigh         = 0.0
+            DayLow          = 0.0
+            DayClose        = 0.0
+            OpenInterest    = 0
+        }
+        switch ($payloadSize) {
+            8   { $tick.LastPrice = (Read-Int32BE $packetData ($payloadStart+4)) / $priceDivisor }
+            28  { $tick.LastPrice=(Read-Int32BE $packetData ($payloadStart+4))/$priceDivisor; $tick.DayHigh=(Read-Int32BE $packetData ($payloadStart+8))/$priceDivisor; $tick.DayLow=(Read-Int32BE $packetData ($payloadStart+12))/$priceDivisor; $tick.DayOpen=(Read-Int32BE $packetData ($payloadStart+16))/$priceDivisor; $tick.DayClose=(Read-Int32BE $packetData ($payloadStart+20))/$priceDivisor }
+            32  { $tick.LastPrice=(Read-Int32BE $packetData ($payloadStart+4))/$priceDivisor; $tick.DayHigh=(Read-Int32BE $packetData ($payloadStart+8))/$priceDivisor; $tick.DayLow=(Read-Int32BE $packetData ($payloadStart+12))/$priceDivisor; $tick.DayOpen=(Read-Int32BE $packetData ($payloadStart+16))/$priceDivisor; $tick.DayClose=(Read-Int32BE $packetData ($payloadStart+20))/$priceDivisor }
+            44  { $tick.LastPrice=(Read-Int32BE $packetData ($payloadStart+4))/$priceDivisor; $tick.Volume=Read-Int32BE $packetData ($payloadStart+16); $tick.DayOpen=(Read-Int32BE $packetData ($payloadStart+28))/$priceDivisor; $tick.DayHigh=(Read-Int32BE $packetData ($payloadStart+32))/$priceDivisor; $tick.DayLow=(Read-Int32BE $packetData ($payloadStart+36))/$priceDivisor; $tick.DayClose=(Read-Int32BE $packetData ($payloadStart+40))/$priceDivisor }
+            184 { $tick.LastPrice=(Read-Int32BE $packetData ($payloadStart+4))/$priceDivisor; $tick.Volume=Read-Int32BE $packetData ($payloadStart+16); $tick.DayOpen=(Read-Int32BE $packetData ($payloadStart+28))/$priceDivisor; $tick.DayHigh=(Read-Int32BE $packetData ($payloadStart+32))/$priceDivisor; $tick.DayLow=(Read-Int32BE $packetData ($payloadStart+36))/$priceDivisor; $tick.DayClose=(Read-Int32BE $packetData ($payloadStart+40))/$priceDivisor; $tick.OpenInterest=Read-Int32BE $packetData ($payloadStart+48) }
             default {
-                if ($pl -ge 8)  { $t.LTP = (Read-Int32BE $data ($s+4)) / $div }
-                if ($pl -ge 44) { $t.Vol=Read-Int32BE $data ($s+16); $t.O=(Read-Int32BE $data ($s+28))/$div; $t.H=(Read-Int32BE $data ($s+32))/$div; $t.L=(Read-Int32BE $data ($s+36))/$div; $t.C=(Read-Int32BE $data ($s+40))/$div }
-                if ($pl -ge 52) { $t.OI = Read-Int32BE $data ($s+48) }
+                if ($payloadSize -ge 8)  { $tick.LastPrice = (Read-Int32BE $packetData ($payloadStart+4)) / $priceDivisor }
+                if ($payloadSize -ge 44) { $tick.Volume=Read-Int32BE $packetData ($payloadStart+16); $tick.DayOpen=(Read-Int32BE $packetData ($payloadStart+28))/$priceDivisor; $tick.DayHigh=(Read-Int32BE $packetData ($payloadStart+32))/$priceDivisor; $tick.DayLow=(Read-Int32BE $packetData ($payloadStart+36))/$priceDivisor; $tick.DayClose=(Read-Int32BE $packetData ($payloadStart+40))/$priceDivisor }
+                if ($payloadSize -ge 52) { $tick.OpenInterest = Read-Int32BE $packetData ($payloadStart+48) }
             }
         }
-        $ticks.Add($t)
-        $off += $pl
+        $parsedTicks.Add($tick)
+        $offset += $payloadSize
     }
-    return $ticks
+    return $parsedTicks
 }
 
 # ══════════════════════════════════════════════════════════════
@@ -648,86 +657,113 @@ function Get-KiteLiveCandles {
     }
 
     # --- Candle state ---
-    $script:candleStore = @{}
-    $script:buildingCdl = @{}
-    $script:totalTicks  = 0
-    $script:liveIntMin  = $intMin
-    $script:liveMeta    = @{ Sym=$sym; Label=$label; Token=$instToken; TF=$TimeFrame; IntLabel=$intLabel; Show=$CandlesToShow }
+    $script:CompletedCandles   = @{}   # token -> List of closed candle objects
+    $script:ActiveCandle       = @{}   # token -> current building candle hashtable
+    $script:TickCount          = 0
+    $script:IntervalMinutes    = $intMin
+    $script:DisplayConfig      = @{
+        SymbolName      = $sym
+        SymbolLabel     = $label
+        InstrumentToken = $instToken
+        TimeFrame       = $TimeFrame
+        IntervalLabel   = $intLabel
+        MaxCandles      = $CandlesToShow
+    }
+    $script:LastDisplayTime    = [datetime]::MinValue
+    $script:DisplayIntervalMs  = 250    # throttle: refresh display max 4x/sec
 
-    function script:Get-LiveCandleKey {
+    function script:Get-CandleTimeBucket {
         $now = Get-Date
-        $bucket = [Math]::Floor($now.Minute / $script:liveIntMin) * $script:liveIntMin
-        return $now.ToString('yyyy-MM-dd HH:') + $bucket.ToString('00')
+        $bucketMinute = [Math]::Floor($now.Minute / $script:IntervalMinutes) * $script:IntervalMinutes
+        return $now.ToString('yyyy-MM-dd HH:') + $bucketMinute.ToString('00')
     }
 
-    function script:Update-LiveCandle([int]$tk, [double]$ltp, [int]$vol, [double]$opn, [double]$hi, [double]$lo, [double]$cls, [int]$oi) {
-        $script:totalTicks++
-        $mk = script:Get-LiveCandleKey
-        if (-not $script:candleStore.ContainsKey($tk)) {
-            $script:candleStore[$tk] = [System.Collections.Generic.List[PSCustomObject]]::new()
+    function script:Update-CandleFromTick([int]$instrumentToken, [double]$lastPrice, [int]$volume, [double]$dayOpen, [double]$dayHigh, [double]$dayLow, [double]$dayClose, [int]$openInterest) {
+        $script:TickCount++
+        $timeBucket = script:Get-CandleTimeBucket
+        if (-not $script:CompletedCandles.ContainsKey($instrumentToken)) {
+            $script:CompletedCandles[$instrumentToken] = [System.Collections.Generic.List[PSCustomObject]]::new()
         }
-        $cur = $script:buildingCdl[$tk]
-        if (($null -eq $cur) -or ($cur.MK -ne $mk)) {
-            if ($null -ne $cur) {
-                $script:candleStore[$tk].Add([PSCustomObject]@{
-                    MK=$cur.MK; O=$cur.O; H=$cur.H; L=$cur.L; C=$cur.C; V=$cur.V; OI=$cur.OI; T=$cur.T
+        $currentCandle = $script:ActiveCandle[$instrumentToken]
+        if (($null -eq $currentCandle) -or ($currentCandle.TimeBucket -ne $timeBucket)) {
+            # Close previous candle and start new one
+            if ($null -ne $currentCandle) {
+                $script:CompletedCandles[$instrumentToken].Add([PSCustomObject]@{
+                    TimeBucket=$currentCandle.TimeBucket; Open=$currentCandle.Open; High=$currentCandle.High
+                    Low=$currentCandle.Low; Close=$currentCandle.Close; Volume=$currentCandle.Volume
+                    OpenInterest=$currentCandle.OpenInterest; TicksInCandle=$currentCandle.TicksInCandle
                 })
             }
-            $script:buildingCdl[$tk] = @{
-                MK=$mk; O=$ltp; H=$ltp; L=$ltp; C=$ltp; V=0; LV=$vol; OI=$oi; T=1
-                DO=$opn; DH=$hi; DL=$lo; DC=$cls
+            $script:ActiveCandle[$instrumentToken] = @{
+                TimeBucket=$timeBucket; Open=$lastPrice; High=$lastPrice; Low=$lastPrice; Close=$lastPrice
+                Volume=0; PreviousVolume=$volume; OpenInterest=$openInterest; TicksInCandle=1
+                DayOpen=$dayOpen; DayHigh=$dayHigh; DayLow=$dayLow; DayClose=$dayClose
             }
         } else {
-            $cur.H  = [Math]::Max($cur.H, $ltp)
-            $cur.L  = [Math]::Min($cur.L, $ltp)
-            $cur.C  = $ltp
-            $cur.OI = $oi
-            $cur.T++
-            if ($hi -gt 0)  { $cur.DH = $hi }
-            if ($lo -gt 0)  { $cur.DL = $lo }
-            if ($opn -gt 0) { $cur.DO = $opn }
-            if ($cls -gt 0) { $cur.DC = $cls }
-            if (($vol -gt $cur.LV) -and ($cur.LV -gt 0)) { $cur.V += ($vol - $cur.LV) }
-            $cur.LV = $vol
+            $currentCandle.High  = [Math]::Max($currentCandle.High, $lastPrice)
+            $currentCandle.Low   = [Math]::Min($currentCandle.Low, $lastPrice)
+            $currentCandle.Close = $lastPrice
+            $currentCandle.OpenInterest = $openInterest
+            $currentCandle.TicksInCandle++
+            if ($dayHigh -gt 0)  { $currentCandle.DayHigh  = $dayHigh }
+            if ($dayLow -gt 0)   { $currentCandle.DayLow   = $dayLow }
+            if ($dayOpen -gt 0)  { $currentCandle.DayOpen  = $dayOpen }
+            if ($dayClose -gt 0) { $currentCandle.DayClose = $dayClose }
+            if (($volume -gt $currentCandle.PreviousVolume) -and ($currentCandle.PreviousVolume -gt 0)) {
+                $currentCandle.Volume += ($volume - $currentCandle.PreviousVolume)
+            }
+            $currentCandle.PreviousVolume = $volume
         }
     }
 
-    function script:Show-LiveTable([int]$tk) {
-        $m = $script:liveMeta
-        $all = [System.Collections.Generic.List[PSCustomObject]]::new()
-        $done = $script:candleStore[$tk]
-        if ($done -and $done.Count -gt 0) { $all.AddRange($done) }
-        $cur = $script:buildingCdl[$tk]
-        if ($null -ne $cur) {
-            $all.Add([PSCustomObject]@{ MK=$cur.MK; O=$cur.O; H=$cur.H; L=$cur.L; C=$cur.C; V=$cur.V; OI=$cur.OI; T=$cur.T })
+    function script:Render-CandleDisplay([int]$instrumentToken) {
+        # Throttle: skip if last render was < 250ms ago
+        $now = [datetime]::Now
+        if (($now - $script:LastDisplayTime).TotalMilliseconds -lt $script:DisplayIntervalMs) { return }
+        $script:LastDisplayTime = $now
+
+        $config = $script:DisplayConfig
+        $allCandles = [System.Collections.Generic.List[PSCustomObject]]::new()
+        $closedCandles = $script:CompletedCandles[$instrumentToken]
+        if ($closedCandles -and $closedCandles.Count -gt 0) { $allCandles.AddRange($closedCandles) }
+        $currentCandle = $script:ActiveCandle[$instrumentToken]
+        if ($null -ne $currentCandle) {
+            $allCandles.Add([PSCustomObject]@{
+                TimeBucket=$currentCandle.TimeBucket; Open=$currentCandle.Open; High=$currentCandle.High
+                Low=$currentCandle.Low; Close=$currentCandle.Close; Volume=$currentCandle.Volume
+                OpenInterest=$currentCandle.OpenInterest; TicksInCandle=$currentCandle.TicksInCandle
+            })
         }
-        if ($all.Count -eq 0) { return }
-        $skip = [Math]::Max(0, $all.Count - $m.Show)
-        $disp = if ($skip -gt 0) { $all.GetRange($skip, $all.Count - $skip) } else { $all }
+        if ($allCandles.Count -eq 0) { return }
+        $skipCount = [Math]::Max(0, $allCandles.Count - $config.MaxCandles)
+        $visibleCandles = if ($skipCount -gt 0) { $allCandles.GetRange($skipCount, $allCandles.Count - $skipCount) } else { $allCandles }
+
+        # Build output as single string for faster console write
+        $sb = [System.Text.StringBuilder]::new(2048)
+        $null = $sb.AppendLine('')
+        $null = $sb.AppendLine("  ================================================")
+        $null = $sb.AppendLine("  $($config.SymbolLabel) - Live $($config.IntervalLabel) Candles (WebSocket)")
+        $null = $sb.AppendLine("  ================================================")
+        $null = $sb.AppendLine("  Symbol  : $($config.SymbolName)  |  Token: $($config.InstrumentToken)  |  TimeFrame: $($config.TimeFrame)")
+        $null = $sb.AppendLine("  Ticks   : $($script:TickCount)")
+        $null = $sb.AppendLine("  Candles : $($allCandles.Count) total | Showing $($visibleCandles.Count)")
+        $null = $sb.AppendLine("  Time    : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
+        if ($null -ne $currentCandle) {
+            $null = $sb.AppendLine("  LTP     : $($currentCandle.Close.ToString('N2'))  |  Day O/H/L/C: $($currentCandle.DayOpen.ToString('N2'))/$($currentCandle.DayHigh.ToString('N2'))/$($currentCandle.DayLow.ToString('N2'))/$($currentCandle.DayClose.ToString('N2'))")
+        }
+        $null = $sb.AppendLine('')
+        $rowFormat = ' {0,-18} {1,14} {2,14} {3,14} {4,14} {5,10} {6,8} {7,5}'
+        $null = $sb.AppendLine(($rowFormat -f 'Time','Open','High','Low','Close','Volume','OI','Ticks'))
+        $null = $sb.AppendLine(' ' + ('-' * 102))
+        for ($rowIndex = 0; $rowIndex -lt $visibleCandles.Count; $rowIndex++) {
+            $candle = $visibleCandles[$rowIndex]
+            $null = $sb.AppendLine(($rowFormat -f $candle.TimeBucket, ('{0:N2}' -f $candle.Open), ('{0:N2}' -f $candle.High), ('{0:N2}' -f $candle.Low), ('{0:N2}' -f $candle.Close), ('{0:N0}' -f $candle.Volume), ('{0:N0}' -f $candle.OpenInterest), $candle.TicksInCandle))
+        }
+        $null = $sb.AppendLine('')
+        $null = $sb.AppendLine('  Press Ctrl+C to stop')
 
         Clear-Host
-        Write-Host ''
-        Write-Host '  ================================================' -ForegroundColor Cyan
-        Write-Host "  $($m.Label) - Live $($m.IntLabel) Candles (WebSocket)" -ForegroundColor Cyan
-        Write-Host '  ================================================' -ForegroundColor Cyan
-        Write-Host "  Symbol  : $($m.Sym)  |  Token: $($m.Token)  |  TimeFrame: $($m.TF)"
-        Write-Host "  Ticks   : $($script:totalTicks)"
-        Write-Host "  Candles : $($all.Count) total | Showing $($disp.Count)"
-        Write-Host "  Time    : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-        if ($null -ne $cur) {
-            Write-Host "  LTP     : $($cur.C.ToString('N2'))  |  Day O/H/L/C: $($cur.DO.ToString('N2'))/$($cur.DH.ToString('N2'))/$($cur.DL.ToString('N2'))/$($cur.DC.ToString('N2'))" -ForegroundColor Green
-        }
-        Write-Host ''
-        $fmt = ' {0,-18} {1,14} {2,14} {3,14} {4,14} {5,10} {6,8} {7,5}'
-        Write-Host ($fmt -f 'Time','Open','High','Low','Close','Volume','OI','Ticks') -ForegroundColor Cyan
-        Write-Host (' ' + ('-' * 102)) -ForegroundColor DarkGray
-        for ($i = 0; $i -lt $disp.Count; $i++) {
-            $c = $disp[$i]
-            $ln = $fmt -f $c.MK, ('{0:N2}' -f $c.O), ('{0:N2}' -f $c.H), ('{0:N2}' -f $c.L), ('{0:N2}' -f $c.C), ('{0:N0}' -f $c.V), ('{0:N0}' -f $c.OI), $c.T
-            if ($i -eq ($disp.Count - 1)) { Write-Host $ln -ForegroundColor Yellow } else { Write-Host $ln }
-        }
-        Write-Host ''
-        Write-Host '  Press Ctrl+C to stop' -ForegroundColor DarkGray
+        Write-Host $sb.ToString()
     }
 
     # --- WebSocket ---
@@ -809,10 +845,10 @@ function Get-KiteLiveCandles {
                 }
                 if (($res.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Binary) -and ($res.Count -gt 2)) {
                     $ticks = Parse-KiteTicks $buf $res.Count
-                    foreach ($tk in $ticks) {
-                        if ($tk.LTP -gt 0) { script:Update-LiveCandle $tk.Tok $tk.LTP $tk.Vol $tk.O $tk.H $tk.L $tk.C $tk.OI }
+                    foreach ($tick in $ticks) {
+                        if ($tick.LastPrice -gt 0) { script:Update-CandleFromTick $tick.InstrumentToken $tick.LastPrice $tick.Volume $tick.DayOpen $tick.DayHigh $tick.DayLow $tick.DayClose $tick.OpenInterest }
                     }
-                    script:Show-LiveTable $instToken
+                    script:Render-CandleDisplay $instToken
                 }
             }
 
