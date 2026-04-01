@@ -97,7 +97,7 @@ function Read-Int32BE([byte[]]$buf, [int]$pos) {
 function Parse-KiteTicks([byte[]]$data, [int]$len) {
     if ($len -lt 4) { return @() }
     $np = Read-Int16BE $data 0
-    $ticks = @()
+    $ticks = [System.Collections.Generic.List[hashtable]]::new($np)
     $off = 2
     for ($p = 0; $p -lt $np; $p++) {
         if (($off + 2) -gt $len) { break }
@@ -119,7 +119,7 @@ function Parse-KiteTicks([byte[]]$data, [int]$len) {
                 if ($pl -ge 52) { $t.OI = Read-Int32BE $data ($s+48) }
             }
         }
-        $ticks += $t
+        $ticks.Add($t)
         $off += $pl
     }
     return $ticks
@@ -503,9 +503,7 @@ function Search-KiteInstrument {
 
     $headers = Get-KiteHeaders -EncToken $EncToken
 
-    # Kite instrument search API
     $searchExchange = if ($Exchange -eq 'ALL') { '' } else { $Exchange }
-    $uri = "https://kite.zerodha.com/oms/instruments?exchange=$searchExchange"
 
     Write-Host ""
     Write-Host "  Searching for '$Query'..." -ForegroundColor Cyan
@@ -601,9 +599,6 @@ function Show-KitePresets {
     Write-Host ""
 }
 
-# ── Module exports ─────────────────────────────────────────
-Export-ModuleMember -Function Get-KiteCandles, Search-KiteInstrument, Show-KitePresets
-
 # ══════════════════════════════════════════════════════════════
 # FUNCTION: Get-KiteLiveCandles
 # WebSocket streaming + real-time candle builder
@@ -656,24 +651,25 @@ function Get-KiteLiveCandles {
     $script:candleStore = @{}
     $script:buildingCdl = @{}
     $script:totalTicks  = 0
+    $script:liveIntMin  = $intMin
+    $script:liveMeta    = @{ Sym=$sym; Label=$label; Token=$instToken; TF=$TimeFrame; IntLabel=$intLabel; Show=$CandlesToShow }
 
-    $getCandleKey = {
+    function script:Get-LiveCandleKey {
         $now = Get-Date
-        $bucket = [Math]::Floor($now.Minute / $intMin) * $intMin
+        $bucket = [Math]::Floor($now.Minute / $script:liveIntMin) * $script:liveIntMin
         return $now.ToString('yyyy-MM-dd HH:') + $bucket.ToString('00')
     }
 
-    $updateCandle = {
-        param([int]$tk, [double]$ltp, [int]$vol, [double]$opn, [double]$hi, [double]$lo, [double]$cls, [int]$oi)
+    function script:Update-LiveCandle([int]$tk, [double]$ltp, [int]$vol, [double]$opn, [double]$hi, [double]$lo, [double]$cls, [int]$oi) {
         $script:totalTicks++
-        $mk = & $getCandleKey
+        $mk = script:Get-LiveCandleKey
         if (-not $script:candleStore.ContainsKey($tk)) {
-            $script:candleStore[$tk] = [System.Collections.ArrayList]::new()
+            $script:candleStore[$tk] = [System.Collections.Generic.List[PSCustomObject]]::new()
         }
         $cur = $script:buildingCdl[$tk]
         if (($null -eq $cur) -or ($cur.MK -ne $mk)) {
             if ($null -ne $cur) {
-                $null = $script:candleStore[$tk].Add([PSCustomObject]@{
+                $script:candleStore[$tk].Add([PSCustomObject]@{
                     MK=$cur.MK; O=$cur.O; H=$cur.H; L=$cur.L; C=$cur.C; V=$cur.V; OI=$cur.OI; T=$cur.T
                 })
             }
@@ -696,24 +692,25 @@ function Get-KiteLiveCandles {
         }
     }
 
-    $showTable = {
-        param([int]$tk)
-        $all = @()
+    function script:Show-LiveTable([int]$tk) {
+        $m = $script:liveMeta
+        $all = [System.Collections.Generic.List[PSCustomObject]]::new()
         $done = $script:candleStore[$tk]
-        if ($done -and $done.Count -gt 0) { $all += $done.ToArray() }
+        if ($done -and $done.Count -gt 0) { $all.AddRange($done) }
         $cur = $script:buildingCdl[$tk]
         if ($null -ne $cur) {
-            $all += [PSCustomObject]@{ MK=$cur.MK; O=$cur.O; H=$cur.H; L=$cur.L; C=$cur.C; V=$cur.V; OI=$cur.OI; T=$cur.T }
+            $all.Add([PSCustomObject]@{ MK=$cur.MK; O=$cur.O; H=$cur.H; L=$cur.L; C=$cur.C; V=$cur.V; OI=$cur.OI; T=$cur.T })
         }
         if ($all.Count -eq 0) { return }
-        $disp = $all | Select-Object -Last $CandlesToShow
+        $skip = [Math]::Max(0, $all.Count - $m.Show)
+        $disp = if ($skip -gt 0) { $all.GetRange($skip, $all.Count - $skip) } else { $all }
 
         Clear-Host
         Write-Host ''
         Write-Host '  ================================================' -ForegroundColor Cyan
-        Write-Host "  $label - Live $intLabel Candles (WebSocket)" -ForegroundColor Cyan
+        Write-Host "  $($m.Label) - Live $($m.IntLabel) Candles (WebSocket)" -ForegroundColor Cyan
         Write-Host '  ================================================' -ForegroundColor Cyan
-        Write-Host "  Symbol  : $sym  |  Token: $instToken  |  TimeFrame: $TimeFrame"
+        Write-Host "  Symbol  : $($m.Sym)  |  Token: $($m.Token)  |  TimeFrame: $($m.TF)"
         Write-Host "  Ticks   : $($script:totalTicks)"
         Write-Host "  Candles : $($all.Count) total | Showing $($disp.Count)"
         Write-Host "  Time    : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
@@ -748,81 +745,112 @@ function Get-KiteLiveCandles {
     Write-Host ''
     Write-Host '  Connecting...' -ForegroundColor Yellow
 
-    $ws  = [System.Net.WebSockets.ClientWebSocket]::new()
-    $ws.Options.SetRequestHeader('X-Kite-Version', '3')
-    $cts = [System.Threading.CancellationTokenSource]::new()
+    $maxRetries = 3
+    $retryCount = 0
+    $buf = New-Object byte[] 65536
 
-    try {
-        $ct = $ws.ConnectAsync([Uri]$wsUri, $cts.Token)
-        if (-not $ct.Wait(15000)) { Write-Host '  Connection timed out.' -ForegroundColor Red; return }
-        if ($ws.State -ne [System.Net.WebSockets.WebSocketState]::Open) {
-            Write-Host "  Connection failed. State: $($ws.State)" -ForegroundColor Red; return
-        }
-        Write-Host '  Connected!' -ForegroundColor Green
+    while ($retryCount -le $maxRetries) {
+        $ws  = [System.Net.WebSockets.ClientWebSocket]::new()
+        $ws.Options.SetRequestHeader('X-Kite-Version', '3')
+        $cts = [System.Threading.CancellationTokenSource]::new()
 
-        # Subscribe + set mode
-        $subB = [System.Text.Encoding]::UTF8.GetBytes('{"a":"subscribe","v":[' + $instToken + ']}')
-        $ws.SendAsync([System.ArraySegment[byte]]::new($subB), [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait(5000)
-        Write-Host "  Subscribed to $label" -ForegroundColor Green
-
-        $modB = [System.Text.Encoding]::UTF8.GetBytes('{"a":"mode","v":["' + $modeStr + '",[' + $instToken + ']]}')
-        $ws.SendAsync([System.ArraySegment[byte]]::new($modB), [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait(5000)
-        Write-Host "  Mode: $modeStr" -ForegroundColor Green
-        Write-Host ''
-        Write-Host '  Waiting for market ticks...' -ForegroundColor Yellow
-
-        $buf = New-Object byte[] 65536
-
-        while ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
-            $seg = [System.ArraySegment[byte]]::new($buf)
-            try {
-                $rt = $ws.ReceiveAsync($seg, $cts.Token)
-                if (-not $rt.Wait(30000)) { continue }
-                $res = $rt.Result
-            } catch {
-                if ($ws.State -ne [System.Net.WebSockets.WebSocketState]::Open) { break }
-                continue
-            }
-
-            if ($res.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Close) {
-                Write-Host '  Server closed connection.' -ForegroundColor Yellow; break
-            }
-            if ($res.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Text) {
-                if ($res.Count -gt 1) {
-                    $txt = [System.Text.Encoding]::UTF8.GetString($buf, 0, $res.Count)
-                    try { $jm = $txt | ConvertFrom-Json -ErrorAction SilentlyContinue; if ($jm.type -eq 'error') { Write-Host "  ERROR: $($jm.data)" -ForegroundColor Red } } catch {}
+        try {
+            $ct = $ws.ConnectAsync([Uri]$wsUri, $cts.Token)
+            if (-not $ct.Wait(15000)) {
+                Write-Host '  Connection timed out.' -ForegroundColor Red
+                $retryCount++
+                if ($retryCount -le $maxRetries) {
+                    $wait = $retryCount * 5
+                    Write-Host "  Retrying in ${wait}s... ($retryCount/$maxRetries)" -ForegroundColor Yellow
+                    Start-Sleep -Seconds $wait
+                    continue
                 }
-                continue
+                return
             }
-            if (($res.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Binary) -and ($res.Count -gt 2)) {
-                $mb = New-Object byte[] $res.Count
-                [Array]::Copy($buf, $mb, $res.Count)
-                $ticks = Parse-KiteTicks $mb $res.Count
-                foreach ($tk in $ticks) {
-                    if ($tk.LTP -gt 0) { & $updateCandle $tk.Tok $tk.LTP $tk.Vol $tk.O $tk.H $tk.L $tk.C $tk.OI }
+            if ($ws.State -ne [System.Net.WebSockets.WebSocketState]::Open) {
+                Write-Host "  Connection failed. State: $($ws.State)" -ForegroundColor Red
+                return
+            }
+
+            $retryCount = 0
+            Write-Host '  Connected!' -ForegroundColor Green
+
+            # Subscribe + set mode
+            $subB = [System.Text.Encoding]::UTF8.GetBytes('{"a":"subscribe","v":[' + $instToken + ']}')
+            $ws.SendAsync([System.ArraySegment[byte]]::new($subB), [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait(5000)
+            Write-Host "  Subscribed to $label" -ForegroundColor Green
+
+            $modB = [System.Text.Encoding]::UTF8.GetBytes('{"a":"mode","v":["' + $modeStr + '",[' + $instToken + ']]}')
+            $ws.SendAsync([System.ArraySegment[byte]]::new($modB), [System.Net.WebSockets.WebSocketMessageType]::Text, $true, $cts.Token).Wait(5000)
+            Write-Host "  Mode: $modeStr" -ForegroundColor Green
+            Write-Host ''
+            Write-Host '  Waiting for market ticks...' -ForegroundColor Yellow
+
+            while ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
+                $seg = [System.ArraySegment[byte]]::new($buf)
+                try {
+                    $rt = $ws.ReceiveAsync($seg, $cts.Token)
+                    if (-not $rt.Wait(30000)) { continue }
+                    $res = $rt.Result
+                } catch {
+                    if ($ws.State -ne [System.Net.WebSockets.WebSocketState]::Open) { break }
+                    continue
                 }
-                & $showTable $instToken
+
+                if ($res.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Close) {
+                    Write-Host '  Server closed connection.' -ForegroundColor Yellow; break
+                }
+                if ($res.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Text) {
+                    if ($res.Count -gt 1) {
+                        $txt = [System.Text.Encoding]::UTF8.GetString($buf, 0, $res.Count)
+                        try { $jm = $txt | ConvertFrom-Json -ErrorAction SilentlyContinue; if ($jm.type -eq 'error') { Write-Host "  ERROR: $($jm.data)" -ForegroundColor Red } } catch {}
+                    }
+                    continue
+                }
+                if (($res.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Binary) -and ($res.Count -gt 2)) {
+                    $ticks = Parse-KiteTicks $buf $res.Count
+                    foreach ($tk in $ticks) {
+                        if ($tk.LTP -gt 0) { script:Update-LiveCandle $tk.Tok $tk.LTP $tk.Vol $tk.O $tk.H $tk.L $tk.C $tk.OI }
+                    }
+                    script:Show-LiveTable $instToken
+                }
+            }
+
+            # Connection dropped — try reconnect
+            $retryCount++
+            if ($retryCount -le $maxRetries) {
+                $wait = $retryCount * 5
+                Write-Host "  Connection lost. Reconnecting in ${wait}s... ($retryCount/$maxRetries)" -ForegroundColor Yellow
+                Start-Sleep -Seconds $wait
             }
         }
-    }
-    catch {
-        Write-Host "  Error: $($_.Exception.Message)" -ForegroundColor Red
-        if ($_.Exception.InnerException) { Write-Host "  Detail: $($_.Exception.InnerException.Message)" -ForegroundColor DarkRed }
-    }
-    finally {
-        if ($ws -and ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open)) {
-            try { $ws.CloseAsync([System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure, 'Done', $cts.Token).Wait(5000) } catch {}
+        catch {
+            Write-Host "  Error: $($_.Exception.Message)" -ForegroundColor Red
+            if ($_.Exception.InnerException) { Write-Host "  Detail: $($_.Exception.InnerException.Message)" -ForegroundColor DarkRed }
+            $retryCount++
+            if ($retryCount -le $maxRetries) {
+                $wait = $retryCount * 5
+                Write-Host "  Retrying in ${wait}s... ($retryCount/$maxRetries)" -ForegroundColor Yellow
+                Start-Sleep -Seconds $wait
+            }
         }
-        if ($ws)  { $ws.Dispose() }
-        if ($cts) { $cts.Dispose() }
-        Write-Host ''
-        Write-Host '  Disconnected.' -ForegroundColor Yellow
-        $cnt = 0
-        if ($script:candleStore[$instToken]) { $cnt += $script:candleStore[$instToken].Count }
-        if ($script:buildingCdl[$instToken]) { $cnt++ }
-        Write-Host "  $label : $cnt candle(s) from $($script:totalTicks) ticks" -ForegroundColor Gray
-        Write-Host ''
+        finally {
+            if ($ws -and ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open)) {
+                try { $ws.CloseAsync([System.Net.WebSockets.WebSocketCloseStatus]::NormalClosure, 'Done', $cts.Token).Wait(5000) } catch {}
+            }
+            if ($ws)  { $ws.Dispose() }
+            if ($cts) { $cts.Dispose() }
+        }
     }
+
+    Write-Host ''
+    Write-Host '  Disconnected.' -ForegroundColor Yellow
+    $cnt = 0
+    if ($script:candleStore[$instToken]) { $cnt += $script:candleStore[$instToken].Count }
+    if ($script:buildingCdl[$instToken]) { $cnt++ }
+    Write-Host "  $label : $cnt candle(s) from $($script:totalTicks) ticks" -ForegroundColor Gray
+    Write-Host ''
 }
 
-Export-ModuleMember -Function Get-KiteLiveCandles, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol
+# ── Module exports (single consolidated statement) ─────────
+Export-ModuleMember -Function Get-KiteCandles, Search-KiteInstrument, Show-KitePresets, Get-KiteLiveCandles, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol
