@@ -170,6 +170,105 @@ The system runs as **4 independent scripts** that communicate through **signal f
 
 ---
 
+## WebSocket Data — How Live Ticks Are Received
+
+The signal generators use Zerodha Kite's **binary WebSocket streaming API** for real-time market data. Here's the complete data flow:
+
+### Connection
+
+```
+wss://ws.kite.trade?api_key=<key>&access_token=<token>
+```
+
+Uses .NET's `System.Net.WebSockets.ClientWebSocket` — no external dependencies required.
+
+### Subscription Messages
+
+After connecting, two JSON messages are sent to the server:
+
+```json
+// 1. Subscribe to instrument(s)
+{"a": "subscribe", "v": [265]}
+
+// 2. Set data mode
+{"a": "mode", "v": ["quote", [265]]}
+```
+
+Modes: `ltp` (price only), `quote` (price + OHLC + volume), `full` (+ OI + market depth)
+
+### Incoming Message Types
+
+| Message Type | Description |
+|---|---|
+| **Binary** | Tick data — parsed by `Parse-KiteTicks` into structured price objects |
+| **Text** | JSON messages — heartbeats, error notifications |
+| **Close** | Server disconnect — triggers automatic reconnection |
+
+### Binary Tick Packet Structure
+
+Kite sends **big-endian binary packets**. Each packet contains one or more ticks:
+
+```
+┌──────────────────────────────────────────────────────┐
+│  Bytes 0–1: Number of ticks (Int16 Big-Endian)       │
+├──────────────────────────────────────────────────────┤
+│  For each tick:                                      │
+│    Bytes 0–1: Payload size (Int16 BE)                │
+│    Bytes 2+:  Payload data                           │
+└──────────────────────────────────────────────────────┘
+```
+
+### Payload Sizes & Data Depth
+
+| Payload Size | Mode | Fields Available |
+|---|---|---|
+| **8 bytes** | LTP | Token + LastPrice |
+| **28–32 bytes** | — | + Day Open/High/Low/Close |
+| **44 bytes** | Quote | + Volume |
+| **184 bytes** | Full | + OI, market depth (5 levels), timestamps |
+
+Prices are stored as **integers divided by 100** (e.g., `8250050` → `82500.50`).
+
+### Tick Processing Pipeline
+
+```
+WebSocket Binary Frame
+    │
+    ▼
+Parse-KiteTicks()          → Extracts: Token, LTP, OHLC, Volume, OI
+    │
+    ▼
+Update-StrategyFromTick()  → Time-buckets ticks into candles (e.g., 3-min intervals)
+    │
+    ▼
+Convert-ToHA()             → Converts raw OHLC candle → Heikin-Ashi candle
+    │
+    ▼
+Check-LongStrategy() / Check-ShortStrategy()
+    │                         → Compares live HA Close vs previous HA High/Low
+    ▼
+Signal File Written         → Long-Entry-*.txt / Short-Entry-*.txt
+```
+
+### Candle Building from Ticks
+
+Ticks are grouped into time buckets based on the configured `TimeFrame`:
+- Each tick updates the **active candle** (OHLC running values)
+- When the time bucket changes, the active candle is **closed**, converted to HA, and stored
+- The new tick starts a **fresh candle** in the next time bucket
+
+### Reconnection & Resilience
+
+| Feature | Behavior |
+|---|---|
+| Connection timeout | 15 seconds |
+| Receive timeout | 30 seconds (per tick read) |
+| Max retries | 3 attempts |
+| Backoff | Exponential: 5s → 10s → 15s |
+| Tick frequency | ~1 tick/second during market hours |
+
+---
+
 ## Heikin-Ashi Trading Strategies
 
 ### Strategy Logic
