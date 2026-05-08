@@ -49,8 +49,10 @@ $script:Presets = @{
     'GOLDM26APRFUT'    = @{ Token = 116768775; Exchange = 'MCX';  Symbol = 'GOLDM26APRFUT';       Label = 'GOLDM FUT' }
     'CRUDEOIL'         = @{ Token = 116544263; Exchange = 'MCX';  Symbol = 'CRUDEOIL26APRFUT';    Label = 'CRUDE OIL FUT' }
     'CRUDEOIL26APRFUT' = @{ Token = 116544263; Exchange = 'MCX';  Symbol = 'CRUDEOIL26APRFUT';    Label = 'CRUDE OIL FUT' }
-    'NATURALGAS'       = @{ Token = 116853511; Exchange = 'MCX';  Symbol = 'NATURALGAS26APRFUT';  Label = 'NATURAL GAS FUT' }
-    'NATURALGAS26APRFUT' = @{ Token = 116853511; Exchange = 'MCX'; Symbol = 'NATURALGAS26APRFUT'; Label = 'NATURAL GAS FUT' }
+    'NATURALGAS'       = @{ Token = 124791047; Exchange = 'MCX';  Symbol = 'NATURALGAS26APRFUT';  Label = 'NATURAL GAS FUT' }
+    'NATURALGAS26APRFUT' = @{ Token = 124791047; Exchange = 'MCX'; Symbol = 'NATURALGAS26APRFUT'; Label = 'NATURAL GAS FUT' }
+    'NATGASMINI'       = @{ Token = 124791303; Exchange = 'MCX';  Symbol = 'NATGASMINI26APRFUT';  Label = 'NATGAS MINI FUT' }
+    'NATGASMINI26APRFUT' = @{ Token = 124791303; Exchange = 'MCX'; Symbol = 'NATGASMINI26APRFUT'; Label = 'NATGAS MINI FUT' }
 }
 
 # ── Resolve a symbol name to preset data ───────────────────
@@ -291,206 +293,6 @@ function Get-IntervalMeta {
 }
 
 # ════════════════════════════════════════════════════════════
-# FUNCTION: Get-KiteCandles
-# Fetches historical candle data for ANY instrument
-# ════════════════════════════════════════════════════════════
-function Get-KiteCandles {
-    [CmdletBinding(DefaultParameterSetName = 'ByToken')]
-    param(
-        # --- Instrument identification ---
-        [Parameter(ParameterSetName = 'ByToken', Mandatory = $false)]
-        [int]$InstrumentToken = 117128455,
-
-        [Parameter(ParameterSetName = 'ByToken', Mandatory = $false)]
-        [string]$TradingSymbol = "SILVERM26APRFUT",
-
-        [Parameter(ParameterSetName = 'ByToken', Mandatory = $false)]
-        [ValidateSet('NSE','BSE','NFO','BFO','MCX','CDS','BCD')]
-        [string]$Exchange = "MCX",
-
-        [Parameter(ParameterSetName = 'ByPreset', Mandatory = $true)]
-        [string]$Preset,
-
-        # --- Candle settings ---
-        [ValidateSet('minute','3minute','5minute','10minute','15minute','30minute','60minute','day')]
-        [string]$Interval = "minute",
-
-        [ValidateRange(1, 500)]
-        [int]$CandleCount = 10,
-
-        # --- Time range (optional override) ---
-        [DateTime]$From,
-        [DateTime]$To,
-
-        # --- Auth ---
-        [string]$EncToken = $env:KITE_ENCTOKEN,
-
-        # --- Output ---
-        [switch]$Raw,
-        [switch]$Continuous
-    )
-
-    # Validate auth
-    if (-not (Assert-EncToken $EncToken)) { return }
-
-    # Resolve preset
-    if ($PSCmdlet.ParameterSetName -eq 'ByPreset') {
-        $key = $Preset.ToUpper()
-        if ($script:Presets.ContainsKey($key)) {
-            $p = $script:Presets[$key]
-            $InstrumentToken = $p.Token
-            $TradingSymbol   = $p.Symbol
-            $Exchange        = $p.Exchange
-        }
-        else {
-            Write-Host "  Unknown preset: '$Preset'" -ForegroundColor Red
-            Write-Host "  Available presets:" -ForegroundColor Yellow
-            $script:Presets.Keys | Sort-Object | ForEach-Object {
-                $p = $script:Presets[$_]
-                Write-Host ("    {0,-25} {1,-6} {2}" -f $_, $p.Exchange, $p.Token) -ForegroundColor Gray
-            }
-            return
-        }
-    }
-
-    # Time window
-    $meta = Get-IntervalMeta $Interval
-    $now  = Get-Date
-    if (-not $To)   { $To   = $now }
-    if (-not $From) { $From = $To.AddMinutes(-$meta.LookbackMin) }
-
-    $fromStr = $From.ToString("yyyy-MM-dd+HH:mm:ss")
-    $toStr   = $To.ToString("yyyy-MM-dd+HH:mm:ss")
-
-    # API call
-    $uri = "https://kite.zerodha.com/oms/instruments/historical/${InstrumentToken}/${Interval}?from=${fromStr}&to=${toStr}&oi=1"
-    $headers = Get-KiteHeaders -EncToken $EncToken
-
-    do {
-        # Banner
-        Write-Host ""
-        Write-Host "  ================================================" -ForegroundColor Cyan
-        Write-Host "  $TradingSymbol - $($meta.Label) Candles ($Exchange)" -ForegroundColor Cyan
-        Write-Host "  ================================================" -ForegroundColor Cyan
-        Write-Host "  Exchange : $Exchange"
-        Write-Host "  Symbol   : $TradingSymbol"
-        Write-Host "  Token    : $InstrumentToken"
-        Write-Host "  Interval : $($meta.Label) ($Interval)"
-        Write-Host "  Window   : $($From.ToString('yyyy-MM-dd HH:mm')) -> $($To.ToString('yyyy-MM-dd HH:mm'))"
-        Write-Host ""
-
-        # Recalculate time for continuous mode
-        if ($Continuous) {
-            $To      = Get-Date
-            $From    = $To.AddMinutes(-$meta.LookbackMin)
-            $fromStr = $From.ToString("yyyy-MM-dd+HH:mm:ss")
-            $toStr   = $To.ToString("yyyy-MM-dd+HH:mm:ss")
-            $uri     = "https://kite.zerodha.com/oms/instruments/historical/${InstrumentToken}/${Interval}?from=${fromStr}&to=${toStr}&oi=1"
-        }
-
-        # Fetch
-        try {
-            $response = Invoke-RestMethod -Uri $uri -Headers $headers -Method Get -ErrorAction Stop
-        }
-        catch {
-            $sc = $null
-            if ($_.Exception.Response) { $sc = [int]$_.Exception.Response.StatusCode }
-            Write-Host "  ERROR: $($_.Exception.Message)" -ForegroundColor Red
-            if ($sc -eq 403 -or $sc -eq 401) {
-                Write-Host "  Enctoken expired. Log in again and copy a fresh token." -ForegroundColor Yellow
-            }
-            return
-        }
-
-        # Validate
-        if (-not $response.data -or -not $response.data.candles -or $response.data.candles.Count -eq 0) {
-            Write-Host "  No candle data. Market may be closed or instrument inactive." -ForegroundColor Yellow
-            if ($Continuous) {
-                Write-Host "  Retrying in 60s..." -ForegroundColor DarkGray
-                Start-Sleep -Seconds 60
-                continue
-            }
-            return
-        }
-
-        $allCandles = $response.data.candles
-        $total      = $allCandles.Count
-        $display    = $allCandles | Select-Object -Last $CandleCount
-
-        # Raw output mode — return objects instead of formatted text
-        if ($Raw) {
-            $result = foreach ($c in $display) {
-                $parsed = ParseKiteDateTime $c[0]
-                [PSCustomObject]@{
-                    DateTime = if ($parsed) { $parsed } else { $c[0] }
-                    Open     = $c[1]
-                    High     = $c[2]
-                    Low      = $c[3]
-                    Close    = $c[4]
-                    Volume   = $c[5]
-                    OI       = if ($c.Count -gt 6) { $c[6] } else { 0 }
-                    Exchange = $Exchange
-                    Symbol   = $TradingSymbol
-                }
-            }
-            return $result
-        }
-
-        # Formatted table output
-        Write-Host "  Total: $total candle(s) | Showing last $($display.Count)" -ForegroundColor Green
-        Write-Host ""
-
-        # Detect if this is equity (no OI) or F&O/commodity (has OI)
-        $hasOI = $false
-        foreach ($c in $display) {
-            if ($c.Count -gt 6 -and $c[6] -ne 0) { $hasOI = $true; break }
-        }
-
-        if ($hasOI) {
-            $fmt = " {0,-20} {1,14} {2,14} {3,14} {4,14} {5,10} {6,10}"
-            Write-Host ($fmt -f "DateTime", "Open", "High", "Low", "Close", "Volume", "OI") -ForegroundColor Cyan
-            Write-Host (" " + ("-" * 100)) -ForegroundColor DarkGray
-        }
-        else {
-            $fmt = " {0,-20} {1,14} {2,14} {3,14} {4,14} {5,12}"
-            Write-Host ($fmt -f "DateTime", "Open", "High", "Low", "Close", "Volume") -ForegroundColor Cyan
-            Write-Host (" " + ("-" * 92)) -ForegroundColor DarkGray
-        }
-
-        foreach ($c in $display) {
-            $parsed = ParseKiteDateTime $c[0]
-            $dt   = if ($parsed) { $parsed.ToString("yyyy-MM-dd HH:mm:ss") } else { $c[0] }
-            $open = "{0:N2}" -f $c[1]
-            $high = "{0:N2}" -f $c[2]
-            $low  = "{0:N2}" -f $c[3]
-            $cls  = "{0:N2}" -f $c[4]
-            $vol  = "{0:N0}" -f $c[5]
-
-            if ($hasOI) {
-                $oi = "{0:N0}" -f $(if ($c.Count -gt 6) { $c[6] } else { 0 })
-                Write-Host ($fmt -f $dt, $open, $high, $low, $cls, $vol, $oi)
-            }
-            else {
-                Write-Host ($fmt -f $dt, $open, $high, $low, $cls, $vol)
-            }
-        }
-
-        Write-Host ""
-
-        if ($Continuous) {
-            $sleepSec = switch ($Interval) {
-                'minute'   { 60 }
-                '3minute'  { 180 }
-                '5minute'  { 300 }
-                default    { 60 }
-            }
-            Write-Host "  Refreshing in ${sleepSec}s... (Ctrl+C to stop)" -ForegroundColor DarkGray
-            Start-Sleep -Seconds $sleepSec
-        }
-    } while ($Continuous)
-}
-
-# ════════════════════════════════════════════════════════════
 # FUNCTION: Search-KiteInstrument
 # Search instruments by name across all exchanges
 # ════════════════════════════════════════════════════════════
@@ -555,7 +357,6 @@ function Search-KiteInstrument {
         return $results | ForEach-Object {
             [PSCustomObject]@{
                 Exchange        = $_.exchange
-                TradingSymbol   = $_.tradingsymbol
                 InstrumentToken = $_.instrument_token
                 InstrumentType  = $_.instrument_type
                 Segment         = $_.segment
@@ -1977,5 +1778,377 @@ function Invoke-KiteHAShortStrategy {
     Write-Host ''
 }
 
+# ══════════════════════════════════════════════════════════════
+# FUNCTION: Place-ZerodhaOrder
+# Places BUY/SELL orders with Market Protection Price (MPP) support
+# ══════════════════════════════════════════════════════════════
+<#
+.SYNOPSIS
+Places a BUY or SELL order on Zerodha Kite API with Market Protection Price (MPP).
+
+.DESCRIPTION
+Supports multiple order types (LIMIT, MARKET, SL, SL-M) with Market Protection Price for MARKET orders.
+
+Market Protection Price (MPP) for MARKET orders:
+- SELL MARKET with MPP: Price = minimum acceptable sell price (won't sell below this)
+- BUY MARKET with MPP: Price = maximum acceptable buy price (won't buy above this)
+
+.EXAMPLE
+# SELL MARKET with 1% price protection (376.75 as minimum)
+Place-ZerodhaOrder -AccessToken $token -CommonHeader $headers `
+  -Type SELL -Variety regular -Tradingsymbol "NIFTY24MAY25000CE" `
+  -Quantity 1500 -OrderType MARKET -Product NRML `
+  -Exchange NFO -Validity DAY -Price 376.75 -Tag "MPP-SELL"
+
+.EXAMPLE
+# BUY LIMIT order
+Place-ZerodhaOrder -AccessToken $token -CommonHeader $headers `
+  -Type BUY -Variety regular -Tradingsymbol "NIFTY50" `
+  -Quantity 1 -OrderType LIMIT -Product NRML `
+  -Exchange NSE -Validity DAY -Price 24000 -Tag "LIMIT-BUY"
+#>
+function Place-ZerodhaOrder {
+    param(
+        [string]$AccessToken,
+        [hashtable]$CommonHeader,
+        
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("BUY", "SELL")]
+        [string]$Type,
+        
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("regular", "amo", "co")]
+        [string]$Variety,
+        
+        [Parameter(Mandatory=$true)]
+        [string]$Tradingsymbol,
+        
+        [Parameter(Mandatory=$true)]
+        [int]$Quantity,
+        
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("LIMIT", "MARKET", "SL", "SL-M")]
+        [string]$OrderType,
+        
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("MIS", "CNC", "NRML")]
+        [string]$Product,
+        
+        [Parameter(Mandatory=$true)]
+        [ValidateSet("NFO", "BFO", "NSE", "BSE", "MCX")]
+        [string]$Exchange,
+        
+        [ValidateSet("DAY", "IOC")]
+        [string]$Validity = "DAY",
+        
+        [double]$Price = 0,
+        [double]$TriggerPrice = 0,
+        [ValidateRange(0, 100)]
+        [int]$MarketProtection = 3,
+        [string]$Tag = ""
+    )
+
+    Write-Host "  Order Details | Type: $Type | Symbol: $Tradingsymbol | Qty: $Quantity | OrderType: $OrderType | Price: $Price | Trigger: $TriggerPrice | MktProtection: ${MarketProtection}%" -ForegroundColor Cyan
+
+    try {
+        $ErrorActionPreference = "Stop"
+        
+        # Build order body - ALL required fields for Zerodha API
+        $Body = @{
+            'tradingsymbol'    = $Tradingsymbol
+            'exchange'         = $Exchange
+            'transaction_type' = $Type
+            'order_type'       = $OrderType
+            'quantity'         = [string]$Quantity
+            'product'          = $Product
+            'validity'         = $Validity
+        }
+        
+        # Add tag if provided
+        if ($Tag) { $Body['tag'] = $Tag }
+
+        # Handle different order types
+        switch ($OrderType) {
+            "MARKET" {
+                # MARKET orders use market_protection percentage (0-100) to limit price deviation
+                # See: https://kite.trade/docs/connect/v3/orders/#market-protection
+                if ($MarketProtection -gt 0) {
+                    $Body['market_protection'] = [string]$MarketProtection
+                    Write-Host "  ✓ MARKET order with ${MarketProtection}% market protection" -ForegroundColor Green
+                } else {
+                    Write-Host "  ✓ MARKET order (no market protection)" -ForegroundColor Green
+                }
+            }
+            "LIMIT" {
+                # LIMIT orders require price
+                if ($Price -le 0) {
+                    throw "LIMIT order requires valid Price parameter"
+                }
+                $Body['price'] = [string]$Price
+                Write-Host "  ✓ LIMIT order with price $Price" -ForegroundColor Green
+            }
+            "SL" {
+                # Stop Loss requires trigger_price and optional price
+                if ($TriggerPrice -le 0) {
+                    throw "SL order requires valid TriggerPrice parameter"
+                }
+                $Body['trigger_price'] = [string]$TriggerPrice
+                
+                # For SL, if price is provided use it (execution limit), else Zerodha uses trigger price
+                if ($Price -gt 0) {
+                    $Body['price'] = [string]$Price
+                    Write-Host "  ✓ SL order: trigger=$TriggerPrice, limit=$Price" -ForegroundColor Green
+                } else {
+                    Write-Host "  ✓ SL order: trigger=$TriggerPrice" -ForegroundColor Green
+                }
+            }
+            "SL-M" {
+                # Stop Loss Market requires trigger_price and market_protection
+                if ($TriggerPrice -le 0) {
+                    throw "SL-M order requires valid TriggerPrice parameter"
+                }
+                $Body['trigger_price'] = [string]$TriggerPrice
+                if ($MarketProtection -gt 0) {
+                    $Body['market_protection'] = [string]$MarketProtection
+                }
+                Write-Host "  ✓ SL-M order: trigger=$TriggerPrice, market_protection=${MarketProtection}%" -ForegroundColor Green
+            }
+        }
+
+        # Build API URL
+        $url = "https://api.kite.trade/orders/$Variety"
+        
+        Write-Host "  POST $url" -ForegroundColor DarkGray
+        Write-Host "  Body: $($Body | ConvertTo-Json)" -ForegroundColor DarkGray
+
+        # Place order via Kite API
+        $response = Invoke-RestMethod -Uri $url -Method Post -Headers $CommonHeader -Body $Body -ErrorAction Stop
+        
+        # Check response
+        if ($response.status -eq "success" -and $response.data.order_id) {
+            $orderId = $response.data.order_id
+            Write-Host "  ✅ Order placed successfully!" -ForegroundColor Green
+            Write-Host "     Order ID: $orderId" -ForegroundColor Green
+            Write-Host "     Type: $Type | Symbol: $Tradingsymbol | Qty: $Quantity" -ForegroundColor Green
+            return $response.data
+        } else {
+            $errorMsg = $response.message ?? "Unknown error"
+            throw "API returned: $errorMsg"
+        }
+    }
+    catch {
+        Write-Host "  ❌ Error placing order: $_" -ForegroundColor Red
+        if ($_.Exception.Response) {
+            try {
+                $errorContent = $_.Exception.Response.Content.ReadAsStringAsync().Result
+                $errorJson = ConvertFrom-Json $errorContent
+                Write-Host "  API Error: $($errorJson.message)" -ForegroundColor Red
+                if ($errorJson.error_type) {
+                    Write-Host "  Error Type: $($errorJson.error_type)" -ForegroundColor Red
+                }
+            } catch {}
+        }
+        return $null
+    }
+}
+
+# ── Option Trading Helper Functions ─────────────────────────
+
+function Get-IndexOptionConfig {
+    <#
+    .SYNOPSIS
+      Returns index configuration for option trading.
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [ValidateSet('NIFTY','BANKNIFTY','FinNifty','MIDCPNIFTY','SENSEX')]
+        [string]$IndexName,
+        [int]$NoOfLots = 1
+    )
+
+    $IndexConfigs = @{
+        'NIFTY' = @{
+            tradingsymbol    = 'NIFTY 50'
+            instrument_token = '256265'
+            SpotQuoteKey     = 'NSE:NIFTY 50'
+            SearchKeyWord    = 'NIFTY'
+            Lot              = 75
+            exchange         = 'NFO'
+            Segment          = 'NFO-OPT'
+            SpotExchange     = 'NSE'
+            OptExchange      = 'NFO'
+        }
+        'BANKNIFTY' = @{
+            tradingsymbol    = 'NIFTY BANK'
+            instrument_token = '260105'
+            SpotQuoteKey     = 'NSE:NIFTY BANK'
+            SearchKeyWord    = 'BANKNIFTY'
+            Lot              = 15
+            exchange         = 'NFO'
+            Segment          = 'NFO-OPT'
+            SpotExchange     = 'NSE'
+            OptExchange      = 'NFO'
+        }
+        'FinNifty' = @{
+            tradingsymbol    = 'NIFTY FIN SERVICE'
+            instrument_token = '257801'
+            SpotQuoteKey     = 'NSE:NIFTY FIN SERVICE'
+            SearchKeyWord    = 'FINNIFTY'
+            Lot              = 40
+            exchange         = 'NFO'
+            Segment          = 'NFO-OPT'
+            SpotExchange     = 'NSE'
+            OptExchange      = 'NFO'
+        }
+        'MIDCPNIFTY' = @{
+            tradingsymbol    = 'NIFTY MID SELECT'
+            instrument_token = '288009'
+            SpotQuoteKey     = 'NSE:NIFTY MID SELECT'
+            SearchKeyWord    = 'MIDCPNIFTY'
+            Lot              = 75
+            exchange         = 'NFO'
+            Segment          = 'NFO-OPT'
+            SpotExchange     = 'NSE'
+            OptExchange      = 'NFO'
+        }
+        'SENSEX' = @{
+            tradingsymbol    = 'SENSEX'
+            instrument_token = '265'
+            SpotQuoteKey     = 'BSE:SENSEX'
+            SearchKeyWord    = 'SENSEX'
+            Lot              = 20
+            exchange         = 'BFO'
+            Segment          = 'BFO-OPT'
+            SpotExchange     = 'BSE'
+            OptExchange      = 'BFO'
+        }
+    }
+
+    if (-not $IndexConfigs.ContainsKey($IndexName)) {
+        Write-Error "Unknown Index: $IndexName. Supported: NIFTY, BANKNIFTY, FinNifty, MIDCPNIFTY, SENSEX"
+        return $null
+    }
+
+    $config = $IndexConfigs[$IndexName]
+    $config.Quantity = $config.Lot * $NoOfLots
+    return $config
+}
+
+function Get-KiteSpotPrice {
+    <#
+    .SYNOPSIS
+      Fetches current spot/LTP price for an index using EXCHANGE:TRADINGSYMBOL format.
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$SpotQuoteKey,
+        [Parameter(Mandatory=$true)]
+        [hashtable]$Headers
+    )
+    try {
+        $encodedKey = [System.Uri]::EscapeDataString($SpotQuoteKey)
+        $resp = Invoke-RestMethod -Uri "https://api.kite.trade/quote/ltp?i=$encodedKey" -Headers $Headers -Method Get -ErrorAction Stop
+        foreach ($prop in $resp.data.PSObject.Properties) {
+            if ($prop.Value.last_price -gt 0) { return $prop.Value.last_price }
+        }
+    } catch {}
+    return 0
+}
+
+function Get-KiteOptionInstruments {
+    <#
+    .SYNOPSIS
+      Fetches and parses option instruments for a given index, filtered by type and nearest expiry.
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$OptExchange,
+        [Parameter(Mandatory=$true)]
+        [string]$UnderlyingName,
+        [Parameter(Mandatory=$true)]
+        [ValidateSet('CE','PE')]
+        [string]$OptionType,
+        [Parameter(Mandatory=$true)]
+        [hashtable]$Headers
+    )
+
+    try {
+        $resp = Invoke-WebRequest -Uri "https://api.kite.trade/instruments/$OptExchange" -Headers $Headers -Method Get -ErrorAction Stop
+    } catch {
+        Write-Host "  Failed to fetch instruments: $($_.Exception.Message)" -ForegroundColor Red
+        return $null
+    }
+
+    $lines = ($resp.Content -split "`n") | Select-Object -Skip 1 | Where-Object { $_.Length -gt 10 }
+
+    $options = foreach ($line in $lines) {
+        $cols = $line -split ','
+        if ($cols.Count -ge 12) {
+            $name = ($cols[3] -replace '"','').Trim()
+            $instType = ($cols[9] -replace '"','').Trim()
+            if (($name -eq $UnderlyingName) -and ($instType -eq $OptionType)) {
+                [PSCustomObject]@{
+                    Token   = [long]$cols[0]
+                    Symbol  = ($cols[2] -replace '"','').Trim()
+                    Name    = $name
+                    Expiry  = ($cols[5] -replace '"','').Trim()
+                    Strike  = [double]$cols[6]
+                    LotSize = [int]$cols[8]
+                    Type    = $instType
+                }
+            }
+        }
+    }
+
+    if (-not $options -or @($options).Count -eq 0) {
+        Write-Host "  No $OptionType options found for '$UnderlyingName'." -ForegroundColor Red
+        return $null
+    }
+
+    # Pick nearest expiry
+    $today = (Get-Date).ToString('yyyy-MM-dd')
+    $allExpiries = @($options | Select-Object -ExpandProperty Expiry -Unique | Sort-Object)
+    $nearestExpiry = $allExpiries | Where-Object { $_ -ge $today } | Select-Object -First 1
+
+    if (-not $nearestExpiry) {
+        Write-Host "  No valid expiry found." -ForegroundColor Red
+        return $null
+    }
+
+    $filtered = @($options | Where-Object { $_.Expiry -eq $nearestExpiry })
+    $strikes = @($filtered | Select-Object -ExpandProperty Strike -Unique | Sort-Object)
+
+    return @{
+        Options = $filtered
+        Strikes = $strikes
+        Expiry  = $nearestExpiry
+    }
+}
+
+function Get-ATMOption {
+    <#
+    .SYNOPSIS
+      Finds the ATM option closest to spot price, with optional strike offset.
+      Offset 0 = ATM, 1 = 1 strike OTM, -1 = 1 strike ITM, etc.
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [double]$SpotPrice,
+        [Parameter(Mandatory=$true)]
+        [array]$Options,
+        [Parameter(Mandatory=$true)]
+        [array]$AllStrikes,
+        [int]$Offset = 0
+    )
+    $sorted = $AllStrikes | Sort-Object
+    $atmStrike = $sorted | Sort-Object { [Math]::Abs($_ - $SpotPrice) } | Select-Object -First 1
+    $atmIndex = [array]::IndexOf($sorted, $atmStrike)
+    $targetIndex = $atmIndex + $Offset
+    if ($targetIndex -lt 0) { $targetIndex = 0 }
+    if ($targetIndex -ge $sorted.Count) { $targetIndex = $sorted.Count - 1 }
+    $targetStrike = $sorted[$targetIndex]
+    return ($Options | Where-Object { $_.Strike -eq $targetStrike } | Select-Object -First 1)
+}
+
 # ── Module exports (single consolidated statement) ─────────
-Export-ModuleMember -Function Get-KiteCandles, Search-KiteInstrument, Show-KitePresets, Get-KiteLiveCandles, Get-KiteHeikinAshiCandles, Invoke-KiteHALongStrategy, Invoke-KiteHAShortStrategy, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol
+Export-ModuleMember -Function Search-KiteInstrument, Show-KitePresets, Get-KiteLiveCandles, Get-KiteHeikinAshiCandles, Invoke-KiteHALongStrategy, Invoke-KiteHAShortStrategy, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol, Place-ZerodhaOrder, Get-IndexOptionConfig, Get-KiteSpotPrice, Get-KiteOptionInstruments, Get-ATMOption

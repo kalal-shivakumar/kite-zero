@@ -15,10 +15,10 @@
 #>
 
 param(
-    [string]$TradingSymbol  = 'NIFTY',
+    [string]$TradingSymbol  = 'SENSEX',
     [int]$InstrumentToken,
     [ValidateSet('minute','3minute','5minute','10minute','15minute','30minute','60minute')]
-    [string]$TimeFrame      = '5minute',
+    [string]$TimeFrame      = '3minute',
     [int]$CandlesToShow     = 10,
     [switch]$FullMode,
     [switch]$ListSymbols,
@@ -32,6 +32,22 @@ param(
 # Import the module
 $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Definition }
 Import-Module "$scriptDir\KiteData.psm1" -Force
+
+# ================================================================
+# Load defaults from input.json (command-line params override)
+# ================================================================
+$inputFile = Join-Path $scriptDir 'input.json'
+if (Test-Path $inputFile) {
+    $cfg = Get-Content $inputFile -Raw | ConvertFrom-Json
+    if (-not $PSBoundParameters.ContainsKey('TradingSymbol'))  { $TradingSymbol  = $cfg.TradingSymbol }
+    if (-not $PSBoundParameters.ContainsKey('InstrumentToken') -and $cfg.InstrumentToken) { $InstrumentToken = [int]$cfg.InstrumentToken }
+    if (-not $PSBoundParameters.ContainsKey('TimeFrame'))      { $TimeFrame      = $cfg.TimeFrame }
+    if (-not $PSBoundParameters.ContainsKey('CandlesToShow'))  { $CandlesToShow  = [int]$cfg.CandlesToShow }
+    if (-not $PSBoundParameters.ContainsKey('FullMode')  -and $cfg.FullMode)  { $FullMode  = [switch]$true }
+    if (-not $PSBoundParameters.ContainsKey('API_Key'))         { $API_Key        = $cfg.API_Key }
+    if (-not $PSBoundParameters.ContainsKey('API_Secret'))      { $API_Secret     = $cfg.API_Secret }
+    Write-Host "  Loaded config from input.json" -ForegroundColor DarkGray
+}
 
 # ================================================================
 # Entry point — validate & load token immediately

@@ -1,2 +1,17 @@
-# Access token (contains secrets)
+# Access tokens (secrets)
 accesstoken.json
+BACK-Test/accesstoken.json
+
+# Config with API keys (use input.example.json as template)
+input.json
+
+# Position state files (runtime)
+PlacedOrders/CE-Position.json
+PlacedOrders/PE-Position.json
+PlacedOrders/Long-Entry-*.txt
+PlacedOrders/Long-Exit-*.txt
+PlacedOrders/Short-Entry-*.txt
+PlacedOrders/Short-Exit-*.txt
+
+# Backtest output
+BACK-Test/*.csv

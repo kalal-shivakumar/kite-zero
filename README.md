@@ -1,8 +1,43 @@
 # Powershell-Kite
 
-PowerShell scripts for fetching live and historical market data from **Zerodha Kite** APIs.
+PowerShell scripts for **live market data streaming**, **Heikin-Ashi trading strategies**, and **backtesting** using **Zerodha Kite** APIs.
 
 Supports all exchanges: **NSE, BSE, NFO, BFO, MCX, CDS, BCD** — Equities, Futures, Options, Commodities, Currency, Indices.
+
+---
+
+## Project Structure
+
+```
+Powershell-kite/
+├── KiteData.psm1                          # Core module — all shared functions
+├── input.json                             # Central config — all scripts read from here
+├── Long-SignalGenerator.ps1               # HA Long signal generator (writes signal files)
+├── Short-SignalGenerator.ps1              # HA Short signal generator (writes signal files)
+├── CE-BUY.ps1                             # CE option buyer (reads Long signal files)
+├── PE-BUY.ps1                             # PE option buyer (reads Short signal files)
+├── accesstoken.json                       # Saved Kite access token (auto-generated)
+├── README.md
+├── Archive/
+│   ├── Get-KiteHeikinAshiCandles.ps1      # Live HA candle streaming (WebSocket)
+│   ├── Get-KiteLiveCandles.ps1            # Live OHLCV candle streaming (WebSocket)
+│   └── Get-NFOOptionChain.ps1             # NFO option chain viewer
+├── BACK-Test/
+│   ├── Backtest-KiteHALongStrategy.ps1    # Backtest HA Long strategy
+│   ├── Backtest-KiteHAShortStrategy.ps1   # Backtest HA Short strategy
+│   └── Run-SensexOptionChainBacktest.ps1  # Sensex option chain backtester
+├── MCX/
+│   ├── Get-MCXInstruments.ps1             # List all MCX commodities with live prices
+│   ├── Invoke-KiteHALongStrategy-NatGasMini.ps1   # HA Long strategy for NATGASMINI
+│   └── Invoke-KiteHAShortStrategy-NatGasMini.ps1  # HA Short strategy for NATGASMINI
+└── PlacedOrders/                          # Signal files + position state (auto-created)
+    ├── Long-Entry-*.txt                   # Created by Long-SignalGenerator
+    ├── Long-Exit-*.txt                    # Created by Long-SignalGenerator
+    ├── Short-Entry-*.txt                  # Created by Short-SignalGenerator
+    ├── Short-Exit-*.txt                   # Created by Short-SignalGenerator
+    ├── CE-Position.json                   # CE-BUY active position state
+    └── PE-Position.json                   # PE-BUY active position state
+```
 
 ---
 
@@ -10,204 +45,403 @@ Supports all exchanges: **NSE, BSE, NFO, BFO, MCX, CDS, BCD** — Equities, Futu
 
 | File | Description |
 |---|---|
-| `Get-KiteLiveCandles.ps1` | **WebSocket** real-time tick streaming + live 1-min candle builder via Kite Connect API |
-| `Get-KiteCandles.ps1` | **REST** historical candle data fetcher (uses browser enctoken) |
-| `KiteData.psm1` | Reusable module with preset instruments, search, and candle functions |
+| `KiteData.psm1` | Core module — preset instruments, auth, WebSocket tick parsing, HA candle building, strategy engines, option helpers |
+| `input.json` | **Central configuration file** — all 4 scripts read their parameters from here |
+| `Long-SignalGenerator.ps1` | Runs HA Long strategy, writes signal files to `PlacedOrders/` |
+| `Short-SignalGenerator.ps1` | Runs HA Short strategy, writes signal files to `PlacedOrders/` |
+| `CE-BUY.ps1` | Monitors Long signal files, auto-trades ATM CE options |
+| `PE-BUY.ps1` | Monitors Short signal files, auto-trades ATM PE options |
+| `BACK-Test/Backtest-KiteHAShortStrategy.ps1` | Backtest HA Short strategy on historical candle data |
+| `BACK-Test/Backtest-KiteHALongStrategy.ps1` | Backtest HA Long strategy on historical candle data |
+| `MCX/Get-MCXInstruments.ps1` | List all MCX commodity futures with live prices & lot sizes |
+| `MCX/Invoke-KiteHALongStrategy-NatGasMini.ps1` | HA Long strategy pre-configured for Natural Gas Mini |
+| `MCX/Invoke-KiteHAShortStrategy-NatGasMini.ps1` | HA Short strategy pre-configured for Natural Gas Mini |
+| `PlacedOrders/` | Auto-generated signal files and position state |
 
 ---
 
 ## Setup
 
-### Option A: WebSocket Live Streaming (Kite Connect API)
+### Prerequisites
 
 Requires `api_key` + `api_secret` from [Kite Connect Developer Portal](https://developers.kite.trade/).
 
+### Step 1: Configure `input.json`
+
+Edit `input.json` with your API credentials and desired trading parameters.
+
+### Step 2: Authenticate
+
 ```powershell
-# Step 1: Open login URL in browser
-.\Get-KiteLiveCandles.ps1 -GetLoginUrl
+# Open login URL in browser
+.\Long-SignalGenerator.ps1 -GetLoginUrl
 
-# Step 2: Log in, copy request_token from redirect URL
-.\Get-KiteLiveCandles.ps1 -RequestToken "paste_token_here"
+# Log in, copy request_token from redirect URL
+.\Long-SignalGenerator.ps1 -RequestToken "paste_token_here"
 
-# Step 3: Runs automatically — access_token saved for the session
-.\Get-KiteLiveCandles.ps1 -FullMode
+# access_token saved to accesstoken.json (valid ~10 hours)
+# All scripts auto-load from accesstoken.json — no manual setup needed
 ```
 
-### Option B: REST Historical Data (Browser enctoken)
+### Step 3: Run
 
-No developer account needed — just your Zerodha login.
+Open 4 terminals and start all scripts (see "Running the System" above).
+
+---
+
+## Central Configuration — `input.json`
+
+All 4 scripts (`Long-SignalGenerator.ps1`, `Short-SignalGenerator.ps1`, `CE-BUY.ps1`, `PE-BUY.ps1`) read their parameters from a single `input.json` file. Edit this one file to configure everything.
+
+```json
+{
+    "API_Key":                  "your_api_key",
+    "API_Secret":               "your_api_secret",
+
+    "TradingSymbol":            "SENSEX",
+    "InstrumentToken":          0,
+    "TimeFrame":                "3minute",
+    "CandlesToShow":            10,
+    "FullMode":                 false,
+
+    "IndexChoosen":             "SENSEX",
+    "NoOfLotsPurchaseAtaTime":  5,
+    "Product":                  "NRML",
+    "StartTime":                "09:17:01",
+    "StopTime":                 "21:00:00",
+    "Order_type":               "MARKET",
+    "ModeOfTrading":            "Option_Buyer",
+    "ATMOffset":                1,
+    "Variety":                  "regular",
+    "MarketProtection":         3
+}
+```
+
+### Which script uses which parameters
+
+| Parameter | Signal Generators | CE-BUY / PE-BUY |
+|---|:---:|:---:|
+| `API_Key`, `API_Secret` | Yes | Yes |
+| `TradingSymbol` | Yes | — |
+| `InstrumentToken` | Yes | — |
+| `TimeFrame` | Yes | — |
+| `CandlesToShow` | Yes | — |
+| `FullMode` | Yes | — |
+| `IndexChoosen` | — | Yes |
+| `NoOfLotsPurchaseAtaTime` | — | Yes |
+| `Product` | — | Yes |
+| `StartTime`, `StopTime` | — | Yes |
+| `Order_type` | — | Yes |
+| `ModeOfTrading` | — | Yes |
+| `ATMOffset` | — | Yes |
+| `Variety` | — | Yes |
+| `MarketProtection` | — | Yes |
+
+Command-line parameters always override `input.json` values (e.g., `.\CE-BUY.ps1 -IndexChoosen BANKNIFTY`).
+
+---
+
+## How It Works — Architecture & Signal Flow
+
+The system runs as **4 independent scripts** that communicate through **signal files** in the `PlacedOrders/` folder:
+
+```
+┌─────────────────────────┐     Signal Files      ┌─────────────────────────┐
+│  Long-SignalGenerator   │ ──── Long-Entry-*.txt ──▶│       CE-BUY.ps1        │
+│  (HA Long Strategy)     │ ──── Long-Exit-*.txt  ──▶│  (Buys ATM CE options)  │
+└─────────────────────────┘                        └─────────────────────────┘
+
+┌─────────────────────────┐     Signal Files      ┌─────────────────────────┐
+│  Short-SignalGenerator  │ ──── Short-Entry-*.txt──▶│       PE-BUY.ps1        │
+│  (HA Short Strategy)    │ ──── Short-Exit-*.txt ──▶│  (Buys ATM PE options)  │
+└─────────────────────────┘                        └─────────────────────────┘
+
+                All 4 scripts read config from: input.json
+```
+
+### Step-by-step flow
+
+1. **Signal Generators** connect to Kite WebSocket, receive live ticks, and build Heikin-Ashi candles in real-time
+2. When HA conditions are met, they write a **signal file** (e.g., `Long-Entry-85200-20260508-0930.txt`) to `PlacedOrders/`
+3. **CE-BUY / PE-BUY** poll `PlacedOrders/` every 2 seconds looking for their respective signal files
+4. On detecting a signal file, they fetch the current spot price, find the ATM option strike, and place a BUY order via Kite API
+5. The signal file is **deleted immediately** after processing to prevent duplicate orders
+6. Position state is persisted to `CE-Position.json` / `PE-Position.json` so scripts survive restarts
+
+---
+
+## Heikin-Ashi Trading Strategies
+
+### Strategy Logic
+
+Both Long and Short strategies use **Heikin-Ashi candles** for signal generation and execute at **real market price (LTP)**.
+
+**Heikin-Ashi Formula:**
+- HA Close = (Open + High + Low + Close) / 4
+- HA Open = (Previous HA Open + Previous HA Close) / 2
+- HA High = Max(High, HA Open, HA Close)
+- HA Low = Min(Low, HA Open, HA Close)
+
+### Long Strategy (`Long-SignalGenerator.ps1`)
+
+| Signal | Condition | Action |
+|---|---|---|
+| **Long Entry** | Current HA Close > Previous HA High | Writes `Long-Entry-*.txt` to `PlacedOrders/` |
+| **Long Exit** | Current HA Close < Previous HA Low | Writes `Long-Exit-*.txt` to `PlacedOrders/` |
+
+Only one Long position at a time.
+
+### Short Strategy (`Short-SignalGenerator.ps1`)
+
+| Signal | Condition | Action |
+|---|---|---|
+| **Short Entry** | Current HA Close < Previous HA Low | Writes `Short-Entry-*.txt` to `PlacedOrders/` |
+| **Short Exit** | Current HA Close > Previous HA High | Writes `Short-Exit-*.txt` to `PlacedOrders/` |
+
+Only one Short position at a time.
+
+### How CE-BUY.ps1 Reads Signals (Long → CE Options)
+
+1. Polls `PlacedOrders/` for `Long-Entry-*.txt` files every 2 seconds
+2. On detection:
+   - Fetches current spot price via Kite quote API
+   - Calculates ATM CE strike from the option chain (offset by `ATMOffset`)
+   - Places a **BUY** order for the ATM CE option via `Place-ZerodhaOrder`
+   - Deletes all `Long-Entry-*.txt` files to prevent duplicate orders
+   - Saves position state to `CE-Position.json`
+3. Then polls for `Long-Exit-*.txt` files
+4. On detection:
+   - Places a **SELL** order for the same CE option it bought
+   - Deletes all `Long-Exit-*.txt` files
+   - Removes `CE-Position.json`
+5. At `StopTime`, force-exits any open position
+
+### How PE-BUY.ps1 Reads Signals (Short → PE Options)
+
+1. Polls `PlacedOrders/` for `Short-Entry-*.txt` files every 2 seconds
+2. On detection:
+   - Fetches current spot price via Kite quote API
+   - Calculates ATM PE strike from the option chain (offset by `ATMOffset`)
+   - Places a **BUY** order for the ATM PE option via `Place-ZerodhaOrder`
+   - Deletes all `Short-Entry-*.txt` files to prevent duplicate orders
+   - Saves position state to `PE-Position.json`
+3. Then polls for `Short-Exit-*.txt` files
+4. On detection:
+   - Places a **SELL** order for the same PE option it bought
+   - Deletes all `Short-Exit-*.txt` files
+   - Removes `PE-Position.json`
+5. At `StopTime`, force-exits any open position
+
+### Signal File Format
+
+Strategy scripts write signal files to `PlacedOrders/` with the naming convention:
+```
+Long-Entry-{price}-{timestamp}.txt
+Long-Exit-{price}-{timestamp}.txt
+Short-Entry-{price}-{timestamp}.txt
+Short-Exit-{price}-{timestamp}.txt
+```
+
+Each file contains: Symbol, LTP, HA Close, Previous HA High/Low, Entry/Exit price, P&L, and timestamp.
+
+---
+
+## Running the System
+
+Open **4 separate terminals** and run all scripts simultaneously:
 
 ```powershell
-# Get enctoken from browser:
-#   1. Log in at https://kite.zerodha.com
-#   2. F12 > Application > Cookies > kite.zerodha.com > enctoken
-$env:KITE_ENCTOKEN = "paste_enctoken_here"
+# Terminal 1 — Long signal generator
+.\Long-SignalGenerator.ps1
 
-.\Get-KiteCandles.ps1
+# Terminal 2 — Short signal generator
+.\Short-SignalGenerator.ps1
+
+# Terminal 3 — CE option buyer (reads Long signals)
+.\CE-BUY.ps1
+
+# Terminal 4 — PE option buyer (reads Short signals)
+.\PE-BUY.ps1
+```
+
+Or override specific params on the command line:
+
+```powershell
+.\Long-SignalGenerator.ps1 -TradingSymbol BANKNIFTY -TimeFrame 5minute
+.\CE-BUY.ps1 -IndexChoosen BANKNIFTY -NoOfLotsPurchaseAtaTime 2
 ```
 
 ---
 
-## Get-KiteLiveCandles.ps1 — WebSocket Live Ticks
+## Backtesting
 
-Connects to `wss://ws.kite.trade`, subscribes to instruments, parses binary tick packets per [Kite WebSocket docs](https://kite.trade/docs/connect/v3/websocket/), and builds live 1-min OHLCV candles that update on every tick.
+### Backtest HA Short Strategy (`BACK-Test/Backtest-KiteHAShortStrategy.ps1`)
 
-### Usage
+Fetches historical candle data from Kite API, converts to Heikin-Ashi, and simulates the Short strategy with full trade-by-trade reporting.
 
 ```powershell
-# Default: SILVERM26APRFUT in full mode
-.\Get-KiteLiveCandles.ps1 -FullMode
+# Last 5 days, 1-min candles
+.\BACK-Test\Backtest-KiteHAShortStrategy.ps1 -TradingSymbol NIFTY -StartDate "-5" -EndDate "0"
 
-# Custom instrument
-.\Get-KiteLiveCandles.ps1 -Tokens 256265 -Labels "NIFTY50" -FullMode
+# Specific dates
+.\BACK-Test\Backtest-KiteHAShortStrategy.ps1 -TradingSymbol BANKNIFTY -StartDate "2026-04-20" -EndDate "2026-04-25"
 
-# Multiple instruments
-.\Get-KiteLiveCandles.ps1 -Tokens 256265,260105 -Labels "NIFTY","BANKNIFTY"
+# Time window filter (9:15 AM to 11:30 AM only)
+.\BACK-Test\Backtest-KiteHAShortStrategy.ps1 -TradingSymbol NIFTY -StartDate "0" -EndDate "0" -StartTime "09:15" -EndTime "11:30"
 
-# Show more candles
-.\Get-KiteLiveCandles.ps1 -CandlesToShow 20 -FullMode
+# With 10-point stop loss
+.\BACK-Test\Backtest-KiteHAShortStrategy.ps1 -TradingSymbol NIFTY -StartDate "0" -EndDate "0" -StopLoss 10
+
+# Options by instrument token
+.\BACK-Test\Backtest-KiteHAShortStrategy.ps1 -TradingSymbol NIFTY26APR24600PE -InstrumentToken 18516482 -StartDate "0" -EndDate "0" -StartTime "09:15" -EndTime "11:30" -StopLoss 10
 ```
 
-### Parameters
+### Backtest Parameters
 
 | Parameter | Default | Description |
 |---|---|---|
-| `-RequestToken` | | One-time token from Kite login redirect |
-| `-AccessToken` | `$env:KITE_ACCESS_TOKEN` | Reuse saved access token |
-| `-Tokens` | `117128455` | Instrument token(s) to subscribe |
-| `-Labels` | `SILVERM26APRFUT` | Display label(s) for instruments |
+| `-TradingSymbol` | `NIFTY` | Symbol name (preset or custom) |
+| `-InstrumentToken` | | Kite instrument token (for non-preset symbols like options) |
+| `-StartDate` | | Start date: `0` = today, `-1` = yesterday, `-7` = 7 days ago, or `yyyy-MM-dd` |
+| `-EndDate` | | End date: same format as StartDate |
+| `-TimeFrame` | `minute` | Candle interval: `minute`, `3minute`, `5minute`, `10minute`, `15minute`, `30minute`, `60minute` |
+| `-StartTime` | `09:15` | Filter candles from this time (HH:mm) |
+| `-EndTime` | `15:30` | Filter candles until this time (HH:mm) |
+| `-StopLoss` | `10` | Stop loss in points (0 to disable) |
+
+### Backtest Report
+
+The report includes:
+- Trade-by-trade list with entry/exit times, prices, P&L, and holding duration
+- Stop loss hits marked with `(SL)`
+- Summary statistics: Total P&L, Win Rate, Avg Win/Loss, Max Win/Loss, Profit Factor, Max Drawdown, Consecutive Wins/Losses
+
+---
+
+## MCX Commodity Scripts
+
+### List All MCX Instruments (`MCX/Get-MCXInstruments.ps1`)
+
+Fetches all MCX futures (nearest month) with live prices and lot sizes.
+
+```powershell
+.\MCX\Get-MCXInstruments.ps1
+```
+
+### Natural Gas Mini Strategies
+
+Pre-configured strategy scripts for NATGASMINI (MCX):
+
+```powershell
+# Long strategy
+.\MCX\Invoke-KiteHALongStrategy-NatGasMini.ps1
+
+# Short strategy
+.\MCX\Invoke-KiteHAShortStrategy-NatGasMini.ps1
+
+# Custom timeframe
+.\MCX\Invoke-KiteHALongStrategy-NatGasMini.ps1 -TimeFrame 3minute
+```
+
+---
+
+## Live Candle Streaming (Archive)
+
+### Regular OHLCV Candles (`Archive/Get-KiteLiveCandles.ps1`)
+
+Connects to `wss://ws.kite.trade`, subscribes to instruments, parses binary tick packets per [Kite WebSocket docs](https://kite.trade/docs/connect/v3/websocket/), and builds live OHLCV candles.
+
+```powershell
+.\Archive\Get-KiteLiveCandles.ps1
+.\Archive\Get-KiteLiveCandles.ps1 -TradingSymbol BANKNIFTY -TimeFrame 5minute
+.\Archive\Get-KiteLiveCandles.ps1 -TradingSymbol SILVERM -TimeFrame 3minute -FullMode
+.\Archive\Get-KiteLiveCandles.ps1 -ListSymbols
+```
+
+### Heikin-Ashi Candles (`Archive/Get-KiteHeikinAshiCandles.ps1`)
+
+Same as above but builds Heikin-Ashi candles with trend indicator.
+
+```powershell
+.\Archive\Get-KiteHeikinAshiCandles.ps1
+.\Archive\Get-KiteHeikinAshiCandles.ps1 -TradingSymbol BANKNIFTY -TimeFrame 5minute
+.\Archive\Get-KiteHeikinAshiCandles.ps1 -TradingSymbol NATGASMINI -TimeFrame minute
+```
+
+### Common Parameters
+
+| Parameter | Default | Description |
+|---|---|---|
+| `-TradingSymbol` | `NIFTY` | Preset symbol name |
+| `-InstrumentToken` | | Override with specific instrument token |
+| `-TimeFrame` | `minute` / `5minute` | Candle interval |
 | `-CandlesToShow` | `10` | Number of candle rows to display |
-| `-FullMode` | off | Full tick mode (184 bytes with OI + depth) vs quote (44 bytes) |
+| `-FullMode` | off | Full tick mode (184 bytes with OI + depth) |
+| `-ListSymbols` | | Show all available preset symbols |
 | `-GetLoginUrl` | | Opens Kite login URL in browser |
-
-### WebSocket Tick Modes
-
-| Mode | Packet Size | Fields |
-|---|---|---|
-| `ltp` | 8 bytes | Token, LTP |
-| `quote` | 44 bytes | Token, LTP, LTQ, Avg, Volume, BuyQty, SellQty, OHLC |
-| `full` | 184 bytes | All quote fields + Timestamp, OI, Market Depth |
-
-### Output
-
-```
-  ================================================
-  SILVERM26APRFUT - Live 1-Min Candles (WebSocket)
-  ================================================
-  Token   : 117128455
-  Ticks   : 3
-  Candles : 1 total | Showing 1
-  Time    : 2026-03-31 23:45:43
-  LTP     : 2,44,490.00  |  Day O/H/L/C: 2,38,001.00/2,44,564.00/2,38,001.00/2,43,733.00
-
- Time                Open           High            Low          Close   Volume     OI  Ticks
- --------------------------------------------------------------------------------------------
- 2026-03-31 23:45    2,44,490.00    2,44,490.00    2,44,490.00  2,44,490.00    0  13,484    3
-```
+| `-RequestToken` | | One-time token from Kite login redirect |
 
 ---
 
-## Get-KiteCandles.ps1 — REST Historical Candles
+## KiteData.psm1 — Core Module
 
-Fetches historical candle data via Kite's REST API. Supports all intervals and any instrument.
-
-### Usage
-
-```powershell
-# Default: SILVERM26APRFUT 1-min candles
-.\Get-KiteCandles.ps1
-
-# Preset instruments
-.\Get-KiteCandles.ps1 -Preset NIFTY
-.\Get-KiteCandles.ps1 -Preset RELIANCE -Interval 5minute -CandleCount 20
-
-# Custom instrument by token
-.\Get-KiteCandles.ps1 -InstrumentToken 260105 -TradingSymbol "NIFTY BANK" -Exchange NSE
-
-# Search instruments
-.\Get-KiteCandles.ps1 -Search "BANKNIFTY"
-
-# List all presets
-.\Get-KiteCandles.ps1 -ListPresets
-```
-
-### Parameters
-
-| Parameter | Default | Description |
-|---|---|---|
-| `-Preset` | | Use a preset instrument (NIFTY, SENSEX, RELIANCE, etc.) |
-| `-InstrumentToken` | `117128455` | Kite instrument token |
-| `-TradingSymbol` | `SILVERM26APRFUT` | Trading symbol |
-| `-Exchange` | `MCX` | Exchange: NSE, BSE, NFO, BFO, MCX, CDS, BCD |
-| `-Interval` | `minute` | Candle interval (see table below) |
-| `-CandleCount` | `10` | Number of candles to show |
-| `-Search` | | Search for instruments by name |
-| `-ListPresets` | | Show all available preset instruments |
-| `-Continuous` | | Keep polling and refreshing data |
-
-### Intervals
-
-| Value | Candle Size |
-|---|---|
-| `minute` | 1 minute |
-| `3minute` | 3 minutes |
-| `5minute` | 5 minutes |
-| `10minute` | 10 minutes |
-| `15minute` | 15 minutes |
-| `30minute` | 30 minutes |
-| `60minute` | 1 hour |
-| `day` | 1 day |
-
----
-
-## KiteData.psm1 — Reusable Module
-
-Import the module to use functions directly in your scripts:
+All shared functions live here. Imported automatically by all scripts.
 
 ```powershell
 Import-Module .\KiteData.psm1
-
-# Fetch candles with preset
-Get-KiteCandles -Preset NIFTY -Interval 5minute -CandleCount 20
 
 # Search instruments
 Search-KiteInstrument -Query "BANKNIFTY" -Exchange NFO
 
 # List presets
-Show-KitePresets
+Show-KiteSymbols
 ```
 
 ### Preset Instruments
 
 **Indices:** NIFTY, SENSEX, BANKNIFTY, FINNIFTY, MIDCPNIFTY
 
-**Equity (NSE):** RELIANCE, TCS, INFY, HDFCBANK, ICICIBANK, SBIN, TATAMOTORS, ITC, WIPRO, BHARTIARTL, KOTAKBANK, LT, HINDUNILVR, AXISBANK, MARUTI
+**Equity (NSE):** RELIANCE, TCS, INFY, HDFCBANK, ICICIBANK, SBIN, TATAMOTORS, ITC, WIPRO, BHARTIARTL, KOTAKBANK, LT, HINDUNILVR, AXISBANK, MARUTI, ADANIENT, ADANIPORTS, BAJFINANCE, SUNPHARMA, TITAN
 
-**Commodities (MCX):** SILVERM26APRFUT, GOLDM26APRFUT, CRUDEOIL26APRFUT, NATURALGAS26APRFUT
+**Commodities (MCX):** SILVERM, GOLDM, CRUDEOIL, NATURALGAS, NATGASMINI
+
+### Exported Functions
+
+| Function | Description |
+|---|---|
+| `Get-KiteLiveCandles` | WebSocket live OHLCV candle builder |
+| `Get-KiteHeikinAshiCandles` | WebSocket live Heikin-Ashi candle builder |
+| `Invoke-KiteHALongStrategy` | HA Long strategy engine (writes signal files) |
+| `Invoke-KiteHAShortStrategy` | HA Short strategy engine (writes signal files) |
+| `Get-IndexOptionConfig` | Returns index-specific config (exchange, lot size, quote key) |
+| `Get-KiteOptionInstruments` | Fetches option chain instruments for an exchange |
+| `Get-KiteSpotPrice` | Fetches current spot price via Kite quote API |
+| `Get-ATMOption` | Finds ATM option strike from option chain |
+| `Place-ZerodhaOrder` | Places BUY/SELL orders via Kite order API |
+| `Search-KiteInstrument` | Search instruments by name across exchanges |
+| `Resolve-KiteSymbol` | Resolve a symbol name to preset data |
+| `Show-KiteSymbols` | List all preset symbols |
+| `Resolve-KiteAccessToken` | Resolve access token (env > file > login) |
+| `Exchange-KiteRequestToken` | Exchange request token for access token |
 
 ---
 
-## Authentication
+## Setup & Authentication
 
-| Method | Used By | How to Get |
-|---|---|---|
-| **enctoken** | `Get-KiteCandles.ps1` | Browser: F12 > Application > Cookies > kite.zerodha.com |
-| **access_token** | `Get-KiteLiveCandles.ps1` | Kite Connect OAuth login flow (api_key + api_secret) |
+All scripts use Kite Connect API with `api_key` + `access_token`. Credentials are configured in `input.json`.
 
-### Getting enctoken (REST mode)
+```powershell
+# Step 1: Open login URL in browser
+.\Long-SignalGenerator.ps1 -GetLoginUrl
 
-1. Log in at https://kite.zerodha.com
-2. Press F12 > Application > Cookies > `kite.zerodha.com`
-3. Copy the `enctoken` value
-4. `$env:KITE_ENCTOKEN = "paste_here"`
+# Step 2: Log in, copy request_token from redirect URL
+.\Long-SignalGenerator.ps1 -RequestToken "paste_token_here"
 
-### Getting access_token (WebSocket mode)
+# Step 3: access_token saved to accesstoken.json (valid ~10 hours)
+# All scripts auto-load from accesstoken.json — no manual setup needed
+```
 
-1. `.\Get-KiteLiveCandles.ps1 -GetLoginUrl` (opens browser)
-2. Log in with Zerodha credentials
-3. Copy `request_token` from the redirect URL
-4. `.\Get-KiteLiveCandles.ps1 -RequestToken "paste_here"`
-5. Token saved to `$env:KITE_ACCESS_TOKEN` for the session
+If the token expires, any script will prompt for re-login automatically.
 
 ---
 
