@@ -1972,7 +1972,7 @@ function Get-IndexOptionConfig {
             instrument_token = '256265'
             SpotQuoteKey     = 'NSE:NIFTY 50'
             SearchKeyWord    = 'NIFTY'
-            Lot              = 75
+            Lot              = 65
             exchange         = 'NFO'
             Segment          = 'NFO-OPT'
             SpotExchange     = 'NSE'

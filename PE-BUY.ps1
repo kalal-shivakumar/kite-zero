@@ -98,6 +98,8 @@ $script:EntryToken       = 0
 $script:EntryStrike      = 0
 $script:EntryPrice       = 0
 $script:EntryTime        = ''
+$script:EntryOptionLTP   = 0
+$script:TotalPnL         = 0
 $script:ProcessedFiles   = @{}
 
 # Persist position state to file so script remembers after restart
@@ -110,7 +112,9 @@ if (Test-Path $PositionFile) {
     $script:EntryStrike = $saved.Strike
     $script:EntryPrice  = $saved.Price
     $script:EntryTime   = $saved.Time
-    Write-Host "  Restored position: $($script:EntrySymbol) | Strike: $($script:EntryStrike)" -ForegroundColor Yellow
+    $script:EntryOptionLTP = if ($saved.OptionLTP) { $saved.OptionLTP } else { 0 }
+    $script:TotalPnL       = if ($saved.TotalPnL)  { $saved.TotalPnL }  else { 0 }
+    Write-Host "  Restored position: $($script:EntrySymbol) | Strike: $($script:EntryStrike) | Entry LTP: $($script:EntryOptionLTP)" -ForegroundColor Yellow
 }
 
 # ================================================================
@@ -204,14 +208,20 @@ while ($true) {
             Get-ChildItem -Path $PlacedOrdersDir -Filter "Short-Entry-*.txt" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
 
             if ($result) {
+                # Fetch option LTP right after order to track entry premium
+                $script:EntryOptionLTP = 0
+                try {
+                    $qr = Invoke-RestMethod "https://api.kite.trade/quote/ltp?i=$([System.Uri]::EscapeDataString("${optExchange}:$($atmOption.Symbol)"))" -Headers $headers -ErrorAction Stop
+                    foreach ($p in $qr.data.PSObject.Properties) { $script:EntryOptionLTP = $p.Value.last_price; break }
+                } catch {}
                 $script:InPosition  = $true
                 $script:EntrySymbol = $atmOption.Symbol
                 $script:EntryToken  = $atmOption.Token
                 $script:EntryStrike = $atmOption.Strike
                 $script:EntryPrice  = $spotPrice
                 $script:EntryTime   = $now.ToString('HH:mm:ss')
-                @{ Symbol=$script:EntrySymbol; Token=$script:EntryToken; Strike=$script:EntryStrike; Price=$script:EntryPrice; Time=$script:EntryTime } | ConvertTo-Json | Set-Content $PositionFile -Force
-                Write-Host "  POSITION OPENED | BUY $($script:EntrySymbol) | Strike: $($script:EntryStrike) | Qty: $Quantity" -ForegroundColor Green
+                @{ Symbol=$script:EntrySymbol; Token=$script:EntryToken; Strike=$script:EntryStrike; Price=$script:EntryPrice; Time=$script:EntryTime; OptionLTP=$script:EntryOptionLTP; TotalPnL=$script:TotalPnL } | ConvertTo-Json | Set-Content $PositionFile -Force
+                Write-Host "  POSITION OPENED | BUY $($script:EntrySymbol) | Strike: $($script:EntryStrike) | Qty: $Quantity | Entry LTP: $($script:EntryOptionLTP)" -ForegroundColor Green
             }
         }
     }
@@ -236,13 +246,23 @@ while ($true) {
             Get-ChildItem -Path $PlacedOrdersDir -Filter "Short-Exit-*.txt" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
 
             if ($result) {
-                Write-Host "  POSITION CLOSED | SELL $($script:EntrySymbol) | Strike: $($script:EntryStrike)" -ForegroundColor Green
+                # Calculate realized P&L for this trade
+                $exitLTP = 0
+                try {
+                    $qr = Invoke-RestMethod "https://api.kite.trade/quote/ltp?i=$([System.Uri]::EscapeDataString("${optExchange}:$($script:EntrySymbol)"))" -Headers $headers -ErrorAction Stop
+                    foreach ($p in $qr.data.PSObject.Properties) { $exitLTP = $p.Value.last_price; break }
+                } catch {}
+                $tradePnL = ($exitLTP - $script:EntryOptionLTP) * $Quantity
+                $script:TotalPnL += $tradePnL
+                $pnlColor = if ($tradePnL -ge 0) { 'Green' } else { 'Red' }
+                Write-Host "  POSITION CLOSED | SELL $($script:EntrySymbol) | Strike: $($script:EntryStrike) | Trade P&L: $($tradePnL.ToString('N2')) | Total P&L: $($script:TotalPnL.ToString('N2'))" -ForegroundColor $pnlColor
                 $script:InPosition  = $false
                 $script:EntrySymbol = ''
                 $script:EntryToken  = 0
                 $script:EntryStrike = 0
                 $script:EntryPrice  = 0
                 $script:EntryTime   = ''
+                $script:EntryOptionLTP = 0
                 Remove-Item $PositionFile -Force -ErrorAction SilentlyContinue
             }
 
@@ -266,8 +286,12 @@ while ($true) {
         $optSym = if ($script:InPosition) { $script:EntrySymbol } else { $atmNow.Symbol }
         try { $r = Invoke-RestMethod "https://api.kite.trade/quote/ltp?i=$([System.Uri]::EscapeDataString("${optExchange}:${optSym}"))" -Headers $headers -ErrorAction Stop; foreach ($p in $r.data.PSObject.Properties) { $ltp = $p.Value.last_price; break } } catch {}
     }
+    # Calculate unrealized P&L if in position
+    $unrealizedPnL = if ($script:InPosition -and $script:EntryOptionLTP -gt 0 -and $ltp -gt 0) { ($ltp - $script:EntryOptionLTP) * $Quantity } else { 0 }
+    $displayPnL = $script:TotalPnL + $unrealizedPnL
+    $pnlStr = $displayPnL.ToString('N2')
     $color = if ($script:InPosition) { 'Green' } else { 'DarkGray' }
-    Write-Host "`r  $($now.ToString('HH:mm:ss')) | PE $sym @ $ltp | $status   " -NoNewline -ForegroundColor $color
+    Write-Host "`r  $($now.ToString('HH:mm:ss')) | PE $sym @ $ltp | $status | PnL: $pnlStr   " -NoNewline -ForegroundColor $color
 
     Start-Sleep -Seconds 2
 }
