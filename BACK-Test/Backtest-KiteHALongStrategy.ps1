@@ -27,7 +27,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$StartDate      = '0',
     [string]$EndDate        = '-1',
-    [ValidateSet('minute','3minute','5minute','10minute','15minute','30minute','60minute')]
+    [ValidateSet('15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
     [string]$TimeFrame      = 'minute',
     [string]$StartTime      = '09:16',
     [string]$EndTime        = '15:30',

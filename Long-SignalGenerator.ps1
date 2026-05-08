@@ -17,7 +17,7 @@
 param(
     [string]$TradingSymbol  = 'SENSEX',
     [int]$InstrumentToken,
-    [ValidateSet('minute','3minute','5minute','10minute','15minute','30minute','60minute')]
+    [ValidateSet('15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
     [string]$TimeFrame      = '3minute',
     [int]$CandlesToShow     = 10,
     [switch]$FullMode,

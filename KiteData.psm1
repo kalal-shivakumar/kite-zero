@@ -210,23 +210,31 @@ function Resolve-KiteAccessToken {
 # ══════════════════════════════════════════════════════════════
 # Interval helpers
 # ══════════════════════════════════════════════════════════════
-function Get-IntervalMinutes([string]$Interval) {
+function Get-IntervalSeconds([string]$Interval) {
     switch ($Interval) {
-        'minute'   { return 1 }
-        '3minute'  { return 3 }
-        '5minute'  { return 5 }
-        '10minute' { return 10 }
-        '15minute' { return 15 }
-        '30minute' { return 30 }
-        '60minute' { return 60 }
-        default    { return 1 }
+        '15second' { return 15 }
+        '30second' { return 30 }
+        'minute'   { return 60 }
+        '3minute'  { return 180 }
+        '5minute'  { return 300 }
+        '10minute' { return 600 }
+        '15minute' { return 900 }
+        '30minute' { return 1800 }
+        '60minute' { return 3600 }
+        default    { return 60 }
     }
 }
 
-function Get-IntervalLabel([int]$Minutes) {
-    if ($Minutes -eq 1)  { return '1-Min' }
-    if ($Minutes -eq 60) { return '1-Hour' }
-    return "$($Minutes)-Min"
+# Backward compatibility wrapper
+function Get-IntervalMinutes([string]$Interval) {
+    return [Math]::Max(1, [int]([Math]::Floor((Get-IntervalSeconds $Interval) / 60)))
+}
+
+function Get-IntervalLabel([int]$Seconds) {
+    if ($Seconds -lt 60)   { return "$($Seconds)-Sec" }
+    if ($Seconds -eq 60)   { return '1-Min' }
+    if ($Seconds -eq 3600) { return '1-Hour' }
+    return "$([int]($Seconds / 60))-Min"
 }
 
 # ── Helper: Parse Kite datetime safely ──────────────────────
@@ -417,7 +425,7 @@ function Get-KiteLiveCandles {
     param(
         [string]$TradingSymbol  = 'NIFTY',
         [int]$InstrumentToken,
-        [ValidateSet('minute','3minute','5minute','10minute','15minute','30minute','60minute')]
+        [ValidateSet('15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
         [string]$TimeFrame      = '5minute',
         [int]$CandlesToShow     = 10,
         [switch]$FullMode,
@@ -449,8 +457,9 @@ function Get-KiteLiveCandles {
     }
 
     # --- Interval ---
+    $intSec   = Get-IntervalSeconds $TimeFrame
     $intMin   = Get-IntervalMinutes $TimeFrame
-    $intLabel = Get-IntervalLabel $intMin
+    $intLabel = Get-IntervalLabel $intSec
 
     # --- Auth ---
     if (-not $AccessToken) {
@@ -461,7 +470,7 @@ function Get-KiteLiveCandles {
     $script:CompletedCandles   = @{}   # token -> List of closed candle objects
     $script:ActiveCandle       = @{}   # token -> current building candle hashtable
     $script:TickCount          = 0
-    $script:IntervalMinutes    = $intMin
+    $script:IntervalSeconds    = $intSec
     $script:DisplayConfig      = @{
         SymbolName      = $sym
         SymbolLabel     = $label
@@ -475,8 +484,12 @@ function Get-KiteLiveCandles {
 
     function script:Get-CandleTimeBucket {
         $now = Get-Date
-        $bucketMinute = [Math]::Floor($now.Minute / $script:IntervalMinutes) * $script:IntervalMinutes
-        return $now.ToString('yyyy-MM-dd HH:') + $bucketMinute.ToString('00')
+        $totalSeconds = $now.Hour * 3600 + $now.Minute * 60 + $now.Second
+        $bucket = [Math]::Floor($totalSeconds / $script:IntervalSeconds) * $script:IntervalSeconds
+        $bH = [Math]::Floor($bucket / 3600)
+        $bM = [Math]::Floor(($bucket % 3600) / 60)
+        $bS = $bucket % 60
+        return $now.ToString('yyyy-MM-dd ') + ('{0:D2}:{1:D2}:{2:D2}' -f $bH, $bM, $bS)
     }
 
     function script:Update-CandleFromTick([int]$instrumentToken, [double]$lastPrice, [int]$volume, [double]$dayOpen, [double]$dayHigh, [double]$dayLow, [double]$dayClose, [int]$openInterest) {
@@ -577,7 +590,7 @@ function Get-KiteLiveCandles {
     Write-Host '  ================================================' -ForegroundColor Cyan
     Write-Host "  Symbol   : $label ($sym)"
     Write-Host "  Token    : $instToken"
-    Write-Host "  TimeFrame: $TimeFrame ($($intMin)m candles)"
+    Write-Host "  TimeFrame: $TimeFrame ($intLabel candles)"
     Write-Host "  Mode     : $modeStr"
     Write-Host ''
     Write-Host '  Connecting...' -ForegroundColor Yellow
@@ -697,7 +710,7 @@ function Get-KiteHeikinAshiCandles {
     param(
         [string]$TradingSymbol  = 'NIFTY',
         [int]$InstrumentToken,
-        [ValidateSet('minute','3minute','5minute','10minute','15minute','30minute','60minute')]
+        [ValidateSet('15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
         [string]$TimeFrame      = '5minute',
         [int]$CandlesToShow     = 10,
         [switch]$FullMode,
@@ -724,8 +737,9 @@ function Get-KiteHeikinAshiCandles {
         }
     }
 
+    $intSec   = Get-IntervalSeconds $TimeFrame
     $intMin   = Get-IntervalMinutes $TimeFrame
-    $intLabel = Get-IntervalLabel $intMin
+    $intLabel = Get-IntervalLabel $intSec
 
     if (-not $AccessToken) { Write-Host '  No token. Exiting.' -ForegroundColor Red; return }
 
@@ -734,7 +748,7 @@ function Get-KiteHeikinAshiCandles {
     $script:HA_ActiveCandle     = @{}   # token -> current building raw candle
     $script:HA_PreviousCandle   = @{}   # token -> previous closed HA candle (for HA calc)
     $script:HA_TickCount        = 0
-    $script:HA_IntervalMinutes  = $intMin
+    $script:HA_IntervalSeconds  = $intSec
     $script:HA_DisplayConfig    = @{
         SymbolName      = $sym
         SymbolLabel     = $label
@@ -748,8 +762,12 @@ function Get-KiteHeikinAshiCandles {
 
     function script:Get-HA-TimeBucket {
         $now = Get-Date
-        $bucketMinute = [Math]::Floor($now.Minute / $script:HA_IntervalMinutes) * $script:HA_IntervalMinutes
-        return $now.ToString('yyyy-MM-dd HH:') + $bucketMinute.ToString('00')
+        $totalSeconds = $now.Hour * 3600 + $now.Minute * 60 + $now.Second
+        $bucket = [Math]::Floor($totalSeconds / $script:HA_IntervalSeconds) * $script:HA_IntervalSeconds
+        $bH = [Math]::Floor($bucket / 3600)
+        $bM = [Math]::Floor(($bucket % 3600) / 60)
+        $bS = $bucket % 60
+        return $now.ToString('yyyy-MM-dd ') + ('{0:D2}:{1:D2}:{2:D2}' -f $bH, $bM, $bS)
     }
 
     function script:Convert-ToHeikinAshi([hashtable]$rawCandle, [hashtable]$previousHA) {
@@ -897,7 +915,7 @@ function Get-KiteHeikinAshiCandles {
     Write-Host '  ================================================' -ForegroundColor Cyan
     Write-Host "  Symbol   : $label ($sym)"
     Write-Host "  Token    : $instToken"
-    Write-Host "  TimeFrame: $TimeFrame ($($intMin)m candles)"
+    Write-Host "  TimeFrame: $TimeFrame ($intLabel candles)"
     Write-Host "  Mode     : $modeStr"
     Write-Host ''
     Write-Host '  Connecting...' -ForegroundColor Yellow
@@ -1019,7 +1037,7 @@ function Invoke-KiteHALongStrategy {
     param(
         [string]$TradingSymbol  = 'NIFTY',
         [int]$InstrumentToken,
-        [ValidateSet('minute','3minute','5minute','10minute','15minute','30minute','60minute')]
+        [ValidateSet('15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
         [string]$TimeFrame      = '5minute',
         [int]$CandlesToShow     = 10,
         [switch]$FullMode,
@@ -1061,7 +1079,7 @@ function Invoke-KiteHALongStrategy {
     $script:STR_ActiveCandle     = @{}
     $script:STR_PreviousHA       = @{}
     $script:STR_TickCount        = 0
-    $script:STR_IntervalMinutes  = $intMin
+    $script:STR_IntervalSeconds  = $intSec
     $script:STR_DisplayConfig    = @{
         SymbolName=$sym; SymbolLabel=$label; InstrumentToken=$instToken
         TimeFrame=$TimeFrame; IntervalLabel=$intLabel; MaxCandles=$CandlesToShow
@@ -1078,8 +1096,12 @@ function Invoke-KiteHALongStrategy {
 
     function script:Get-STR-TimeBucket {
         $now = Get-Date
-        $bucketMinute = [Math]::Floor($now.Minute / $script:STR_IntervalMinutes) * $script:STR_IntervalMinutes
-        return $now.ToString('yyyy-MM-dd HH:') + $bucketMinute.ToString('00')
+        $totalSeconds = $now.Hour * 3600 + $now.Minute * 60 + $now.Second
+        $bucket = [Math]::Floor($totalSeconds / $script:STR_IntervalSeconds) * $script:STR_IntervalSeconds
+        $bH = [Math]::Floor($bucket / 3600)
+        $bM = [Math]::Floor(($bucket % 3600) / 60)
+        $bS = $bucket % 60
+        return $now.ToString('yyyy-MM-dd ') + ('{0:D2}:{1:D2}:{2:D2}' -f $bH, $bM, $bS)
     }
 
     function script:Convert-ToHA([hashtable]$rawCandle, [hashtable]$previousHA) {
@@ -1285,7 +1307,7 @@ function Invoke-KiteHALongStrategy {
     Write-Host '  ================================================' -ForegroundColor Cyan
     Write-Host "  Symbol   : $label ($sym)"
     Write-Host "  Token    : $instToken"
-    Write-Host "  TimeFrame: $TimeFrame ($($intMin)m candles)"
+    Write-Host "  TimeFrame: $TimeFrame ($intLabel candles)"
     Write-Host "  Mode     : $modeStr"
     Write-Host "  Orders   : $OrdersFolder"
     Write-Host ''
@@ -1406,7 +1428,7 @@ function Invoke-KiteHAShortStrategy {
     param(
         [string]$TradingSymbol  = 'NIFTY',
         [int]$InstrumentToken,
-        [ValidateSet('minute','3minute','5minute','10minute','15minute','30minute','60minute')]
+        [ValidateSet('15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
         [string]$TimeFrame      = '5minute',
         [int]$CandlesToShow     = 10,
         [switch]$FullMode,
@@ -1434,8 +1456,9 @@ function Invoke-KiteHAShortStrategy {
         }
     }
 
+    $intSec   = Get-IntervalSeconds $TimeFrame
     $intMin   = Get-IntervalMinutes $TimeFrame
-    $intLabel = Get-IntervalLabel $intMin
+    $intLabel = Get-IntervalLabel $intSec
 
     if (-not $AccessToken) { Write-Host '  No token. Exiting.' -ForegroundColor Red; return }
 
@@ -1448,7 +1471,7 @@ function Invoke-KiteHAShortStrategy {
     $script:SHR_ActiveCandle     = @{}
     $script:SHR_PreviousHA       = @{}
     $script:SHR_TickCount        = 0
-    $script:SHR_IntervalMinutes  = $intMin
+    $script:SHR_IntervalSeconds  = $intSec
     $script:SHR_DisplayConfig    = @{
         SymbolName=$sym; SymbolLabel=$label; InstrumentToken=$instToken
         TimeFrame=$TimeFrame; IntervalLabel=$intLabel; MaxCandles=$CandlesToShow
@@ -1465,8 +1488,12 @@ function Invoke-KiteHAShortStrategy {
 
     function script:Get-SHR-TimeBucket {
         $now = Get-Date
-        $bucketMinute = [Math]::Floor($now.Minute / $script:SHR_IntervalMinutes) * $script:SHR_IntervalMinutes
-        return $now.ToString('yyyy-MM-dd HH:') + $bucketMinute.ToString('00')
+        $totalSeconds = $now.Hour * 3600 + $now.Minute * 60 + $now.Second
+        $bucket = [Math]::Floor($totalSeconds / $script:SHR_IntervalSeconds) * $script:SHR_IntervalSeconds
+        $bH = [Math]::Floor($bucket / 3600)
+        $bM = [Math]::Floor(($bucket % 3600) / 60)
+        $bS = $bucket % 60
+        return $now.ToString('yyyy-MM-dd ') + ('{0:D2}:{1:D2}:{2:D2}' -f $bH, $bM, $bS)
     }
 
     function script:Convert-ToHA-Short([hashtable]$rawCandle, [hashtable]$previousHA) {
@@ -1667,7 +1694,7 @@ function Invoke-KiteHAShortStrategy {
     Write-Host '  ================================================' -ForegroundColor Cyan
     Write-Host "  Symbol   : $label ($sym)"
     Write-Host "  Token    : $instToken"
-    Write-Host "  TimeFrame: $TimeFrame ($($intMin)m candles)"
+    Write-Host "  TimeFrame: $TimeFrame ($intLabel candles)"
     Write-Host "  Mode     : $modeStr"
     Write-Host "  Orders   : $OrdersFolder"
     Write-Host ''

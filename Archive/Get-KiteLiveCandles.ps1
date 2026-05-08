@@ -18,7 +18,7 @@
 param(
     [string]$TradingSymbol  = 'NIFTY',
     [int]$InstrumentToken,
-    [ValidateSet('minute','3minute','5minute','10minute','15minute','30minute','60minute')]
+    [ValidateSet('15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
     [string]$TimeFrame      = '5minute',
     [int]$CandlesToShow     = 10,
     [switch]$FullMode,
