@@ -43,6 +43,14 @@ $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyI
 $rootDir = Split-Path -Parent $scriptDir
 Import-Module "$rootDir\KiteData.psm1" -Force
 
+# Sub-minute timeframes not supported by Kite historical API
+if ($TimeFrame -match 'second') {
+    Write-Host "  ERROR: Kite historical API does not support sub-minute intervals ($TimeFrame)." -ForegroundColor Red
+    Write-Host "  Sub-minute candles (15second, 30second) only work with live WebSocket data." -ForegroundColor Yellow
+    Write-Host "  Use 'minute' or higher for backtesting." -ForegroundColor Yellow
+    exit 1
+}
+
 # ================================================================
 # Resolve dates (0 = today, -N = N days ago, or yyyy-MM-dd)
 # ================================================================

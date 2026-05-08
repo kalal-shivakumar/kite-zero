@@ -1065,8 +1065,9 @@ function Invoke-KiteHALongStrategy {
         }
     }
 
+    $intSec   = Get-IntervalSeconds $TimeFrame
     $intMin   = Get-IntervalMinutes $TimeFrame
-    $intLabel = Get-IntervalLabel $intMin
+    $intLabel = Get-IntervalLabel $intSec
 
     if (-not $AccessToken) { Write-Host '  No token. Exiting.' -ForegroundColor Red; return }
 
