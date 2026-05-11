@@ -212,6 +212,7 @@ function Resolve-KiteAccessToken {
 # ══════════════════════════════════════════════════════════════
 function Get-IntervalSeconds([string]$Interval) {
     switch ($Interval) {
+        '5second'  { return 5 }
         '15second' { return 15 }
         '30second' { return 30 }
         'minute'   { return 60 }
@@ -425,7 +426,7 @@ function Get-KiteLiveCandles {
     param(
         [string]$TradingSymbol  = 'NIFTY',
         [int]$InstrumentToken,
-        [ValidateSet('15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
+        [ValidateSet('5second','15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
         [string]$TimeFrame      = '5minute',
         [int]$CandlesToShow     = 10,
         [switch]$FullMode,
@@ -486,9 +487,9 @@ function Get-KiteLiveCandles {
         $now = Get-Date
         $totalSeconds = $now.Hour * 3600 + $now.Minute * 60 + $now.Second
         $bucket = [Math]::Floor($totalSeconds / $script:IntervalSeconds) * $script:IntervalSeconds
-        $bH = [Math]::Floor($bucket / 3600)
-        $bM = [Math]::Floor(($bucket % 3600) / 60)
-        $bS = $bucket % 60
+        $bH = [int][Math]::Floor($bucket / 3600)
+        $bM = [int][Math]::Floor(($bucket % 3600) / 60)
+        $bS = [int]($bucket % 60)
         return $now.ToString('yyyy-MM-dd ') + ('{0:D2}:{1:D2}:{2:D2}' -f $bH, $bM, $bS)
     }
 
@@ -622,7 +623,7 @@ function Get-KiteLiveCandles {
                 return
             }
 
-            $retryCount = 0
+            if ($ticksProcessed) { $retryCount = 0 }; $ticksProcessed = $false
             Write-Host '  Connected!' -ForegroundColor Green
 
             # Subscribe + set mode
@@ -662,6 +663,7 @@ function Get-KiteLiveCandles {
                     foreach ($tick in $ticks) {
                         if ($tick.LastPrice -gt 0) { script:Update-CandleFromTick $tick.InstrumentToken $tick.LastPrice $tick.Volume $tick.DayOpen $tick.DayHigh $tick.DayLow $tick.DayClose $tick.OpenInterest }
                     }
+                    $ticksProcessed = $true
                     script:Render-CandleDisplay $instToken
                 }
             }
@@ -710,7 +712,7 @@ function Get-KiteHeikinAshiCandles {
     param(
         [string]$TradingSymbol  = 'NIFTY',
         [int]$InstrumentToken,
-        [ValidateSet('15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
+        [ValidateSet('5second','15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
         [string]$TimeFrame      = '5minute',
         [int]$CandlesToShow     = 10,
         [switch]$FullMode,
@@ -764,9 +766,9 @@ function Get-KiteHeikinAshiCandles {
         $now = Get-Date
         $totalSeconds = $now.Hour * 3600 + $now.Minute * 60 + $now.Second
         $bucket = [Math]::Floor($totalSeconds / $script:HA_IntervalSeconds) * $script:HA_IntervalSeconds
-        $bH = [Math]::Floor($bucket / 3600)
-        $bM = [Math]::Floor(($bucket % 3600) / 60)
-        $bS = $bucket % 60
+        $bH = [int][Math]::Floor($bucket / 3600)
+        $bM = [int][Math]::Floor(($bucket % 3600) / 60)
+        $bS = [int]($bucket % 60)
         return $now.ToString('yyyy-MM-dd ') + ('{0:D2}:{1:D2}:{2:D2}' -f $bH, $bM, $bS)
     }
 
@@ -1037,7 +1039,7 @@ function Invoke-KiteHALongStrategy {
     param(
         [string]$TradingSymbol  = 'NIFTY',
         [int]$InstrumentToken,
-        [ValidateSet('15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
+        [ValidateSet('5second','15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
         [string]$TimeFrame      = '5minute',
         [int]$CandlesToShow     = 10,
         [switch]$FullMode,
@@ -1099,9 +1101,9 @@ function Invoke-KiteHALongStrategy {
         $now = Get-Date
         $totalSeconds = $now.Hour * 3600 + $now.Minute * 60 + $now.Second
         $bucket = [Math]::Floor($totalSeconds / $script:STR_IntervalSeconds) * $script:STR_IntervalSeconds
-        $bH = [Math]::Floor($bucket / 3600)
-        $bM = [Math]::Floor(($bucket % 3600) / 60)
-        $bS = $bucket % 60
+        $bH = [int][Math]::Floor($bucket / 3600)
+        $bM = [int][Math]::Floor(($bucket % 3600) / 60)
+        $bS = [int]($bucket % 60)
         return $now.ToString('yyyy-MM-dd ') + ('{0:D2}:{1:D2}:{2:D2}' -f $bH, $bM, $bS)
     }
 
@@ -1429,7 +1431,7 @@ function Invoke-KiteHAShortStrategy {
     param(
         [string]$TradingSymbol  = 'NIFTY',
         [int]$InstrumentToken,
-        [ValidateSet('15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
+        [ValidateSet('5second','15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
         [string]$TimeFrame      = '5minute',
         [int]$CandlesToShow     = 10,
         [switch]$FullMode,
@@ -1491,9 +1493,9 @@ function Invoke-KiteHAShortStrategy {
         $now = Get-Date
         $totalSeconds = $now.Hour * 3600 + $now.Minute * 60 + $now.Second
         $bucket = [Math]::Floor($totalSeconds / $script:SHR_IntervalSeconds) * $script:SHR_IntervalSeconds
-        $bH = [Math]::Floor($bucket / 3600)
-        $bM = [Math]::Floor(($bucket % 3600) / 60)
-        $bS = $bucket % 60
+        $bH = [int][Math]::Floor($bucket / 3600)
+        $bM = [int][Math]::Floor(($bucket % 3600) / 60)
+        $bS = [int]($bucket % 60)
         return $now.ToString('yyyy-MM-dd ') + ('{0:D2}:{1:D2}:{2:D2}' -f $bH, $bM, $bS)
     }
 
