@@ -481,7 +481,7 @@ function Get-KiteLiveCandles {
         MaxCandles      = $CandlesToShow
     }
     $script:LastDisplayTime    = [datetime]::MinValue
-    $script:DisplayIntervalMs  = 250    # throttle: refresh display max 4x/sec
+    $script:DisplayIntervalMs  = 100    # throttle: refresh display max 10x/sec
 
     function script:Get-CandleTimeBucket {
         $now = Get-Date
@@ -760,7 +760,7 @@ function Get-KiteHeikinAshiCandles {
         MaxCandles      = $CandlesToShow
     }
     $script:HA_LastDisplayTime   = [datetime]::MinValue
-    $script:HA_DisplayIntervalMs = 250
+    $script:HA_DisplayIntervalMs = 100
 
     function script:Get-HA-TimeBucket {
         $now = Get-Date
@@ -1088,7 +1088,7 @@ function Invoke-KiteHALongStrategy {
         TimeFrame=$TimeFrame; IntervalLabel=$intLabel; MaxCandles=$CandlesToShow
     }
     $script:STR_LastDisplayTime   = [datetime]::MinValue
-    $script:STR_DisplayIntervalMs = 250
+    $script:STR_DisplayIntervalMs = 100
 
     # Strategy state
     $script:LongOrderPlaced      = $false
@@ -1480,7 +1480,7 @@ function Invoke-KiteHAShortStrategy {
         TimeFrame=$TimeFrame; IntervalLabel=$intLabel; MaxCandles=$CandlesToShow
     }
     $script:SHR_LastDisplayTime   = [datetime]::MinValue
-    $script:SHR_DisplayIntervalMs = 250
+    $script:SHR_DisplayIntervalMs = 100
 
     # Strategy state
     $script:ShortOrderPlaced     = $false

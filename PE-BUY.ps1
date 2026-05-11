@@ -100,6 +100,8 @@ $script:EntryPrice       = 0
 $script:EntryTime        = ''
 $script:EntryOptionLTP   = 0
 $script:TotalPnL         = 0
+$script:TradeCount       = 0
+$script:TradeHistory     = @()
 $script:ProcessedFiles   = @{}
 
 # Persist position state to file so script remembers after restart
@@ -114,6 +116,7 @@ if (Test-Path $PositionFile) {
     $script:EntryTime   = $saved.Time
     $script:EntryOptionLTP = if ($saved.OptionLTP) { $saved.OptionLTP } else { 0 }
     $script:TotalPnL       = if ($saved.TotalPnL)  { $saved.TotalPnL }  else { 0 }
+    $script:TradeCount     = if ($saved.TradeCount) { [int]$saved.TradeCount } else { 0 }
     Write-Host "  Restored position: $($script:EntrySymbol) | Strike: $($script:EntryStrike) | Entry LTP: $($script:EntryOptionLTP)" -ForegroundColor Yellow
 }
 
@@ -153,7 +156,7 @@ while ($true) {
     # Check time window
     if ($now.TimeOfDay -lt $StartTime.TimeOfDay) {
         Write-Host "`r  [$($now.ToString('HH:mm:ss'))] Waiting for start time $($StartTime.ToString('HH:mm:ss'))...   " -NoNewline -ForegroundColor DarkGray
-        Start-Sleep -Seconds 2
+        Start-Sleep -Milliseconds 100
         continue
     }
     if ($now.TimeOfDay -gt $StopTime.TimeOfDay) {
@@ -181,6 +184,9 @@ while ($true) {
             Write-Host ""
             Write-Host "  [$($now.ToString('HH:mm:ss'))] SHORT ENTRY SIGNAL DETECTED: $($ef.Name)" -ForegroundColor Yellow
 
+            # Delete ALL Short-Entry files IMMEDIATELY on detection
+            Get-ChildItem -Path $PlacedOrdersDir -Filter "Short-Entry-*.txt" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+
             # Get current spot price
             $spotPrice = Get-KiteSpotPrice -SpotQuoteKey $IndexConfig.SpotQuoteKey -Headers $headers
             if ($spotPrice -le 0) {
@@ -204,9 +210,6 @@ while ($true) {
                 -Tradingsymbol $atmOption.Symbol -Quantity $Quantity `
                 -OrderType $Order_type -Product $Product -Exchange $exchange -Tag "PE-ENTRY" -MarketProtection $MarketProtection
 
-            # Delete all Short-Entry files immediately to prevent duplicate orders
-            Get-ChildItem -Path $PlacedOrdersDir -Filter "Short-Entry-*.txt" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
-
             if ($result) {
                 # Fetch option LTP right after order to track entry premium
                 $script:EntryOptionLTP = 0
@@ -220,8 +223,9 @@ while ($true) {
                 $script:EntryStrike = $atmOption.Strike
                 $script:EntryPrice  = $spotPrice
                 $script:EntryTime   = $now.ToString('HH:mm:ss')
-                @{ Symbol=$script:EntrySymbol; Token=$script:EntryToken; Strike=$script:EntryStrike; Price=$script:EntryPrice; Time=$script:EntryTime; OptionLTP=$script:EntryOptionLTP; TotalPnL=$script:TotalPnL } | ConvertTo-Json | Set-Content $PositionFile -Force
-                Write-Host "  POSITION OPENED | BUY $($script:EntrySymbol) | Strike: $($script:EntryStrike) | Qty: $Quantity | Entry LTP: $($script:EntryOptionLTP)" -ForegroundColor Green
+                $script:TradeCount++
+                $script:TradeHistory += [PSCustomObject]@{ Num=$script:TradeCount; Type='ENTRY'; Strike=$script:EntryStrike; Symbol=$script:EntrySymbol; LTP=$script:EntryOptionLTP; Spot=$spotPrice; Time=$script:EntryTime; PnL=$null }
+                @{ Symbol=$script:EntrySymbol; Token=$script:EntryToken; Strike=$script:EntryStrike; Price=$script:EntryPrice; Time=$script:EntryTime; OptionLTP=$script:EntryOptionLTP; TotalPnL=$script:TotalPnL; TradeCount=$script:TradeCount } | ConvertTo-Json | Set-Content $PositionFile -Force
             }
         }
     }
@@ -237,13 +241,13 @@ while ($true) {
             Write-Host ""
             Write-Host "  [$($now.ToString('HH:mm:ss'))] SHORT EXIT SIGNAL DETECTED: $($xf.Name)" -ForegroundColor Yellow
 
+            # Delete all Short-Exit files FIRST to prevent duplicate orders
+            Get-ChildItem -Path $PlacedOrdersDir -Filter "Short-Exit-*.txt" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+
             # Place SELL order for the same PE symbol we bought
             $result = Place-ZerodhaOrder -CommonHeader $headers -Type "SELL" -Variety $Variety `
                 -Tradingsymbol $script:EntrySymbol -Quantity $Quantity `
                 -OrderType $Order_type -Product $Product -Exchange $exchange -Tag "PE-EXIT" -MarketProtection $MarketProtection
-
-            # Delete all Short-Exit files immediately to prevent duplicate orders
-            Get-ChildItem -Path $PlacedOrdersDir -Filter "Short-Exit-*.txt" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
 
             if ($result) {
                 # Calculate realized P&L for this trade
@@ -254,8 +258,7 @@ while ($true) {
                 } catch {}
                 $tradePnL = ($exitLTP - $script:EntryOptionLTP) * $Quantity
                 $script:TotalPnL += $tradePnL
-                $pnlColor = if ($tradePnL -ge 0) { 'Green' } else { 'Red' }
-                Write-Host "  POSITION CLOSED | SELL $($script:EntrySymbol) | Strike: $($script:EntryStrike) | Trade P&L: $($tradePnL.ToString('N2')) | Total P&L: $($script:TotalPnL.ToString('N2'))" -ForegroundColor $pnlColor
+                $script:TradeHistory += [PSCustomObject]@{ Num=$script:TradeCount; Type='EXIT'; Strike=$script:EntryStrike; Symbol=$script:EntrySymbol; LTP=$exitLTP; Spot=0; Time=$now.ToString('HH:mm:ss'); PnL=$tradePnL }
                 $script:InPosition  = $false
                 $script:EntrySymbol = ''
                 $script:EntryToken  = 0
@@ -272,26 +275,74 @@ while ($true) {
     }
 
     # ------------------------------------------------------------------
-    # Status display (single line overwrite)
+    # Dashboard display (full screen refresh)
     # ------------------------------------------------------------------
-    $sym = ''; $ltp = 0; $status = 'ENTRY'
+    $spotNow = 0; $atmNow = $null; $ltp = 0; $optSym = ''
+    $spotNow = Get-KiteSpotPrice -SpotQuoteKey $IndexConfig.SpotQuoteKey -Headers $headers -ErrorAction SilentlyContinue
     if (-not $script:InPosition) {
-        $spotNow = Get-KiteSpotPrice -SpotQuoteKey $IndexConfig.SpotQuoteKey -Headers $headers -ErrorAction SilentlyContinue
         $atmNow = if ($spotNow -gt 0) { Get-ATMOption -SpotPrice $spotNow -Options $peOptions -AllStrikes $allStrikes -Offset $ATMOffset } else { $null }
-        if ($atmNow) { $sym = $atmNow.Strike }
+        if ($atmNow) { $optSym = $atmNow.Symbol }
     } else {
-        $sym = $script:EntryStrike; $status = 'EXIT'
+        $optSym = $script:EntrySymbol
     }
-    if ($sym) {
-        $optSym = if ($script:InPosition) { $script:EntrySymbol } else { $atmNow.Symbol }
+    if ($optSym) {
         try { $r = Invoke-RestMethod "https://api.kite.trade/quote/ltp?i=$([System.Uri]::EscapeDataString("${optExchange}:${optSym}"))" -Headers $headers -ErrorAction Stop; foreach ($p in $r.data.PSObject.Properties) { $ltp = $p.Value.last_price; break } } catch {}
     }
-    # Calculate unrealized P&L if in position
-    $unrealizedPnL = if ($script:InPosition -and $script:EntryOptionLTP -gt 0 -and $ltp -gt 0) { ($ltp - $script:EntryOptionLTP) * $Quantity } else { 0 }
-    $displayPnL = $script:TotalPnL + $unrealizedPnL
-    $pnlStr = $displayPnL.ToString('N2')
-    $color = if ($script:InPosition) { 'Green' } else { 'DarkGray' }
-    Write-Host "`r  $($now.ToString('HH:mm:ss')) | PE $sym @ $ltp | $status | PnL: $pnlStr   " -NoNewline -ForegroundColor $color
 
-    Start-Sleep -Seconds 2
+    $unrealizedPnL = if ($script:InPosition -and $script:EntryOptionLTP -gt 0 -and $ltp -gt 0) { ($ltp - $script:EntryOptionLTP) * $Quantity } else { 0 }
+    $dayPnL = $script:TotalPnL + $unrealizedPnL
+
+    Clear-Host
+    Write-Host ''
+    Write-Host '  ╔══════════════════════════════════════════════════════════════════════╗' -ForegroundColor Magenta
+    Write-Host '  ║' -NoNewline -ForegroundColor Magenta; Write-Host '        ▼▼▼  PE OPTION BUYER — LIVE DASHBOARD  ▼▼▼' -NoNewline -ForegroundColor White; Write-Host '              ║' -ForegroundColor Magenta
+    Write-Host '  ╠══════════════════════════════════════════════════════════════════════╣' -ForegroundColor Magenta
+    Write-Host "  ║  " -NoNewline -ForegroundColor Magenta; Write-Host "Index  : $($IndexChoosen.PadRight(12))" -NoNewline -ForegroundColor Yellow; Write-Host " Expiry : $($nearestExpiry.PadRight(14))" -NoNewline -ForegroundColor White; Write-Host " Mode: $($ModeOfTrading.PadRight(15))" -NoNewline -ForegroundColor Yellow; Write-Host "║" -ForegroundColor Magenta
+    Write-Host "  ║  " -NoNewline -ForegroundColor Magenta; Write-Host "Product: $($Product.PadRight(12))" -NoNewline -ForegroundColor Yellow; Write-Host " Lots   : $($NoOfLotsPurchaseAtaTime.ToString().PadRight(14))" -NoNewline -ForegroundColor White; Write-Host " Qty : $($Quantity.ToString().PadRight(15))" -NoNewline -ForegroundColor Yellow; Write-Host "║" -ForegroundColor Magenta
+    Write-Host "  ║  " -NoNewline -ForegroundColor Magenta; Write-Host "Order  : $($Order_type.PadRight(12))" -NoNewline -ForegroundColor Yellow; Write-Host " Window : $($StartTime.ToString('HH:mm:ss')) - $($StopTime.ToString('HH:mm:ss'))                    " -NoNewline -ForegroundColor White; Write-Host "║" -ForegroundColor Magenta
+    Write-Host '  ╠══════════════════════════════════════════════════════════════════════╣' -ForegroundColor Magenta
+
+    if ($script:InPosition) {
+        Write-Host "  ║  " -NoNewline -ForegroundColor Magenta; Write-Host "POSITION : " -NoNewline -ForegroundColor White; Write-Host "██ SHORT ACTIVE ██" -NoNewline -ForegroundColor Red -BackgroundColor DarkRed; Write-Host "                                    ║" -ForegroundColor Magenta
+        Write-Host "  ║  " -NoNewline -ForegroundColor Magenta; Write-Host "Symbol   : " -NoNewline -ForegroundColor Gray; Write-Host "$($script:EntrySymbol.PadRight(56))" -NoNewline -ForegroundColor Yellow; Write-Host "║" -ForegroundColor Magenta
+        Write-Host "  ║  " -NoNewline -ForegroundColor Magenta; Write-Host "Strike   : " -NoNewline -ForegroundColor Gray; Write-Host "$($script:EntryStrike.ToString().PadRight(18))" -NoNewline -ForegroundColor Yellow; Write-Host " Entry LTP: " -NoNewline -ForegroundColor Gray; Write-Host "$($script:EntryOptionLTP.ToString('N2').PadRight(14))" -NoNewline -ForegroundColor Cyan; Write-Host " Time: $($script:EntryTime.PadRight(8))" -NoNewline -ForegroundColor White; Write-Host "║" -ForegroundColor Magenta
+        $unrlColor = if ($unrealizedPnL -ge 0) { 'Green' } else { 'Red' }
+        Write-Host "  ║  " -NoNewline -ForegroundColor Magenta; Write-Host "Spot     : " -NoNewline -ForegroundColor Gray; Write-Host "$($spotNow.ToString('N2').PadRight(18))" -NoNewline -ForegroundColor White; Write-Host " Opt LTP  : " -NoNewline -ForegroundColor Gray; Write-Host "$($ltp.ToString('N2').PadRight(14))" -NoNewline -ForegroundColor Yellow; Write-Host " Unrl: " -NoNewline -ForegroundColor Gray; Write-Host "$($unrealizedPnL.ToString('N2').PadRight(8))" -NoNewline -ForegroundColor $unrlColor; Write-Host "║" -ForegroundColor Magenta
+    } else {
+        Write-Host "  ║  " -NoNewline -ForegroundColor Magenta; Write-Host "POSITION : " -NoNewline -ForegroundColor White; Write-Host "FLAT  (Waiting for Short Entry signal)                 " -NoNewline -ForegroundColor DarkGray; Write-Host "║" -ForegroundColor Magenta
+        $atmStrike = if ($atmNow) { $atmNow.Strike.ToString() } else { '--' }
+        $atmSym = if ($atmNow) { $atmNow.Symbol } else { '--' }
+        Write-Host "  ║  " -NoNewline -ForegroundColor Magenta; Write-Host "Spot     : " -NoNewline -ForegroundColor Gray; Write-Host "$($spotNow.ToString('N2').PadRight(18))" -NoNewline -ForegroundColor White; Write-Host " ATM PE   : " -NoNewline -ForegroundColor Gray; Write-Host "$($atmStrike.PadRight(30))" -NoNewline -ForegroundColor Yellow; Write-Host "║" -ForegroundColor Magenta
+        Write-Host "  ║  " -NoNewline -ForegroundColor Magenta; Write-Host "Next PE  : " -NoNewline -ForegroundColor Gray; Write-Host "$($atmSym.PadRight(42))" -NoNewline -ForegroundColor Yellow; Write-Host " LTP: " -NoNewline -ForegroundColor Gray; Write-Host "$($ltp.ToString('N2').PadRight(8))" -NoNewline -ForegroundColor Cyan; Write-Host "║" -ForegroundColor Magenta
+    }
+
+    Write-Host '  ╠══════════════════════════════════════════════════════════════════════╣' -ForegroundColor Magenta
+    $realPnLStr = $script:TotalPnL.ToString('N2')
+    $dayPnLStr  = $dayPnL.ToString('N2')
+    $realColor = if ($script:TotalPnL -ge 0) { 'Green' } else { 'Red' }
+    $dayColor  = if ($dayPnL -ge 0) { 'Green' } else { 'Red' }
+    Write-Host "  ║  " -NoNewline -ForegroundColor Magenta; Write-Host "Trades : $($script:TradeCount.ToString().PadRight(8))" -NoNewline -ForegroundColor White; Write-Host " Realized P&L: " -NoNewline -ForegroundColor Gray; Write-Host "$($realPnLStr.PadRight(14))" -NoNewline -ForegroundColor $realColor; Write-Host " Day P&L: " -NoNewline -ForegroundColor Gray; Write-Host "$($dayPnLStr.PadRight(10))" -NoNewline -ForegroundColor $dayColor; Write-Host "║" -ForegroundColor Magenta
+    Write-Host '  ╠══════════════════════════════════════════════════════════════════════╣' -ForegroundColor Magenta
+
+    if ($script:TradeHistory.Count -gt 0) {
+        Write-Host '  ║' -NoNewline -ForegroundColor Magenta; Write-Host '   #  Type   Strike      Symbol                    Opt LTP   P&L    ' -NoNewline -ForegroundColor DarkYellow; Write-Host ' ║' -ForegroundColor Magenta
+        Write-Host '  ║' -NoNewline -ForegroundColor Magenta; Write-Host '  ─────────────────────────────────────────────────────────────────── ' -NoNewline -ForegroundColor DarkMagenta; Write-Host '║' -ForegroundColor Magenta
+        $showCount = [Math]::Min(20, $script:TradeHistory.Count)
+        $startIdx = $script:TradeHistory.Count - $showCount
+        for ($i = $startIdx; $i -lt $script:TradeHistory.Count; $i++) {
+            $t = $script:TradeHistory[$i]
+            $pnlStr = if ($null -ne $t.PnL) { $t.PnL.ToString('N2') } else { '' }
+            $line = " {0,2}  {1,-6} {2,-10} {3,-25} {4,8} {5,8} " -f $t.Num, $t.Type, $t.Strike, $t.Symbol, $t.LTP.ToString('N2'), $pnlStr
+            $rowColor = if ($t.Type -eq 'ENTRY') { 'Red' } elseif ($null -ne $t.PnL -and $t.PnL -ge 0) { 'Cyan' } else { 'DarkRed' }
+            Write-Host '  ║' -NoNewline -ForegroundColor Magenta; Write-Host $line -NoNewline -ForegroundColor $rowColor; Write-Host '║' -ForegroundColor Magenta
+        }
+    } else {
+        Write-Host '  ║' -NoNewline -ForegroundColor Magenta; Write-Host '  No trades yet — waiting for signals...                             ' -NoNewline -ForegroundColor DarkGray; Write-Host '║' -ForegroundColor Magenta
+    }
+
+    Write-Host '  ╠══════════════════════════════════════════════════════════════════════╣' -ForegroundColor Magenta
+    Write-Host "  ║  " -NoNewline -ForegroundColor Magenta; Write-Host "$($now.ToString('yyyy-MM-dd HH:mm:ss'))" -NoNewline -ForegroundColor White; Write-Host "  |  Monitoring: PlacedOrders/  |  " -NoNewline -ForegroundColor DarkGray; Write-Host "Ctrl+C to stop" -NoNewline -ForegroundColor Yellow; Write-Host "   ║" -ForegroundColor Magenta
+    Write-Host '  ╚══════════════════════════════════════════════════════════════════════╝' -ForegroundColor Magenta
+
+    Start-Sleep -Milliseconds 100
 }
