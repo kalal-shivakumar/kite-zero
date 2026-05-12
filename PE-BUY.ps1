@@ -143,6 +143,32 @@ Write-Host "  Waiting for signals from Invoke-KiteHAShortStrategy.ps1..." -Foreg
 Write-Host "  Entry pattern: Short-Entry-*.txt | Exit pattern: Short-Exit-*.txt" -ForegroundColor DarkGray
 Write-Host ""
 
+# Clear stale signal files from previous sessions based on current position state
+if ($script:InPosition) {
+    # In position: delete stale ENTRY files (prevent duplicate), keep EXIT files (needed to close)
+    $staleEntry = Get-ChildItem -Path $PlacedOrdersDir -Filter "Short-Entry-*.txt" -File -ErrorAction SilentlyContinue
+    if ($staleEntry) {
+        $staleEntry | Remove-Item -Force -ErrorAction SilentlyContinue
+        Write-Host "  Cleared $($staleEntry.Count) stale Short-Entry file(s) (already in position)" -ForegroundColor DarkYellow
+    }
+    $pendingExit = Get-ChildItem -Path $PlacedOrdersDir -Filter "Short-Exit-*.txt" -File -ErrorAction SilentlyContinue
+    if ($pendingExit) {
+        Write-Host "  Found $($pendingExit.Count) pending Short-Exit file(s) - will process" -ForegroundColor Yellow
+    }
+} else {
+    # Not in position: delete ALL stale signal files
+    $staleEntry = Get-ChildItem -Path $PlacedOrdersDir -Filter "Short-Entry-*.txt" -File -ErrorAction SilentlyContinue
+    $staleExit  = Get-ChildItem -Path $PlacedOrdersDir -Filter "Short-Exit-*.txt" -File -ErrorAction SilentlyContinue
+    if ($staleEntry) {
+        $staleEntry | Remove-Item -Force -ErrorAction SilentlyContinue
+        Write-Host "  Cleared $($staleEntry.Count) stale Short-Entry file(s)" -ForegroundColor DarkYellow
+    }
+    if ($staleExit) {
+        $staleExit | Remove-Item -Force -ErrorAction SilentlyContinue
+        Write-Host "  Cleared $($staleExit.Count) stale Short-Exit file(s) (no position open)" -ForegroundColor DarkYellow
+    }
+}
+
 # ============================================================================
 # MAIN LOOP — Monitor for Short Entry/Exit signals and trade ATM PE
 # ============================================================================
@@ -181,6 +207,9 @@ while ($true) {
             Write-Host ""
             Write-Host "  [$($now.ToString('HH:mm:ss'))] SHORT ENTRY SIGNAL DETECTED: $($ef.Name)" -ForegroundColor Yellow
 
+            # Delete ALL Short-Entry files IMMEDIATELY to prevent re-detection
+            Get-ChildItem -Path $PlacedOrdersDir -Filter "Short-Entry-*.txt" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+
             # Get current spot price
             $spotPrice = Get-KiteSpotPrice -SpotQuoteKey $IndexConfig.SpotQuoteKey -Headers $headers
             if ($spotPrice -le 0) {
@@ -203,9 +232,6 @@ while ($true) {
             $result = Place-ZerodhaOrder -CommonHeader $headers -Type "BUY" -Variety $Variety `
                 -Tradingsymbol $atmOption.Symbol -Quantity $Quantity `
                 -OrderType $Order_type -Product $Product -Exchange $exchange -Tag "PE-ENTRY" -MarketProtection $MarketProtection
-
-            # Delete all Short-Entry files immediately to prevent duplicate orders
-            Get-ChildItem -Path $PlacedOrdersDir -Filter "Short-Entry-*.txt" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
 
             if ($result) {
                 # Fetch option LTP right after order to track entry premium
@@ -237,16 +263,16 @@ while ($true) {
             Write-Host ""
             Write-Host "  [$($now.ToString('HH:mm:ss'))] SHORT EXIT SIGNAL DETECTED: $($xf.Name)" -ForegroundColor Yellow
 
+            # Delete ALL Short-Exit files IMMEDIATELY to prevent re-detection
+            Get-ChildItem -Path $PlacedOrdersDir -Filter "Short-Exit-*.txt" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+
             # Place SELL order for the same PE symbol we bought
             $result = Place-ZerodhaOrder -CommonHeader $headers -Type "SELL" -Variety $Variety `
                 -Tradingsymbol $script:EntrySymbol -Quantity $Quantity `
                 -OrderType $Order_type -Product $Product -Exchange $exchange -Tag "PE-EXIT" -MarketProtection $MarketProtection
 
-            # Delete all Short-Exit files immediately to prevent duplicate orders
-            Get-ChildItem -Path $PlacedOrdersDir -Filter "Short-Exit-*.txt" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
-
+            # ALWAYS close position state — signal generator is source of truth
             if ($result) {
-                # Calculate realized P&L for this trade
                 $exitLTP = 0
                 try {
                     $qr = Invoke-RestMethod "https://api.kite.trade/quote/ltp?i=$([System.Uri]::EscapeDataString("${optExchange}:$($script:EntrySymbol)"))" -Headers $headers -ErrorAction Stop
@@ -256,15 +282,17 @@ while ($true) {
                 $script:TotalPnL += $tradePnL
                 $pnlColor = if ($tradePnL -ge 0) { 'Green' } else { 'Red' }
                 Write-Host "  POSITION CLOSED | SELL $($script:EntrySymbol) | Strike: $($script:EntryStrike) | Trade P&L: $($tradePnL.ToString('N2')) | Total P&L: $($script:TotalPnL.ToString('N2'))" -ForegroundColor $pnlColor
-                $script:InPosition  = $false
-                $script:EntrySymbol = ''
-                $script:EntryToken  = 0
-                $script:EntryStrike = 0
-                $script:EntryPrice  = 0
-                $script:EntryTime   = ''
-                $script:EntryOptionLTP = 0
-                Remove-Item $PositionFile -Force -ErrorAction SilentlyContinue
+            } else {
+                Write-Host "  ⚠ Order failed but closing position state (signal generator already exited)" -ForegroundColor DarkYellow
             }
+            $script:InPosition  = $false
+            $script:EntrySymbol = ''
+            $script:EntryToken  = 0
+            $script:EntryStrike = 0
+            $script:EntryPrice  = 0
+            $script:EntryTime   = ''
+            $script:EntryOptionLTP = 0
+            Remove-Item $PositionFile -Force -ErrorAction SilentlyContinue
 
             $script:ProcessedFiles[$xf.FullName] = $true
             break  # Process one exit at a time

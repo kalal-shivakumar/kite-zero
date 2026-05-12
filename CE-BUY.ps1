@@ -139,6 +139,32 @@ Write-Host "  Waiting for signals from Invoke-KiteHALongStrategy.ps1..." -Foregr
 Write-Host "  Entry pattern: Long-Entry-*.txt | Exit pattern: Long-Exit-*.txt" -ForegroundColor DarkGray
 Write-Host ""
 
+# Clear stale signal files from previous sessions based on current position state
+if ($script:InPosition) {
+    # In position: delete stale ENTRY files (prevent duplicate), keep EXIT files (needed to close)
+    $staleEntry = Get-ChildItem -Path $PlacedOrdersDir -Filter "Long-Entry-*.txt" -File -ErrorAction SilentlyContinue
+    if ($staleEntry) {
+        $staleEntry | Remove-Item -Force -ErrorAction SilentlyContinue
+        Write-Host "  Cleared $($staleEntry.Count) stale Long-Entry file(s) (already in position)" -ForegroundColor DarkYellow
+    }
+    $pendingExit = Get-ChildItem -Path $PlacedOrdersDir -Filter "Long-Exit-*.txt" -File -ErrorAction SilentlyContinue
+    if ($pendingExit) {
+        Write-Host "  Found $($pendingExit.Count) pending Long-Exit file(s) - will process" -ForegroundColor Yellow
+    }
+} else {
+    # Not in position: delete ALL stale signal files
+    $staleEntry = Get-ChildItem -Path $PlacedOrdersDir -Filter "Long-Entry-*.txt" -File -ErrorAction SilentlyContinue
+    $staleExit  = Get-ChildItem -Path $PlacedOrdersDir -Filter "Long-Exit-*.txt" -File -ErrorAction SilentlyContinue
+    if ($staleEntry) {
+        $staleEntry | Remove-Item -Force -ErrorAction SilentlyContinue
+        Write-Host "  Cleared $($staleEntry.Count) stale Long-Entry file(s)" -ForegroundColor DarkYellow
+    }
+    if ($staleExit) {
+        $staleExit | Remove-Item -Force -ErrorAction SilentlyContinue
+        Write-Host "  Cleared $($staleExit.Count) stale Long-Exit file(s) (no position open)" -ForegroundColor DarkYellow
+    }
+}
+
 # ============================================================================
 # MAIN LOOP — Monitor for Long Entry/Exit signals and trade ATM CE
 # ============================================================================
@@ -177,6 +203,9 @@ while ($true) {
             Write-Host ""
             Write-Host "  [$($now.ToString('HH:mm:ss'))] LONG ENTRY SIGNAL DETECTED: $($ef.Name)" -ForegroundColor Yellow
 
+            # Delete ALL Long-Entry files IMMEDIATELY to prevent re-detection
+            Get-ChildItem -Path $PlacedOrdersDir -Filter "Long-Entry-*.txt" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+
             # Get current spot price
             $spotPrice = Get-KiteSpotPrice -SpotQuoteKey $IndexConfig.SpotQuoteKey -Headers $headers
             if ($spotPrice -le 0) {
@@ -199,9 +228,6 @@ while ($true) {
             $result = Place-ZerodhaOrder -CommonHeader $headers -Type "BUY" -Variety $Variety `
                 -Tradingsymbol $atmOption.Symbol -Quantity $Quantity `
                 -OrderType $Order_type -Product $Product -Exchange $exchange -Tag "CE-ENTRY" -MarketProtection $MarketProtection
-
-            # Delete all Long-Entry files immediately to prevent duplicate orders
-            Get-ChildItem -Path $PlacedOrdersDir -Filter "Long-Entry-*.txt" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
 
             if ($result) {
                 $script:InPosition  = $true
@@ -227,24 +253,27 @@ while ($true) {
             Write-Host ""
             Write-Host "  [$($now.ToString('HH:mm:ss'))] LONG EXIT SIGNAL DETECTED: $($xf.Name)" -ForegroundColor Yellow
 
+            # Delete ALL Long-Exit files IMMEDIATELY to prevent re-detection
+            Get-ChildItem -Path $PlacedOrdersDir -Filter "Long-Exit-*.txt" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+
             # Place SELL order for the same CE symbol we bought
             $result = Place-ZerodhaOrder -CommonHeader $headers -Type "SELL" -Variety $Variety `
                 -Tradingsymbol $script:EntrySymbol -Quantity $Quantity `
                 -OrderType $Order_type -Product $Product -Exchange $exchange -Tag "CE-EXIT" -MarketProtection $MarketProtection
 
-            # Delete all Long-Exit files immediately to prevent duplicate orders
-            Get-ChildItem -Path $PlacedOrdersDir -Filter "Long-Exit-*.txt" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
-
-            if ($result) {
+            # ALWAYS close position state — signal generator is source of truth
+            if (-not $result) {
+                Write-Host "  ⚠ Order failed but closing position state (signal generator already exited)" -ForegroundColor DarkYellow
+            } else {
                 Write-Host "  POSITION CLOSED | SELL $($script:EntrySymbol) | Strike: $($script:EntryStrike)" -ForegroundColor Green
-                $script:InPosition  = $false
-                $script:EntrySymbol = ''
-                $script:EntryToken  = 0
-                $script:EntryStrike = 0
-                $script:EntryPrice  = 0
-                $script:EntryTime   = ''
-                Remove-Item $PositionFile -Force -ErrorAction SilentlyContinue
             }
+            $script:InPosition  = $false
+            $script:EntrySymbol = ''
+            $script:EntryToken  = 0
+            $script:EntryStrike = 0
+            $script:EntryPrice  = 0
+            $script:EntryTime   = ''
+            Remove-Item $PositionFile -Force -ErrorAction SilentlyContinue
 
             $script:ProcessedFiles[$xf.FullName] = $true
             break  # Process one exit at a time
