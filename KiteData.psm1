@@ -2181,4 +2181,4 @@ function Get-ATMOption {
 }
 
 # ── Module exports (single consolidated statement) ─────────
-Export-ModuleMember -Function Search-KiteInstrument, Show-KitePresets, Get-KiteLiveCandles, Get-KiteHeikinAshiCandles, Invoke-KiteHALongStrategy, Invoke-KiteHAShortStrategy, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol, Place-ZerodhaOrder, Get-IndexOptionConfig, Get-KiteSpotPrice, Get-KiteOptionInstruments, Get-ATMOption
+Export-ModuleMember -Function Search-KiteInstrument, Show-KitePresets, Get-KiteLiveCandles, Get-KiteHeikinAshiCandles, Invoke-KiteHALongStrategy, Invoke-KiteHAShortStrategy, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol, Place-ZerodhaOrder, Get-IndexOptionConfig, Get-KiteSpotPrice, Get-KiteOptionInstruments, Get-ATMOption, Get-IntervalSeconds, Get-IntervalLabel, Parse-KiteTicks
