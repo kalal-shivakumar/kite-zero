@@ -31,6 +31,7 @@ param(
     [ValidateSet('NIFTY','BANKNIFTY','FinNifty','MIDCPNIFTY','SENSEX')]
     [string]$IndexChoosen = "SENSEX",
     [int]$NoOfLotsPurchaseAtaTime = 5,
+    [double]$AmountToTrade = 0,
     [ValidateSet('NRML','MIS')]
     [string]$Product = "NRML",
     [datetime]$StartTime = [datetime]("09:16:01"),
@@ -63,6 +64,7 @@ if (Test-Path $inputFile) {
     # CE-BUY params
     if (-not $PSBoundParameters.ContainsKey('IndexChoosen'))            { $IndexChoosen            = $cfg.IndexChoosen }
     if (-not $PSBoundParameters.ContainsKey('NoOfLotsPurchaseAtaTime')) { $NoOfLotsPurchaseAtaTime = [int]$cfg.NoOfLotsPurchaseAtaTime }
+    if (-not $PSBoundParameters.ContainsKey('AmountToTrade') -and $cfg.AmountToTrade) { $AmountToTrade = [double]$cfg.AmountToTrade }
     if (-not $PSBoundParameters.ContainsKey('Product'))                 { $Product                 = $cfg.Product }
     if (-not $PSBoundParameters.ContainsKey('StartTime'))               { $StartTime               = [datetime]$cfg.StartTime }
     if (-not $PSBoundParameters.ContainsKey('StopTime'))                { $StopTime                = [datetime]$cfg.StopTime }
@@ -132,8 +134,11 @@ if (-not $IndexConfig) { exit 1 }
 
 $exchange       = $IndexConfig.exchange
 $optExchange    = $IndexConfig.OptExchange
-$Quantity       = $IndexConfig.Quantity
+$LotSize        = $IndexConfig.Lot
 $underlyingName = $IndexConfig.SearchKeyWord
+
+# Quantity will be calculated dynamically at entry if AmountToTrade is set
+$Quantity = $IndexConfig.Quantity  # fallback if AmountToTrade is 0
 
 Write-Host ""
 Write-Host "  Fetching $optExchange CE instruments..." -ForegroundColor Yellow
@@ -178,6 +183,8 @@ $script:CE_EntryToken   = 0
 $script:CE_EntryStrike  = 0
 $script:CE_EntryPrice   = 0
 $script:CE_EntryTime    = ''
+$script:CE_EntryQty     = 0
+$script:CE_EntryLots    = 0
 
 # Restore position if script restarts
 $PositionFile = Join-Path $PlacedOrdersDir 'CE-Position.json'
@@ -189,9 +196,11 @@ if (Test-Path $PositionFile) {
     $script:CE_EntryStrike = $saved.Strike
     $script:CE_EntryPrice  = $saved.Price
     $script:CE_EntryTime   = $saved.Time
+    $script:CE_EntryQty    = if ($saved.Qty) { [int]$saved.Qty } else { $Quantity }
+    $script:CE_EntryLots   = if ($saved.Lots) { [int]$saved.Lots } else { $NoOfLotsPurchaseAtaTime }
     $script:LongOrderPlaced = $true
     $script:LongEntryPrice  = $saved.Price
-    Write-Host "  Restored position: $($script:CE_EntrySymbol) | Strike: $($script:CE_EntryStrike)" -ForegroundColor Yellow
+    Write-Host "  Restored position: $($script:CE_EntrySymbol) | Strike: $($script:CE_EntryStrike) | Qty: $($script:CE_EntryQty)" -ForegroundColor Yellow
 }
 
 # ================================================================
@@ -253,9 +262,28 @@ function script:Check-LongAndTrade([int]$instrumentToken, [double]$lastPrice) {
         $atmOption = Get-ATMOption -SpotPrice $spotPrice -Options $ceOptions -AllStrikes $allStrikes -Offset (-$ATMOffset)
 
         if ($atmOption) {
-            Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] CE BUY | Strike: $($atmOption.Strike) | Symbol: $($atmOption.Symbol) | Qty: $Quantity" -ForegroundColor Cyan
+            # Dynamic lot calculation based on AmountToTrade
+            $entryQty = $Quantity  # fallback to fixed lots
+            $entryLots = $NoOfLotsPurchaseAtaTime
+            if ($AmountToTrade -gt 0) {
+                $optLTP = 0
+                try {
+                    $qr = Invoke-RestMethod "https://api.kite.trade/quote/ltp?i=$([System.Uri]::EscapeDataString("${optExchange}:$($atmOption.Symbol)"))" -Headers $headers -ErrorAction Stop
+                    foreach ($p in $qr.data.PSObject.Properties) { $optLTP = $p.Value.last_price; break }
+                } catch {}
+                if ($optLTP -gt 0) {
+                    $entryLots = [int][Math]::Floor($AmountToTrade / ($optLTP * $LotSize))
+                    if ($entryLots -lt 1) { $entryLots = 1 }
+                    $entryQty = $entryLots * $LotSize
+                    Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] CE LTP: $optLTP | Amount: $AmountToTrade | Lots: $entryLots | Qty: $entryQty" -ForegroundColor Magenta
+                } else {
+                    Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] Could not fetch CE LTP, using fallback Qty: $entryQty" -ForegroundColor DarkYellow
+                }
+            }
+
+            Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] CE BUY | Strike: $($atmOption.Strike) | Symbol: $($atmOption.Symbol) | Qty: $entryQty" -ForegroundColor Cyan
             $result = Place-ZerodhaOrder -CommonHeader $headers -Type "BUY" -Variety $Variety `
-                -Tradingsymbol $atmOption.Symbol -Quantity $Quantity `
+                -Tradingsymbol $atmOption.Symbol -Quantity $entryQty `
                 -OrderType $Order_type -Product $Product -Exchange $exchange -Tag "CE-ENTRY" -MarketProtection $MarketProtection
 
             if ($result) {
@@ -265,9 +293,11 @@ function script:Check-LongAndTrade([int]$instrumentToken, [double]$lastPrice) {
                 $script:CE_EntryStrike  = $atmOption.Strike
                 $script:CE_EntryPrice   = $spotPrice
                 $script:CE_EntryTime    = $now.ToString('HH:mm:ss')
-                @{ Symbol=$script:CE_EntrySymbol; Token=$script:CE_EntryToken; Strike=$script:CE_EntryStrike; Price=$script:CE_EntryPrice; Time=$script:CE_EntryTime } | ConvertTo-Json | Set-Content $PositionFile -Force
+                $script:CE_EntryQty     = $entryQty
+                $script:CE_EntryLots    = $entryLots
+                @{ Symbol=$script:CE_EntrySymbol; Token=$script:CE_EntryToken; Strike=$script:CE_EntryStrike; Price=$script:CE_EntryPrice; Time=$script:CE_EntryTime; Qty=$script:CE_EntryQty; Lots=$script:CE_EntryLots } | ConvertTo-Json | Set-Content $PositionFile -Force
                 $orderLatency = ((Get-Date) - $now).TotalMilliseconds
-                Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] POSITION OPENED in ${orderLatency}ms | $($script:CE_EntrySymbol) | Strike: $($script:CE_EntryStrike)" -ForegroundColor Green
+                Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] POSITION OPENED in ${orderLatency}ms | $($script:CE_EntrySymbol) | Strike: $($script:CE_EntryStrike) | Lots: $entryLots | Qty: $entryQty" -ForegroundColor Green
             } else {
                 Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] CE BUY FAILED — resetting signal state" -ForegroundColor Red
                 $script:LongOrderPlaced = $false
@@ -287,10 +317,11 @@ function script:Check-LongAndTrade([int]$instrumentToken, [double]$lastPrice) {
         Write-Host ""
         Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] *** LONG EXIT SIGNAL *** LTP: $lastPrice | HA Close: $([Math]::Round($liveHA.Close,2)) < Prev Low: $($previousCandle.Low)" -ForegroundColor Yellow
 
-        # ── IMMEDIATE CE SELL ──
-        Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] CE SELL | Symbol: $($script:CE_EntrySymbol) | Qty: $Quantity" -ForegroundColor Cyan
+        # ── IMMEDIATE CE SELL (use same qty as entry) ──
+        $exitQty = $script:CE_EntryQty
+        Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] CE SELL | Symbol: $($script:CE_EntrySymbol) | Qty: $exitQty" -ForegroundColor Cyan
         $result = Place-ZerodhaOrder -CommonHeader $headers -Type "SELL" -Variety $Variety `
-            -Tradingsymbol $script:CE_EntrySymbol -Quantity $Quantity `
+            -Tradingsymbol $script:CE_EntrySymbol -Quantity $exitQty `
             -OrderType $Order_type -Product $Product -Exchange $exchange -Tag "CE-EXIT" -MarketProtection $MarketProtection
 
         if (-not $result) {
@@ -311,6 +342,8 @@ function script:Check-LongAndTrade([int]$instrumentToken, [double]$lastPrice) {
         $script:CE_EntryStrike  = 0
         $script:CE_EntryPrice   = 0
         $script:CE_EntryTime    = ''
+        $script:CE_EntryQty     = 0
+        $script:CE_EntryLots    = 0
         Remove-Item $PositionFile -Force -ErrorAction SilentlyContinue
     }
 }
@@ -405,13 +438,17 @@ function script:Render-StrategyDisplay([int]$instrumentToken) {
     $null = $sb.AppendLine("  $($config.SymbolLabel) - HA Long + CE Auto-Trade (COMBINED)")
     $null = $sb.AppendLine("  ================================================")
     $null = $sb.AppendLine("  Symbol  : $($config.SymbolName)  |  Token: $($config.InstrumentToken)  |  TF: $($config.TimeFrame)")
-    $null = $sb.AppendLine("  Index   : $IndexChoosen  |  Lots: $NoOfLotsPurchaseAtaTime  |  Qty: $Quantity  |  Product: $Product")
+    if ($AmountToTrade -gt 0) {
+        $null = $sb.AppendLine("  Trade   : Amount: $AmountToTrade  |  LotSize: $LotSize  |  Product: $Product")
+    } else {
+        $null = $sb.AppendLine("  Trade   : Lots: $NoOfLotsPurchaseAtaTime  |  Qty: $Quantity  |  Product: $Product")
+    }
     $null = $sb.AppendLine("  Ticks   : $($script:STR_TickCount)  |  Window: $($StartTime.ToString('HH:mm:ss'))-$($StopTime.ToString('HH:mm:ss'))")
     $null = $sb.AppendLine("  Candles : $($allCandles.Count) total | Showing $($visibleCandles.Count)")
     $null = $sb.AppendLine("  Time    : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff')")
 
     if ($script:CE_InPosition) {
-        $null = $sb.AppendLine("  POSITION: LONG ACTIVE  CE: $($script:CE_EntrySymbol)  Strike: $($script:CE_EntryStrike)  Entry: $($script:CE_EntryPrice.ToString('N2')) @ $($script:CE_EntryTime)")
+        $null = $sb.AppendLine("  POSITION: LONG ACTIVE  CE: $($script:CE_EntrySymbol)  Strike: $($script:CE_EntryStrike)  Lots: $($script:CE_EntryLots)  Qty: $($script:CE_EntryQty)  Entry: $($script:CE_EntryPrice.ToString('N2')) @ $($script:CE_EntryTime)")
         if ($null -ne $currentCandle) {
             $unrealizedPnL = $currentCandle.Close - $script:LongEntryPrice
             $null = $sb.AppendLine("  LTP     : $($currentCandle.Close.ToString('N2'))  |  Unrealized P&L: $($unrealizedPnL.ToString('N2'))")
@@ -464,8 +501,9 @@ function script:Force-ExitAtStopTime {
     if ($script:CE_InPosition -and $script:CE_EntrySymbol) {
         $now = Get-Date
         Write-Host "  [$($now.ToString('HH:mm:ss'))] STOP TIME — Force exiting: $($script:CE_EntrySymbol)" -ForegroundColor Red
+        $forceQty = if ($script:CE_EntryQty -gt 0) { $script:CE_EntryQty } else { $Quantity }
         Place-ZerodhaOrder -CommonHeader $headers -Type "SELL" -Variety $Variety `
-            -Tradingsymbol $script:CE_EntrySymbol -Quantity $Quantity `
+            -Tradingsymbol $script:CE_EntrySymbol -Quantity $forceQty `
             -OrderType $Order_type -Product $Product -Exchange $exchange -Tag "CE-TIMEEXIT" -MarketProtection $MarketProtection
         $script:CE_InPosition   = $false
         $script:CE_EntrySymbol  = ''
@@ -487,7 +525,11 @@ Write-Host '  ============================================================' -For
 Write-Host "  Symbol   : $label ($sym)"
 Write-Host "  Token    : $instToken"
 Write-Host "  TimeFrame: $TimeFrame ($intLabel candles)"
-Write-Host "  Index    : $IndexChoosen | Lots: $NoOfLotsPurchaseAtaTime | Qty: $Quantity"
+if ($AmountToTrade -gt 0) {
+    Write-Host "  Trade    : Amount: $AmountToTrade | LotSize: $LotSize | Lots: Dynamic"
+} else {
+    Write-Host "  Trade    : Lots: $NoOfLotsPurchaseAtaTime | Qty: $Quantity"
+}
 Write-Host "  Expiry   : $nearestExpiry | CE Strikes: $($allStrikes.Count)"
 Write-Host "  Product  : $Product | Order: $Order_type | Mode: $modeStr"
 Write-Host "  Window   : $($StartTime.ToString('HH:mm:ss')) - $($StopTime.ToString('HH:mm:ss'))"
