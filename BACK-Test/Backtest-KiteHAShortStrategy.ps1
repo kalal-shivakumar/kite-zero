@@ -34,14 +34,22 @@ param(
     [string]$LastEntryTime  = '15:29',
     [double]$StopLoss        = 5,
     [string]$AccessToken,
-    [string]$API_Key        = '0fvxhlacu555dhp0',
-    [string]$API_Secret     = '69wajxn41hj77pze3xnhw1dp442auw8t'
+    [string]$API_Key,
+    [string]$API_Secret
 )
 
 # Import the module
 $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Definition }
 $rootDir = Split-Path -Parent $scriptDir
 Import-Module "$rootDir\KiteData.psm1" -Force
+
+# Load defaults from input.json if parameters not provided
+$configPath = Join-Path $rootDir "input.json"
+if (Test-Path $configPath) {
+    $cfg = Get-Content $configPath -Raw | ConvertFrom-Json
+    if ([string]::IsNullOrWhiteSpace($API_Key))    { $API_Key    = $cfg.API_Key }
+    if ([string]::IsNullOrWhiteSpace($API_Secret)) { $API_Secret = $cfg.API_Secret }
+}
 
 # Sub-minute timeframes not supported by Kite historical API
 if ($TimeFrame -match 'second') {
@@ -204,93 +212,108 @@ Write-Host "  Filtered to $($filteredCandles.Count) candles ($StartTime - $EndTi
 $haCandles = $filteredCandles
 
 # ================================================================
-# Simulate Short Strategy
+# Simulate Short Strategy (day-by-day, no overnight carry)
 # ================================================================
 $trades      = [System.Collections.Generic.List[PSCustomObject]]::new()
-$inPosition  = $false
-$entryPrice  = 0.0
-$entryTime   = ''
-$entryIdx    = 0
-
 $lastEntrySpan = [TimeSpan]::Parse($LastEntryTime)
 
-for ($i = 1; $i -lt $haCandles.Count; $i++) {
-    $current  = $haCandles[$i]
-    $previous = $haCandles[$i - 1]
-
-    # Get current candle time for entry cutoff
-    $cTime = $current.Time
-    if ($cTime -is [string]) { try { $cTime = [DateTime]::Parse($cTime) } catch {} }
-    $candleTOD = $cTime.TimeOfDay
-
-    # SHORT ENTRY: current HA Close < previous HA Low (no open position, before last entry time)
-    if ((-not $inPosition) -and ($candleTOD -le $lastEntrySpan) -and ($current.Close -lt $previous.Low)) {
-        $inPosition = $true
-        $entryPrice = $current.RawClose
-        $entryTime  = $current.Time
-        $entryIdx   = $i
-    }
-
-    # STOP LOSS: points for index, percentage for others
-    $slPoints = if ($isIndex) { $StopLoss } else { [Math]::Round($entryPrice * $StopLoss / 100, 2) }
-    if ($inPosition -and $StopLoss -gt 0 -and ($current.RawClose -ge ($entryPrice + $slPoints))) {
-        $exitPrice = [Math]::Round($entryPrice + $slPoints, 2)
-        $pnl = [Math]::Round($entryPrice - $exitPrice, 2)
-        $pnlPct = [Math]::Round(($pnl / $entryPrice) * 100, 2)
-
-        $trades.Add([PSCustomObject]@{
-            EntryTime  = $entryTime
-            ExitTime   = "$($current.Time) (SL)"
-            EntryPrice = $entryPrice
-            ExitPrice  = $exitPrice
-            PnL        = $pnl
-            PnLPct     = $pnlPct
-            Candles    = $i - $entryIdx
-        })
-
-        $inPosition = $false
-        $entryPrice = 0.0
-        $entryTime  = ''
-        continue
-    }
-
-    # SHORT EXIT: current HA Close > previous HA High (position open)
-    if ($inPosition -and ($current.Close -gt $previous.High)) {
-        $exitPrice = $current.RawClose
-        $pnl = [Math]::Round($entryPrice - $exitPrice, 2)
-        $pnlPct = [Math]::Round(($pnl / $entryPrice) * 100, 2)
-
-        $trades.Add([PSCustomObject]@{
-            EntryTime  = $entryTime
-            ExitTime   = $current.Time
-            EntryPrice = $entryPrice
-            ExitPrice  = $exitPrice
-            PnL        = $pnl
-            PnLPct     = $pnlPct
-            Candles    = $i - $entryIdx
-        })
-
-        $inPosition = $false
-        $entryPrice = 0.0
-        $entryTime  = ''
-    }
+# Group candles by trading day
+$dayGroups = @{}
+foreach ($ha in $haCandles) {
+    $ts = $ha.Time
+    if ($ts -is [string]) { try { $ts = [DateTime]::Parse($ts) } catch { continue } }
+    $dayKey = $ts.ToString('yyyy-MM-dd')
+    if (-not $dayGroups.ContainsKey($dayKey)) { $dayGroups[$dayKey] = [System.Collections.Generic.List[PSCustomObject]]::new() }
+    $dayGroups[$dayKey].Add($ha)
 }
 
-# If still in position at end, close at last candle
-if ($inPosition) {
-    $lastCandle = $haCandles[$haCandles.Count - 1]
-    $exitPrice = $lastCandle.RawClose
-    $pnl = [Math]::Round($entryPrice - $exitPrice, 2)
-    $pnlPct = [Math]::Round(($pnl / $entryPrice) * 100, 2)
-    $trades.Add([PSCustomObject]@{
-        EntryTime  = $entryTime
-        ExitTime   = "$($lastCandle.Time) (EOD)"
-        EntryPrice = $entryPrice
-        ExitPrice  = $exitPrice
-        PnL        = $pnl
-        PnLPct     = $pnlPct
-        Candles    = ($haCandles.Count - 1) - $entryIdx
-    })
+foreach ($dayKey in ($dayGroups.Keys | Sort-Object)) {
+    $dayCandles = $dayGroups[$dayKey]
+    if ($dayCandles.Count -lt 2) { continue }
+
+    $inPosition  = $false
+    $entryPrice  = 0.0
+    $entryTime   = ''
+    $entryIdx    = 0
+
+    for ($i = 1; $i -lt $dayCandles.Count; $i++) {
+        $current  = $dayCandles[$i]
+        $previous = $dayCandles[$i - 1]
+
+        # Get current candle time for entry cutoff
+        $cTime = $current.Time
+        if ($cTime -is [string]) { try { $cTime = [DateTime]::Parse($cTime) } catch {} }
+        $candleTOD = $cTime.TimeOfDay
+
+        # SHORT ENTRY: current HA Close < previous HA Low (no open position, before last entry time)
+        if ((-not $inPosition) -and ($candleTOD -le $lastEntrySpan) -and ($current.Close -lt $previous.Low)) {
+            $inPosition = $true
+            $entryPrice = $current.RawClose
+            $entryTime  = $current.Time
+            $entryIdx   = $i
+        }
+
+        # STOP LOSS: points for index, percentage for others
+        $slPoints = if ($isIndex) { $StopLoss } else { [Math]::Round($entryPrice * $StopLoss / 100, 2) }
+        if ($inPosition -and $StopLoss -gt 0 -and ($current.RawClose -ge ($entryPrice + $slPoints))) {
+            $exitPrice = [Math]::Round($entryPrice + $slPoints, 2)
+            $pnl = [Math]::Round($entryPrice - $exitPrice, 2)
+            $pnlPct = [Math]::Round(($pnl / $entryPrice) * 100, 2)
+
+            $trades.Add([PSCustomObject]@{
+                EntryTime  = $entryTime
+                ExitTime   = "$($current.Time) (SL)"
+                EntryPrice = $entryPrice
+                ExitPrice  = $exitPrice
+                PnL        = $pnl
+                PnLPct     = $pnlPct
+                Candles    = $i - $entryIdx
+            })
+
+            $inPosition = $false
+            $entryPrice = 0.0
+            $entryTime  = ''
+            continue
+        }
+
+        # SHORT EXIT: current HA Close > previous HA High (position open)
+        if ($inPosition -and ($current.Close -gt $previous.High)) {
+            $exitPrice = $current.RawClose
+            $pnl = [Math]::Round($entryPrice - $exitPrice, 2)
+            $pnlPct = [Math]::Round(($pnl / $entryPrice) * 100, 2)
+
+            $trades.Add([PSCustomObject]@{
+                EntryTime  = $entryTime
+                ExitTime   = $current.Time
+                EntryPrice = $entryPrice
+                ExitPrice  = $exitPrice
+                PnL        = $pnl
+                PnLPct     = $pnlPct
+                Candles    = $i - $entryIdx
+            })
+
+            $inPosition = $false
+            $entryPrice = 0.0
+            $entryTime  = ''
+        }
+    }
+
+    # Force-close any open position at end of day
+    if ($inPosition) {
+        $lastCandle = $dayCandles[$dayCandles.Count - 1]
+        $exitPrice = $lastCandle.RawClose
+        $pnl = [Math]::Round($entryPrice - $exitPrice, 2)
+        $pnlPct = [Math]::Round(($pnl / $entryPrice) * 100, 2)
+        $trades.Add([PSCustomObject]@{
+            EntryTime  = $entryTime
+            ExitTime   = "$($lastCandle.Time) (EOD)"
+            EntryPrice = $entryPrice
+            ExitPrice  = $exitPrice
+            PnL        = $pnl
+            PnLPct     = $pnlPct
+            Candles    = ($dayCandles.Count - 1) - $entryIdx
+        })
+    }
 }
 
 # ================================================================

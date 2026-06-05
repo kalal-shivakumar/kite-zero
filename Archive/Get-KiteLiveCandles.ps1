@@ -38,7 +38,7 @@ Import-Module "$scriptDir\KiteData.psm1" -Force
 # Entry point — validate & load token immediately
 # ================================================================
 if ($GetLoginUrl) {
-    $url = 'https://kite.trade/connect/login?v=3&api_key=' + $API_Key
+    $url = 'https://kite.zerodha.com/connect/login?api_key=' + $API_Key
     Write-Host "  Login URL: $url" -ForegroundColor White
     try { Start-Process $url } catch {}
     exit 0

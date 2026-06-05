@@ -14,34 +14,36 @@
 #>
 
 param(
-    [string]$TradingSymbol  = 'SENSEX',
+    [string]$TradingSymbol,
     [int]$InstrumentToken,
     [ValidateSet('5second','15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
-    [string]$TimeFrame      = '3minute',
-    [int]$CandlesToShow     = 10,
+    [string]$TimeFrame,
+    [int]$CandlesToShow,
     [switch]$FullMode,
     [switch]$ListSymbols,
     [switch]$GetLoginUrl,
     [string]$RequestToken,
     [string]$AccessToken,
-    [string]$API_Key        = '0fvxhlacu555dhp0',
-    [string]$API_Secret     = '69wajxn41hj77pze3xnhw1dp442auw8t',
+    [string]$API_Key,
+    [string]$API_Secret,
 
     # CE-BUY params
     [ValidateSet('NIFTY','BANKNIFTY','FinNifty','MIDCPNIFTY','SENSEX')]
-    [string]$IndexChoosen = "SENSEX",
-    [int]$NoOfLotsPurchaseAtaTime = 5,
-    [double]$AmountToTrade = 0,
+    [string]$IndexChoosen,
+    [int]$NoOfLotsPurchaseAtaTime,
+    [double]$AmountToTrade,
     [ValidateSet('NRML','MIS')]
-    [string]$Product = "NRML",
-    [datetime]$StartTime = [datetime]("09:16:01"),
-    [datetime]$StopTime  = [datetime]("15:30:00"),
-    [string]$Order_type  = "MARKET",
+    [string]$Product,
+    [datetime]$StartTime,
+    [datetime]$StopTime,
+    [string]$Order_type,
     [ValidateSet('Option_Buyer','Option_Seller')]
-    [string]$ModeOfTrading = "Option_Buyer",
-    [int]$ATMOffset = 0,
-    [string]$Variety = 'regular',
-    [int]$MarketProtection = 3
+    [string]$ModeOfTrading,
+    [int]$ATMOffset,
+    [string]$Variety,
+    [int]$MarketProtection,
+    [ValidateSet('yes','no')]
+    [string]$ExitTrade
 )
 
 # ================================================================
@@ -51,36 +53,48 @@ $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyI
 Import-Module "$scriptDir\KiteData.psm1" -Force
 
 $inputFile = Join-Path $scriptDir 'input.json'
-if (Test-Path $inputFile) {
-    $cfg = Get-Content $inputFile -Raw | ConvertFrom-Json
-    # Signal generator params
-    if (-not $PSBoundParameters.ContainsKey('TradingSymbol'))  { $TradingSymbol  = $cfg.TradingSymbol }
-    if (-not $PSBoundParameters.ContainsKey('InstrumentToken') -and $cfg.InstrumentToken) { $InstrumentToken = [int]$cfg.InstrumentToken }
-    if (-not $PSBoundParameters.ContainsKey('TimeFrame'))      { $TimeFrame      = $cfg.TimeFrame }
-    if (-not $PSBoundParameters.ContainsKey('CandlesToShow'))  { $CandlesToShow  = [int]$cfg.CandlesToShow }
-    if (-not $PSBoundParameters.ContainsKey('FullMode')  -and $cfg.FullMode)  { $FullMode  = [switch]$true }
-    if (-not $PSBoundParameters.ContainsKey('API_Key'))        { $API_Key        = $cfg.API_Key }
-    if (-not $PSBoundParameters.ContainsKey('API_Secret'))     { $API_Secret     = $cfg.API_Secret }
-    # CE-BUY params
-    if (-not $PSBoundParameters.ContainsKey('IndexChoosen'))            { $IndexChoosen            = $cfg.IndexChoosen }
-    if (-not $PSBoundParameters.ContainsKey('NoOfLotsPurchaseAtaTime')) { $NoOfLotsPurchaseAtaTime = [int]$cfg.NoOfLotsPurchaseAtaTime }
-    if (-not $PSBoundParameters.ContainsKey('AmountToTrade') -and $cfg.AmountToTrade) { $AmountToTrade = [double]$cfg.AmountToTrade }
-    if (-not $PSBoundParameters.ContainsKey('Product'))                 { $Product                 = $cfg.Product }
-    if (-not $PSBoundParameters.ContainsKey('StartTime'))               { $StartTime               = [datetime]$cfg.StartTime }
-    if (-not $PSBoundParameters.ContainsKey('StopTime'))                { $StopTime                = [datetime]$cfg.StopTime }
-    if (-not $PSBoundParameters.ContainsKey('Order_type'))              { $Order_type              = $cfg.Order_type }
-    if (-not $PSBoundParameters.ContainsKey('ModeOfTrading'))           { $ModeOfTrading           = $cfg.ModeOfTrading }
-    if (-not $PSBoundParameters.ContainsKey('ATMOffset'))               { $ATMOffset               = [int]$cfg.ATMOffset }
-    if ($cfg.Variety)          { $Variety          = $cfg.Variety }
-    if ($cfg.MarketProtection) { $MarketProtection = [int]$cfg.MarketProtection }
-    Write-Host "  Loaded config from input.json" -ForegroundColor DarkGray
+if (-not (Test-Path $inputFile)) {
+    Write-Host '  ERROR: input.json not found. This file is required for configuration.' -ForegroundColor Red
+    exit 1
 }
+$cfg = Get-Content $inputFile -Raw | ConvertFrom-Json
+
+# Load all params from input.json; command-line overrides take priority
+if (-not $PSBoundParameters.ContainsKey('TradingSymbol'))  { $TradingSymbol  = $cfg.TradingSymbol }
+if (-not $PSBoundParameters.ContainsKey('InstrumentToken') -and $cfg.InstrumentToken) { $InstrumentToken = [int]$cfg.InstrumentToken }
+if (-not $PSBoundParameters.ContainsKey('TimeFrame'))      { $TimeFrame      = $cfg.TimeFrame }
+if (-not $PSBoundParameters.ContainsKey('CandlesToShow'))  { $CandlesToShow  = [int]$cfg.CandlesToShow }
+if (-not $PSBoundParameters.ContainsKey('FullMode')  -and $cfg.FullMode)  { $FullMode  = [switch]$true }
+if (-not $PSBoundParameters.ContainsKey('API_Key'))        { $API_Key        = $cfg.API_Key }
+if (-not $PSBoundParameters.ContainsKey('API_Secret'))     { $API_Secret     = $cfg.API_Secret }
+if (-not $PSBoundParameters.ContainsKey('IndexChoosen')) {
+    $rawIdx = $cfg.IndexChoosen
+    $idxMap = @{ 'NIFTY'='NIFTY'; 'BANKNIFTY'='BANKNIFTY'; 'FINNIFTY'='FinNifty'; 'MIDCPNIFTY'='MIDCPNIFTY'; 'SENSEX'='SENSEX' }
+    $IndexChoosen = if ($idxMap.ContainsKey($rawIdx.ToUpper())) { $idxMap[$rawIdx.ToUpper()] } else { $rawIdx }
+}
+if (-not $PSBoundParameters.ContainsKey('NoOfLotsPurchaseAtaTime')) { $NoOfLotsPurchaseAtaTime = [int]$cfg.NoOfLotsPurchaseAtaTime }
+if (-not $PSBoundParameters.ContainsKey('AmountToTrade'))           { $AmountToTrade           = if ($cfg.AmountToTrade) { [double]$cfg.AmountToTrade } else { 0 } }
+if (-not $PSBoundParameters.ContainsKey('Product'))                 { $Product                 = $cfg.Product }
+if (-not $PSBoundParameters.ContainsKey('StartTime'))               { $StartTime               = [datetime]$cfg.StartTime }
+if (-not $PSBoundParameters.ContainsKey('StopTime'))                { $StopTime                = [datetime]$cfg.StopTime }
+if (-not $PSBoundParameters.ContainsKey('Order_type'))              { $Order_type              = $cfg.Order_type }
+if (-not $PSBoundParameters.ContainsKey('ModeOfTrading'))           { $ModeOfTrading           = $cfg.ModeOfTrading }
+if (-not $PSBoundParameters.ContainsKey('ATMOffset'))               { $ATMOffset               = [int]$cfg.ATMOffset }
+if (-not $PSBoundParameters.ContainsKey('Variety'))                 { $Variety                 = if ($cfg.Variety) { $cfg.Variety } else { 'regular' } }
+if (-not $PSBoundParameters.ContainsKey('MarketProtection'))        { $MarketProtection        = if ($cfg.MarketProtection) { [int]$cfg.MarketProtection } else { 3 } }
+if (-not $PSBoundParameters.ContainsKey('ExitTrade'))              { $ExitTrade              = if ($cfg.ExitTrade) { $cfg.ExitTrade } else { 'yes' } }
+Write-Host "  Loaded config from input.json" -ForegroundColor DarkGray
 
 # ================================================================
 # Auth
 # ================================================================
+if (-not $API_Key -or -not $API_Secret) {
+    Write-Host '  ERROR: API_Key/API_Secret not found. Check input.json exists and has valid values.' -ForegroundColor Red
+    exit 1
+}
+
 if ($GetLoginUrl) {
-    $url = 'https://kite.trade/connect/login?v=3&api_key=' + $API_Key
+    $url = 'https://kite.zerodha.com/connect/login?api_key=' + $API_Key
     Write-Host "  Login URL: $url" -ForegroundColor White
     try { Start-Process $url } catch {}
     exit 0
@@ -98,11 +112,38 @@ if (-not $AccessToken) {
         if (-not $AccessToken) { Write-Host '  No token. Exiting.' -ForegroundColor Red; exit 1 }
     }
 }
-Write-Host "  Access token ready." -ForegroundColor Green
 
 $headers = @{
     'X-Kite-Version' = '3'
     'Authorization'  = "token ${API_Key}:${AccessToken}"
+}
+
+# Validate token by calling the profile API
+$tokenValid = $false
+try {
+    $profile = Invoke-RestMethod 'https://api.kite.trade/user/profile' -Headers $headers -ErrorAction Stop
+    if ($profile.data -and $profile.data.user_id) {
+        $tokenValid = $true
+        Write-Host "  Token valid. Logged in as: $($profile.data.user_name) ($($profile.data.user_id))" -ForegroundColor Green
+    }
+} catch {
+    Write-Host "  Token validation failed: $($_.Exception.Message)" -ForegroundColor Yellow
+}
+
+if (-not $tokenValid) {
+    Write-Host '  Access token is INVALID or EXPIRED. Requesting new token...' -ForegroundColor Red
+    Remove-Item $tokenFile -Force -ErrorAction SilentlyContinue
+    $AccessToken = Resolve-KiteAccessToken -ApiKey $API_Key -ApiSecret $API_Secret -TokenFilePath $tokenFile
+    if (-not $AccessToken) { Write-Host '  Login failed. Exiting.' -ForegroundColor Red; exit 1 }
+    $headers['Authorization'] = "token ${API_Key}:${AccessToken}"
+    # Re-validate new token
+    try {
+        $profile = Invoke-RestMethod 'https://api.kite.trade/user/profile' -Headers $headers -ErrorAction Stop
+        Write-Host "  New token valid. Logged in as: $($profile.data.user_name) ($($profile.data.user_id))" -ForegroundColor Green
+    } catch {
+        Write-Host "  ERROR: New token also failed. Check API credentials." -ForegroundColor Red
+        exit 1
+    }
 }
 
 # ================================================================
@@ -190,17 +231,25 @@ $script:CE_EntryLots    = 0
 $PositionFile = Join-Path $PlacedOrdersDir 'CE-Position.json'
 if (Test-Path $PositionFile) {
     $saved = Get-Content $PositionFile -Raw | ConvertFrom-Json
-    $script:CE_InPosition  = $true
-    $script:CE_EntrySymbol = $saved.Symbol
-    $script:CE_EntryToken  = $saved.Token
-    $script:CE_EntryStrike = $saved.Strike
-    $script:CE_EntryPrice  = $saved.Price
-    $script:CE_EntryTime   = $saved.Time
-    $script:CE_EntryQty    = if ($saved.Qty) { [int]$saved.Qty } else { $Quantity }
-    $script:CE_EntryLots   = if ($saved.Lots) { [int]$saved.Lots } else { $NoOfLotsPurchaseAtaTime }
-    $script:LongOrderPlaced = $true
-    $script:LongEntryPrice  = $saved.Price
-    Write-Host "  Restored position: $($script:CE_EntrySymbol) | Strike: $($script:CE_EntryStrike) | Qty: $($script:CE_EntryQty)" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  Existing position found: $($saved.Symbol) | Strike: $($saved.Strike) | Qty: $($saved.Qty) | Entry: $($saved.Price) @ $($saved.Time)" -ForegroundColor Yellow
+    $cleanup = Read-Host "  Do you want to cleanup old entries and start fresh? (y/n)"
+    if ($cleanup -eq 'y' -or $cleanup -eq 'Y') {
+        Remove-Item $PositionFile -Force -ErrorAction SilentlyContinue
+        Write-Host "  Old position cleared. Starting fresh." -ForegroundColor Green
+    } else {
+        $script:CE_InPosition  = $true
+        $script:CE_EntrySymbol = $saved.Symbol
+        $script:CE_EntryToken  = $saved.Token
+        $script:CE_EntryStrike = $saved.Strike
+        $script:CE_EntryPrice  = $saved.Price
+        $script:CE_EntryTime   = $saved.Time
+        $script:CE_EntryQty    = if ($saved.Qty) { [int]$saved.Qty } else { $Quantity }
+        $script:CE_EntryLots   = if ($saved.Lots) { [int]$saved.Lots } else { $NoOfLotsPurchaseAtaTime }
+        $script:LongOrderPlaced = $true
+        $script:LongEntryPrice  = $saved.Price
+        Write-Host "  Resuming position: $($script:CE_EntrySymbol) | Strike: $($script:CE_EntryStrike) | Qty: $($script:CE_EntryQty)" -ForegroundColor Yellow
+    }
 }
 
 # ================================================================
@@ -316,6 +365,11 @@ function script:Check-LongAndTrade([int]$instrumentToken, [double]$lastPrice) {
 
         Write-Host ""
         Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] *** LONG EXIT SIGNAL *** LTP: $lastPrice | HA Close: $([Math]::Round($liveHA.Close,2)) < Prev Low: $($previousCandle.Low)" -ForegroundColor Yellow
+
+        if ($ExitTrade -eq 'no') {
+            Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] EXIT TRADE DISABLED (ExitTrade=no) — skipping SELL order, position stays open" -ForegroundColor DarkYellow
+            return
+        }
 
         # ── IMMEDIATE CE SELL (use same qty as entry) ──
         $exitQty = $script:CE_EntryQty

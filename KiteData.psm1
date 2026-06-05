@@ -193,7 +193,7 @@ function Resolve-KiteAccessToken {
             Write-Host "  access_token expired ($([Math]::Round($h,1))h old)." -ForegroundColor Yellow
         } catch { Write-Host "  Invalid accesstoken.json: $($_.Exception.Message)" -ForegroundColor Yellow }
     }
-    $url = 'https://kite.trade/connect/login?v=3&api_key=' + $ApiKey
+    $url = 'https://kite.zerodha.com/connect/login?api_key=' + $ApiKey
     Write-Host ''
     Write-Host '  No valid access_token. Opening login...' -ForegroundColor Cyan
     Write-Host "  $url" -ForegroundColor DarkGray
@@ -2180,5 +2180,119 @@ function Get-ATMOption {
     return ($Options | Where-Object { $_.Strike -eq $targetStrike } | Select-Object -First 1)
 }
 
+# ══════════════════════════════════════════════════════════════
+# FUNCTION: Get-KiteOpenPositions
+# Fetches all open (net qty != 0) positions from Kite API.
+# Also fetches live LTP for each open position to compute
+# real-time P&L that updates continuously.
+# ══════════════════════════════════════════════════════════════
+function Get-KiteOpenPositions {
+    param(
+        [Parameter(Mandatory=$true)]
+        [hashtable]$Headers
+    )
+
+    try {
+        $resp = Invoke-RestMethod -Uri "https://api.kite.trade/portfolio/positions" -Headers $Headers -Method Get -ErrorAction Stop
+
+        $dayPositions = $resp.data.day
+        if (-not $dayPositions -or $dayPositions.Count -eq 0) {
+            return @{ Positions = @(); DisplayLines = @("  POSITIONS: None today  |  $(Get-Date -Format 'HH:mm:ss')"); TotalPnL = 0.0 }
+        }
+
+        # Collect open positions
+        $openPositions = @()
+        $closedPnL = 0.0
+
+        foreach ($pos in $dayPositions) {
+            $qty = [int]$pos.quantity
+            if ($qty -eq 0) {
+                $closedPnL += [double]$pos.pnl
+                continue
+            }
+
+            $openPositions += @{
+                Symbol   = $pos.tradingsymbol
+                Exchange = $pos.exchange
+                Qty      = $qty
+                BuyAvg   = [double]$pos.average_price
+                SellAvg  = [double]$pos.sell_price
+                Product  = $pos.product
+                Side     = if ($qty -gt 0) { 'LONG' } else { 'SHORT' }
+                Multiplier = [double]$pos.multiplier
+            }
+        }
+
+        if ($openPositions.Count -eq 0) {
+            $totalStr = $closedPnL.ToString('N2')
+            return @{ Positions = @(); DisplayLines = @("  POSITIONS: All closed  |  Day P&L: $totalStr  |  $(Get-Date -Format 'HH:mm:ss')"); TotalPnL = $closedPnL }
+        }
+
+        # Fetch live LTP for all open positions in one API call
+        $ltpMap = @{}
+        try {
+            $queryParts = @()
+            foreach ($p in $openPositions) {
+                $queryParts += "i=$([System.Uri]::EscapeDataString("$($p.Exchange):$($p.Symbol)"))"
+            }
+            $ltpUrl = "https://api.kite.trade/quote/ltp?" + ($queryParts -join '&')
+            $ltpResp = Invoke-RestMethod -Uri $ltpUrl -Headers $Headers -Method Get -ErrorAction Stop
+            if ($ltpResp.data) {
+                foreach ($key in $ltpResp.data.PSObject.Properties) {
+                    $ltpMap[$key.Name] = [double]$key.Value.last_price
+                }
+            }
+        } catch {}
+
+        # Build position details with live P&L
+        $results = @()
+        $totalPnL = $closedPnL
+
+        foreach ($p in $openPositions) {
+            $ltpKey = "$($p.Exchange):$($p.Symbol)"
+            $ltp = if ($ltpMap.ContainsKey($ltpKey)) { $ltpMap[$ltpKey] } else { 0.0 }
+
+            # Calculate real-time P&L
+            if ($p.Qty -gt 0) {
+                $unrealized = ($ltp - $p.BuyAvg) * $p.Qty * $p.Multiplier
+            } else {
+                $unrealized = ($p.SellAvg - $ltp) * [Math]::Abs($p.Qty) * $p.Multiplier
+            }
+            $totalPnL += $unrealized
+
+            $results += [PSCustomObject]@{
+                Symbol     = $p.Symbol
+                Exchange   = $p.Exchange
+                Qty        = $p.Qty
+                BuyAvg     = $p.BuyAvg
+                LTP        = $ltp
+                PnL        = $unrealized
+                Product    = $p.Product
+                Side       = $p.Side
+            }
+        }
+
+        # Build display lines
+        $lines = [System.Collections.Generic.List[string]]::new()
+        $lines.Add("  ── Open Positions ($($results.Count)) ─────────────────────────────── $(Get-Date -Format 'HH:mm:ss')")
+        $fmt = '  {0,-26} {1,5} {2,6} {3,10} {4,10} {5,12}'
+        $lines.Add(($fmt -f 'Symbol', 'Side', 'Qty', 'Avg', 'LTP', 'P&L'))
+
+        foreach ($r in $results) {
+            $pnlStr = $r.PnL.ToString('N2')
+            $line = $fmt -f $r.Symbol, $r.Side, $r.Qty, $r.BuyAvg.ToString('N2'), $r.LTP.ToString('N2'), $pnlStr
+            $lines.Add($line)
+        }
+
+        $lines.Add(("  Total P&L: " + $totalPnL.ToString('N2') + "  (closed: " + $closedPnL.ToString('N2') + ")"))
+        $lines.Add("  ─────────────────────────────────────────────────────────────────")
+
+        return @{ Positions = $results; DisplayLines = $lines.ToArray(); TotalPnL = $totalPnL }
+    }
+    catch {
+        return @{ Positions = @(); DisplayLines = @("  POSITIONS: Error - $($_.Exception.Message)"); TotalPnL = 0.0 }
+    }
+}
+
 # ── Module exports (single consolidated statement) ─────────
-Export-ModuleMember -Function Search-KiteInstrument, Show-KitePresets, Get-KiteLiveCandles, Get-KiteHeikinAshiCandles, Invoke-KiteHALongStrategy, Invoke-KiteHAShortStrategy, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol, Place-ZerodhaOrder, Get-IndexOptionConfig, Get-KiteSpotPrice, Get-KiteOptionInstruments, Get-ATMOption, Get-IntervalSeconds, Get-IntervalLabel, Parse-KiteTicks
+Export-ModuleMember -Function Search-KiteInstrument, Show-KitePresets, Get-KiteLiveCandles, Get-KiteHeikinAshiCandles, Invoke-KiteHALongStrategy, Invoke-KiteHAShortStrategy, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol, Place-ZerodhaOrder, Get-IndexOptionConfig, Get-KiteSpotPrice, Get-KiteOptionInstruments, Get-ATMOption, Get-IntervalSeconds, Get-IntervalLabel, Parse-KiteTicks, Get-KiteOpenPositions
