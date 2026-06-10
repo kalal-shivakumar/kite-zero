@@ -2294,5 +2294,93 @@ function Get-KiteOpenPositions {
     }
 }
 
+# ── REST API: Fetch historical candle data ─────────────────
+function Get-ZerodhaCandleData {
+    param(
+        $tradingsymbol,
+        $instrument_token,
+        [string]$TimeFrame = "1",
+        $FromDate,
+        $TODate,
+        [int]$LastNCandles = 20
+    )
+
+    $interval = switch($TimeFrame){ "day"{"day"} "1"{"minute"} default{"${TimeFrame}minute"} }
+    $now = Get-Date
+    $fmt = 'yyyy-MM-dd+HH:mm:ss'
+    $to = if($TODate){ Get-Date $TODate -Format $fmt } else { Get-Date $now -Format $fmt }
+    if($FromDate){ $from = Get-Date $FromDate -Format $fmt }
+    else{
+        $mins = if($interval -eq "day"){ ($LastNCandles+5)*1440 } else { [Math]::Max(($LastNCandles+10)*($(if($TimeFrame -eq "1"){1}else{[int]$TimeFrame})), 1440) }
+        $from = Get-Date $now.AddMinutes(-$mins) -Format $fmt
+    }
+
+    $candles = $null
+    for($i=0; $i -lt 3; $i++){
+        try{
+            $candles = (Invoke-RestMethod "https://api.kite.trade/instruments/historical/$instrument_token/${interval}?from=$from&to=$to" -Headers $Global:common_header -Method Get -ErrorAction Stop).data.candles
+            break
+        }catch{ Start-Sleep -Seconds 1 }
+    }
+    if(-not $candles){ return $null }
+
+    if($candles.Count -gt $LastNCandles){ $candles = $candles[-$LastNCandles..-1] }
+
+    $out = foreach($c in $candles){
+        [PSCustomObject]@{ timestamp=$c[0]; open=[double]$c[1]; high=[double]$c[2]; low=[double]$c[3]; close=[double]$c[4]; volume=[long]$c[5] }
+    }
+    return $out
+}
+
+# ── REST API: Fetch Heikin-Ashi candle data ────────────────
+function Get-HeikinAshiCandlesData {
+    param(
+        $tradingsymbol,
+        $instrument_token,
+        $TimeFrame = "1",
+        $FromDate,
+        $TODate,
+        [int]$LastNCandles = 20
+    )
+
+    $interval = switch($TimeFrame){ "day"{"day"} "1"{"minute"} default{"${TimeFrame}minute"} }
+    $now = Get-Date
+    $fmt = 'yyyy-MM-dd+HH:mm:ss'
+    $to = if($TODate){ Get-Date $TODate -Format $fmt } else { Get-Date $now -Format $fmt }
+    if($FromDate){ $from = Get-Date $FromDate -Format $fmt }
+    else{
+        $need = $LastNCandles + 10
+        $mins = if($interval -eq "day"){ $need*1440 } else { [Math]::Max($need*($(if($TimeFrame -eq "1"){1}else{[int]$TimeFrame})), 1440) }
+        $from = Get-Date $now.AddMinutes(-$mins) -Format $fmt
+    }
+
+    $candles = $null
+    for($i=0; $i -lt 3; $i++){
+        try{
+            $candles = (Invoke-RestMethod "https://api.kite.trade/instruments/historical/$instrument_token/${interval}?from=$from&to=$to" -Headers $Global:common_header -Method Get -ErrorAction Stop).data.candles
+            break
+        }catch{ Start-Sleep -Seconds 1 }
+    }
+    if(-not $candles -or $candles.Count -eq 0){ return $null }
+
+    $HACandlesData = @()
+    foreach($c in $candles){
+        [double]$o=$c[1]; [double]$h=$c[2]; [double]$l=$c[3]; [double]$cl=$c[4]
+        $prev = $HACandlesData[-1]
+        if($HACandlesData.Count -eq 0){
+            $haO=$o; $haH=$h; $haL=$l; $haC=$cl
+        } else {
+            $haC = ($o+$h+$l+$cl)/4
+            $haO = ($prev.Open+$prev.Close)/2
+            $haH = [Math]::Max($h, [Math]::Max($haO,$haC))
+            $haL = [Math]::Min($l, [Math]::Min($haO,$haC))
+        }
+        $HACandlesData += [PSCustomObject]@{ Open=$haO; High=$haH; Low=$haL; Close=$haC; TimeStamp=$c[0] }
+    }
+
+    if($HACandlesData.Count -gt $LastNCandles){ $HACandlesData = $HACandlesData[-$LastNCandles..-1] }
+    return $HACandlesData
+}
+
 # ── Module exports (single consolidated statement) ─────────
-Export-ModuleMember -Function Search-KiteInstrument, Show-KitePresets, Get-KiteLiveCandles, Get-KiteHeikinAshiCandles, Invoke-KiteHALongStrategy, Invoke-KiteHAShortStrategy, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol, Place-ZerodhaOrder, Get-IndexOptionConfig, Get-KiteSpotPrice, Get-KiteOptionInstruments, Get-ATMOption, Get-IntervalSeconds, Get-IntervalLabel, Parse-KiteTicks, Get-KiteOpenPositions
+Export-ModuleMember -Function Search-KiteInstrument, Show-KitePresets, Get-KiteLiveCandles, Get-KiteHeikinAshiCandles, Invoke-KiteHALongStrategy, Invoke-KiteHAShortStrategy, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol, Place-ZerodhaOrder, Get-IndexOptionConfig, Get-KiteSpotPrice, Get-KiteOptionInstruments, Get-ATMOption, Get-IntervalSeconds, Get-IntervalLabel, Parse-KiteTicks, Get-KiteOpenPositions, Get-ZerodhaCandleData, Get-HeikinAshiCandlesData
