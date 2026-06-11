@@ -2382,5 +2382,92 @@ function Get-HeikinAshiCandlesData {
     return $HACandlesData
 }
 
+# ════════════════════════════════════════════════════════════
+# FUNCTION: Check-AlreadyAnyOrderRunning
+# Checks open positions for existing CE/PE orders and
+# returns UpTrend/DownTrend status with quantity tracking
+# ════════════════════════════════════════════════════════════
+function Check-AlreadyAnyOrderRunning {
+    param (
+        $SearchKeyWord = "BankNifty",
+        $NoOfLotsPurchaseAtaTime = 1,
+        [Parameter(Mandatory=$true)]
+        [hashtable]$Headers
+    )
+
+    $LotSizes = @{
+        'NIFTY'      = 65
+        'BANKNIFTY'  = 15
+        'FINNIFTY'   = 40
+        'MIDCPNIFTY' = 75
+        'SENSEX'     = 20
+    }
+    $LotSize = if ($LotSizes.ContainsKey($SearchKeyWord.ToUpper())) { $LotSizes[$SearchKeyWord.ToUpper()] } else { 1 }
+    $RequiredQuantity = $NoOfLotsPurchaseAtaTime * $LotSize
+
+    $UpTrendTradingSymbols = ""
+    $UpTrendRunningQuantity = 0
+
+    $DownTrendTradingSymbols = ""
+    $DownTrendRunningQuantity = 0
+
+    $allPreviousRunningOrders = $null
+    try {
+        $resp = Invoke-RestMethod -Uri "https://api.kite.trade/portfolio/positions" -Headers $Headers -Method Get -ErrorAction Stop
+        $allPreviousRunningOrders = $resp.data.net | Where-Object {$_.tradingsymbol -Match "$SearchKeyWord"} | Where-Object quantity -gt 0
+    } catch {
+        Write-Host "  Check-AlreadyAnyOrderRunning API error: $($_.Exception.Message)" -ForegroundColor Red
+        return $null
+    }
+
+    $UpTrend_Obj = $allPreviousRunningOrders | Where-Object {$_.tradingsymbol -Match "CE"}
+    $DownTrend_Obj = $allPreviousRunningOrders | Where-Object {$_.tradingsymbol -Match "PE"}
+
+    $UpTrendRunningQuantity = $UpTrend_Obj | Measure-Object -Property Quantity -Sum | Select-Object -ExpandProperty Sum
+    $DownTrendRunningQuantity = $DownTrend_Obj | Measure-Object -Property Quantity -Sum | Select-Object -ExpandProperty Sum
+
+    if($UpTrendRunningQuantity -ge $RequiredQuantity) {
+        $UpTrendRunning = $True
+        $UpTrend_Obj | Select-Object -ExpandProperty TradingSymbol | ForEach-Object {$UpTrendTradingSymbols += "$_,"}
+    } else {
+        $UpTrendTradingSymbols = "No"
+        $UpTrendRunning = $False
+        $UpTrendRunningQuantity = if($UpTrendRunningQuantity) { $UpTrendRunningQuantity } else { 0 }
+    }
+
+    if($DownTrendRunningQuantity -ge $RequiredQuantity) {
+        $DownTrendRunning = $True
+        $DownTrend_Obj | Select-Object -ExpandProperty TradingSymbol | ForEach-Object {$DownTrendTradingSymbols += "$_,"}
+    } else {
+        $DownTrendTradingSymbols = "No"
+        $DownTrendRunning = $False
+        $DownTrendRunningQuantity = if($DownTrendRunningQuantity) { $DownTrendRunningQuantity } else { 0 }
+    }
+
+    $Trend_Obj = @()
+
+    $UPTrend_Obj = [PSCustomObject]@{
+        Source             = "Positions"
+        Type               = "UPTrend"
+        TradingSymbols     = $UpTrendTradingSymbols.Trim(",")
+        Running            = $UpTrendRunning
+        RunningQuantity    = $UpTrendRunningQuantity
+        instrument_token   = $UpTrend_Obj.instrument_token
+        Product            = $UpTrend_Obj.product
+    }
+    $DownTrend_Obj = [PSCustomObject]@{
+        Source             = "Positions"
+        Type               = "DownTrend"
+        TradingSymbols     = $DownTrendTradingSymbols.Trim(",")
+        Running            = $DownTrendRunning
+        RunningQuantity    = $DownTrendRunningQuantity
+        instrument_token   = $DownTrend_Obj.instrument_token
+        Product            = $DownTrend_Obj.product
+    }
+
+    $Trend_Obj = $UPTrend_Obj, $DownTrend_Obj
+    return $Trend_Obj
+}
+
 # ── Module exports (single consolidated statement) ─────────
-Export-ModuleMember -Function Search-KiteInstrument, Show-KitePresets, Get-KiteLiveCandles, Get-KiteHeikinAshiCandles, Invoke-KiteHALongStrategy, Invoke-KiteHAShortStrategy, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol, Place-ZerodhaOrder, Get-IndexOptionConfig, Get-KiteSpotPrice, Get-KiteOptionInstruments, Get-ATMOption, Get-IntervalSeconds, Get-IntervalLabel, Parse-KiteTicks, Get-KiteOpenPositions, Get-ZerodhaCandleData, Get-HeikinAshiCandlesData
+Export-ModuleMember -Function Search-KiteInstrument, Show-KitePresets, Get-KiteLiveCandles, Get-KiteHeikinAshiCandles, Invoke-KiteHALongStrategy, Invoke-KiteHAShortStrategy, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol, Place-ZerodhaOrder, Get-IndexOptionConfig, Get-KiteSpotPrice, Get-KiteOptionInstruments, Get-ATMOption, Get-IntervalSeconds, Get-IntervalLabel, Parse-KiteTicks, Get-KiteOpenPositions, Get-ZerodhaCandleData, Get-HeikinAshiCandlesData, Check-AlreadyAnyOrderRunning
