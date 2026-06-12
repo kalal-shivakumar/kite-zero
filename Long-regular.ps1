@@ -1,22 +1,24 @@
 <#
 .SYNOPSIS
-  Combined HA Short Signal + PE Option Auto-Trade (zero-latency).
+  Combined Regular Long Signal + CE Option Auto-Trade (zero-latency).
 .DESCRIPTION
-  Streams live HA candles via Kite WebSocket. When the HA short entry
-  condition fires, immediately places a PE BUY order in the same tick
+  Streams live Regular candles via Kite WebSocket. When the Regular long entry
+  condition fires, immediately places a CE BUY order in the same tick
   — no file I/O, no polling delay. Exit is equally instant.
 
-  This replaces running Short-SignalGenerator.ps1 + PE-BUY.ps1 separately.
+  Same logic as CALL-Hedge.ps1 but uses regular candles instead of Heikin-Ashi.
+  Entry: current Close > previous High
+  Exit:  current Close < previous Low
 .EXAMPLE
-  .\Short-PE-Combined.ps1
-  .\Short-PE-Combined.ps1 -TradingSymbol BANKNIFTY -TimeFrame 5minute
-  .\Short-PE-Combined.ps1 -TradingSymbol SENSEX -IndexChoosen SENSEX -TimeFrame 15second
+  .\Long-regular.ps1
+  .\Long-regular.ps1 -TradingSymbol BANKNIFTY -TimeFrame 5minute
+  .\Long-regular.ps1 -TradingSymbol SENSEX -IndexChoosen SENSEX -TimeFrame 15second
 #>
 
 param(
     [string]$TradingSymbol,
     [int]$InstrumentToken,
-    [ValidateSet('5second','15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
+    [ValidateSet('5second','15second','30second','minute','2minute','3minute','4minute','5minute','10minute','15minute','30minute','60minute')]
     [string]$TimeFrame,
     [int]$CandlesToShow,
     [switch]$FullMode,
@@ -27,7 +29,7 @@ param(
     [string]$API_Key,
     [string]$API_Secret,
 
-    # PE-BUY params
+    # CE-BUY params
     [ValidateSet('NIFTY','BANKNIFTY','FinNifty','MIDCPNIFTY','SENSEX')]
     [string]$IndexChoosen,
     [int]$NoOfLotsPurchaseAtaTime,
@@ -168,7 +170,7 @@ $intSec   = Get-IntervalSeconds $TimeFrame
 $intLabel = Get-IntervalLabel $intSec
 
 # ================================================================
-# PE Option setup
+# CE Option setup
 # ================================================================
 $IndexConfig = Get-IndexOptionConfig -IndexName $IndexChoosen -NoOfLots $NoOfLotsPurchaseAtaTime
 if (-not $IndexConfig) { exit 1 }
@@ -182,16 +184,16 @@ $underlyingName = $IndexConfig.SearchKeyWord
 $Quantity = $IndexConfig.Quantity  # fallback if AmountToTrade is 0
 
 Write-Host ""
-Write-Host "  Fetching $optExchange PE instruments..." -ForegroundColor Yellow
+Write-Host "  Fetching $optExchange CE instruments..." -ForegroundColor Yellow
 
-$optData = Get-KiteOptionInstruments -OptExchange $optExchange -UnderlyingName $underlyingName -OptionType 'PE' -Headers $headers
+$optData = Get-KiteOptionInstruments -OptExchange $optExchange -UnderlyingName $underlyingName -OptionType 'CE' -Headers $headers
 if (-not $optData) { exit 1 }
 
-$peOptions     = $optData.Options
+$ceOptions     = $optData.Options
 $allStrikes    = $optData.Strikes
 $nearestExpiry = $optData.Expiry
 
-Write-Host "  Expiry: $nearestExpiry | PE Strikes: $($allStrikes.Count) | Lot Size: $($peOptions[0].LotSize)" -ForegroundColor Green
+Write-Host "  Expiry: $nearestExpiry | CE Strikes: $($allStrikes.Count) | Lot Size: $($ceOptions[0].LotSize)" -ForegroundColor Green
 
 $PlacedOrdersDir = Join-Path $scriptDir 'PlacedOrders'
 if (-not (Test-Path $PlacedOrdersDir)) { New-Item -ItemType Directory -Path $PlacedOrdersDir -Force | Out-Null }
@@ -201,7 +203,6 @@ if (-not (Test-Path $PlacedOrdersDir)) { New-Item -ItemType Directory -Path $Pla
 # ================================================================
 $script:STR_CompletedCandles = @{}
 $script:STR_ActiveCandle     = @{}
-$script:STR_PreviousHA       = @{}
 $script:STR_TickCount        = 0
 $script:STR_IntervalSeconds  = $intSec
 $script:STR_DisplayConfig    = @{
@@ -211,67 +212,37 @@ $script:STR_DisplayConfig    = @{
 $script:STR_LastDisplayTime   = [datetime]::MinValue
 $script:STR_DisplayIntervalMs = 250
 
-# Signal state
-$script:ShortOrderPlaced = $false
-$script:ShortEntryPrice  = 0.0
-$script:ShortEntryTime   = ''
-$script:StrategySignals   = [System.Collections.Generic.List[string]]::new()
+$script:StrategySignals  = [System.Collections.Generic.List[string]]::new()
+$script:LongEntryPrice   = 0.0  # For unrealized P&L display
+$script:LastPositionStatus = $null  # Cached Check-AlreadyAnyOrderRunning result
 
-# PE position state
-$script:PE_InPosition    = $false
-$script:PE_EntrySymbol   = ''
-$script:PE_EntryToken    = 0
-$script:PE_EntryStrike   = 0
-$script:PE_EntryPrice    = 0
-$script:PE_EntryTime     = ''
-$script:PE_EntryOptionLTP = 0
-$script:PE_TotalPnL      = 0
-$script:PE_EntryQty      = 0
-$script:PE_EntryLots     = 0
-
-# Auto-detect existing positions at startup via API (no user prompt)
-$PositionFile = Join-Path $PlacedOrdersDir 'PE-Position.json'
+# ================================================================
+# Auto-detect existing positions at startup (no user prompt)
+# ================================================================
 Write-Host ''
-Write-Host '  Checking for existing open PE positions...' -ForegroundColor Yellow
+Write-Host '  Checking for existing open positions...' -ForegroundColor Yellow
 $startupPositions = Check-AlreadyAnyOrderRunning -SearchKeyWord $underlyingName -NoOfLotsPurchaseAtaTime $NoOfLotsPurchaseAtaTime -Headers $headers
 if ($null -ne $startupPositions -and @($startupPositions).Count -gt 0) {
-    $startupDownTrend = $startupPositions | Where-Object { $_.Type -eq 'DownTrend' }
-    if ($startupDownTrend.Running -eq $true) {
-        # Existing PE position found via API — resume tracking
+    $startupUpTrend = $startupPositions | Where-Object { $_.Type -eq 'UPTrend' }
+    if ($startupUpTrend.Running -eq $true) {
+        # Existing CE position found — resume tracking
         $spotQuoteKey = "$($exchange):$($TradingSymbol)"
         $currentSpot = Get-KiteSpotPrice -SpotQuoteKey $spotQuoteKey -Headers $headers
-        $script:PE_InPosition    = $true
-        $script:PE_EntrySymbol   = $startupDownTrend.TradingSymbols
-        $script:PE_EntryQty      = $startupDownTrend.RunningQuantity
-        $script:PE_EntryLots     = [int][Math]::Ceiling($startupDownTrend.RunningQuantity / $LotSize)
-        $script:PE_EntryPrice    = if ($currentSpot -gt 0) { $currentSpot } else { 0 }
-        $script:PE_EntryTime     = (Get-Date).ToString('HH:mm:ss')
-        $script:ShortOrderPlaced = $true
-        $script:ShortEntryPrice  = $script:PE_EntryPrice
-        # Also load saved data if position file exists
-        if (Test-Path $PositionFile) {
-            $saved = Get-Content $PositionFile -Raw | ConvertFrom-Json
-            $script:PE_EntryToken    = if ($saved.Token) { $saved.Token } else { 0 }
-            $script:PE_EntryStrike   = if ($saved.Strike) { $saved.Strike } else { 0 }
-            $script:PE_EntryOptionLTP = if ($saved.OptionLTP) { $saved.OptionLTP } else { 0 }
-            $script:PE_TotalPnL      = if ($saved.TotalPnL)  { $saved.TotalPnL }  else { 0 }
-            $script:PE_EntryPrice    = $saved.Price
-            $script:ShortEntryPrice  = $saved.Price
+        if ($currentSpot -gt 0) {
+            $script:LongEntryPrice = $currentSpot
         }
-        Write-Host "  RESUMING — Existing PE position detected: $($startupDownTrend.TradingSymbols) | Qty: $($startupDownTrend.RunningQuantity) | Spot: $($currentSpot.ToString('N2'))" -ForegroundColor Green
-        $script:StrategySignals.Add("RESUME @ $currentSpot  PE: $($startupDownTrend.TradingSymbols) ($(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'))")
+        $script:LastPositionStatus = $startupUpTrend
+        Write-Host "  RESUMING — Existing CE position detected: $($startupUpTrend.TradingSymbols) | Qty: $($startupUpTrend.RunningQuantity) | Current Spot: $($currentSpot.ToString('N2'))" -ForegroundColor Green
+        $script:StrategySignals.Add("RESUME @ $currentSpot  CE: $($startupUpTrend.TradingSymbols) ($(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'))")
     } else {
-        # No open PE position — clean up stale position file
-        Remove-Item $PositionFile -Force -ErrorAction SilentlyContinue
-        Write-Host '  No existing PE position found. Starting fresh.' -ForegroundColor DarkGray
+        Write-Host '  No existing CE position found. Starting fresh.' -ForegroundColor DarkGray
     }
 } else {
-    Remove-Item $PositionFile -Force -ErrorAction SilentlyContinue
     Write-Host '  No existing positions found. Starting fresh.' -ForegroundColor DarkGray
 }
 
 # ================================================================
-# HA helper functions
+# Helper functions
 # ================================================================
 function script:Get-STR-TimeBucket {
     $now = Get-Date
@@ -283,22 +254,13 @@ function script:Get-STR-TimeBucket {
     return $now.ToString('yyyy-MM-dd ') + ('{0:D2}:{1:D2}:{2:D2}' -f $bH, $bM, $bS)
 }
 
-function script:Convert-ToHA([hashtable]$rawCandle, [hashtable]$previousHA) {
-    $haClose = ($rawCandle.Open + $rawCandle.High + $rawCandle.Low + $rawCandle.Close) / 4.0
-    if ($null -ne $previousHA) {
-        $haOpen = ($previousHA.Open + $previousHA.Close) / 2.0
-    } else {
-        $haOpen = ($rawCandle.Open + $rawCandle.Close) / 2.0
-    }
-    $haHigh = [Math]::Max($rawCandle.High, [Math]::Max($haOpen, $haClose))
-    $haLow  = [Math]::Min($rawCandle.Low,  [Math]::Min($haOpen, $haClose))
-    return @{ Open=$haOpen; High=$haHigh; Low=$haLow; Close=$haClose }
-}
-
 # ================================================================
 # CORE: Signal check + IMMEDIATE order placement (no file I/O)
+# Uses regular candle OHLC directly (no Heikin-Ashi conversion)
+# Entry: current Close > previous High
+# Exit:  current Close < previous Low
 # ================================================================
-function script:Check-ShortAndTrade([int]$instrumentToken, [double]$lastPrice) {
+function script:Check-LongAndTrade([int]$instrumentToken, [double]$lastPrice) {
     $completedList = $script:STR_CompletedCandles[$instrumentToken]
     if (-not $completedList -or $completedList.Count -lt 1) { return }
 
@@ -306,8 +268,8 @@ function script:Check-ShortAndTrade([int]$instrumentToken, [double]$lastPrice) {
     $currentRaw = $script:STR_ActiveCandle[$instrumentToken]
     if ($null -eq $currentRaw) { return }
 
-    $prevHA = $script:STR_PreviousHA[$instrumentToken]
-    $liveHA = script:Convert-ToHA $currentRaw $prevHA
+    # Use raw candle values directly (no HA conversion)
+    $liveClose = $currentRaw.Close
 
     $now = Get-Date
     $timeStamp = $now.ToString('yyyy-MM-dd_HH-mm-ss')
@@ -315,25 +277,32 @@ function script:Check-ShortAndTrade([int]$instrumentToken, [double]$lastPrice) {
     # Check trading window
     if ($now.TimeOfDay -lt $StartTime.TimeOfDay -or $now.TimeOfDay -gt $StopTime.TimeOfDay) { return }
 
-    # ── SHORT ENTRY: HA Close < previous HA Low ──
-    if ((-not $script:ShortOrderPlaced) -and ($liveHA.Close -lt $previousCandle.Low)) {
-        $script:ShortOrderPlaced = $true
-        $script:ShortEntryPrice  = $lastPrice
-        $script:ShortEntryTime   = $timeStamp
+    # ── Check position state via API (single source of truth) ──
+    $existingPositions = Check-AlreadyAnyOrderRunning -SearchKeyWord $underlyingName -NoOfLotsPurchaseAtaTime $NoOfLotsPurchaseAtaTime -Headers $headers
+    if ($null -eq $existingPositions -or @($existingPositions).Count -eq 0) {
+        return
+    }
+    $upTrendStatus = $existingPositions | Where-Object { $_.Type -eq 'UPTrend' }
+    $script:LastPositionStatus = $upTrendStatus
+
+    # ── LONG ENTRY: Close > previous High ──
+    if (($upTrendStatus.Running -ne $true) -and ($liveClose -gt $previousCandle.High)) {
+
+        $script:LongEntryPrice  = $lastPrice
 
         Write-Host ""
-        Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] *** SHORT ENTRY SIGNAL *** LTP: $lastPrice | HA Close: $([Math]::Round($liveHA.Close,2)) < Prev Low: $($previousCandle.Low)" -ForegroundColor Yellow
+        Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] *** LONG ENTRY SIGNAL *** LTP: $lastPrice | Close: $([Math]::Round($liveClose,2)) > Prev High: $($previousCandle.High)" -ForegroundColor Yellow
 
-        # ── IMMEDIATE PE BUY ──
+        # ── IMMEDIATE CE BUY ──
         $spotPrice = $lastPrice  # Use WebSocket LTP directly — zero extra API call latency
-        $atmOption = Get-ATMOption -SpotPrice $spotPrice -Options $peOptions -AllStrikes $allStrikes -Offset $ATMOffset
+        $atmOption = Get-ATMOption -SpotPrice $spotPrice -Options $ceOptions -AllStrikes $allStrikes -Offset (-$ATMOffset)
 
         if ($atmOption) {
             # Dynamic lot calculation based on AmountToTrade
             $entryQty = $Quantity  # fallback to fixed lots
             $entryLots = $NoOfLotsPurchaseAtaTime
-            $optLTP = 0
             if ($AmountToTrade -gt 0) {
+                $optLTP = 0
                 try {
                     $qr = Invoke-RestMethod "https://api.kite.trade/quote/ltp?i=$([System.Uri]::EscapeDataString("${optExchange}:$($atmOption.Symbol)"))" -Headers $headers -ErrorAction Stop
                     foreach ($p in $qr.data.PSObject.Properties) { $optLTP = $p.Value.last_price; break }
@@ -342,102 +311,68 @@ function script:Check-ShortAndTrade([int]$instrumentToken, [double]$lastPrice) {
                     $entryLots = [int][Math]::Floor($AmountToTrade / ($optLTP * $LotSize))
                     if ($entryLots -lt 1) { $entryLots = 1 }
                     $entryQty = $entryLots * $LotSize
-                    Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] PE LTP: $optLTP | Amount: $AmountToTrade | Lots: $entryLots | Qty: $entryQty" -ForegroundColor Magenta
+                    Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] CE LTP: $optLTP | Amount: $AmountToTrade | Lots: $entryLots | Qty: $entryQty" -ForegroundColor Magenta
                 } else {
-                    Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] Could not fetch PE LTP, using fallback Qty: $entryQty" -ForegroundColor DarkYellow
+                    Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] Could not fetch CE LTP, using fallback Qty: $entryQty" -ForegroundColor DarkYellow
                 }
-            } else {
-                # Still fetch LTP for P&L tracking even without dynamic sizing
-                try {
-                    $qr = Invoke-RestMethod "https://api.kite.trade/quote/ltp?i=$([System.Uri]::EscapeDataString("${optExchange}:$($atmOption.Symbol)"))" -Headers $headers -ErrorAction Stop
-                    foreach ($p in $qr.data.PSObject.Properties) { $optLTP = $p.Value.last_price; break }
-                } catch {}
             }
 
-            Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] PE BUY | Strike: $($atmOption.Strike) | Symbol: $($atmOption.Symbol) | Qty: $entryQty" -ForegroundColor Cyan
+            Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] CE BUY | Strike: $($atmOption.Strike) | Symbol: $($atmOption.Symbol) | Qty: $entryQty" -ForegroundColor Cyan
             $result = Place-ZerodhaOrder -CommonHeader $headers -Type "BUY" -Variety $Variety `
                 -Tradingsymbol $atmOption.Symbol -Quantity $entryQty `
-                -OrderType $Order_type -Product $Product -Exchange $exchange -Tag "PE-ENTRY" -MarketProtection $MarketProtection
+                -OrderType $Order_type -Product $Product -Exchange $exchange -Tag "CE-ENTRY" -MarketProtection $MarketProtection
 
             if ($result) {
-                $script:PE_EntryOptionLTP = $optLTP
-                $script:PE_InPosition   = $true
-                $script:PE_EntrySymbol  = $atmOption.Symbol
-                $script:PE_EntryToken   = $atmOption.Token
-                $script:PE_EntryStrike  = $atmOption.Strike
-                $script:PE_EntryPrice   = $spotPrice
-                $script:PE_EntryTime    = $now.ToString('HH:mm:ss')
-                $script:PE_EntryQty     = $entryQty
-                $script:PE_EntryLots    = $entryLots
-                @{ Symbol=$script:PE_EntrySymbol; Token=$script:PE_EntryToken; Strike=$script:PE_EntryStrike; Price=$script:PE_EntryPrice; Time=$script:PE_EntryTime; OptionLTP=$script:PE_EntryOptionLTP; TotalPnL=$script:PE_TotalPnL; Qty=$script:PE_EntryQty; Lots=$script:PE_EntryLots } | ConvertTo-Json | Set-Content $PositionFile -Force
                 $orderLatency = ((Get-Date) - $now).TotalMilliseconds
-                Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] POSITION OPENED in ${orderLatency}ms | $($script:PE_EntrySymbol) | Strike: $($script:PE_EntryStrike) | Lots: $entryLots | Qty: $entryQty | Entry LTP: $($script:PE_EntryOptionLTP)" -ForegroundColor Green
+                Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] POSITION OPENED in ${orderLatency}ms | $($atmOption.Symbol) | Strike: $($atmOption.Strike) | Lots: $entryLots | Qty: $entryQty" -ForegroundColor Green
             } else {
-                Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] PE BUY FAILED — resetting signal state" -ForegroundColor Red
-                $script:ShortOrderPlaced = $false
+                Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] CE BUY FAILED" -ForegroundColor Red
+                $script:LongEntryPrice = 0.0
             }
         } else {
-            Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] Could not find ATM PE option. Resetting." -ForegroundColor Red
-            $script:ShortOrderPlaced = $false
+            Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] Could not find ATM CE option." -ForegroundColor Red
+            $script:LongEntryPrice = 0.0
         }
 
-        $script:StrategySignals.Add("ENTRY @ $lastPrice  PE: $($script:PE_EntrySymbol) ($timeStamp)")
+        if ($script:LongEntryPrice -gt 0) {
+            $script:StrategySignals.Add("ENTRY @ $lastPrice  CE: $($atmOption.Symbol) ($timeStamp)")
+        }
     }
 
-    # ── SHORT EXIT: HA Close > previous HA High ──
-    if ($script:ShortOrderPlaced -and $script:PE_InPosition -and ($liveHA.Close -gt $previousCandle.High)) {
-        $pnl = $script:ShortEntryPrice - $lastPrice
+    # ── LONG EXIT: Close < previous Low ──
+    if (($upTrendStatus.Running -eq $true) -and ($liveClose -lt $previousCandle.Low)) {
+        $pnl = $lastPrice - $script:LongEntryPrice
 
         Write-Host ""
-        Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] *** SHORT EXIT SIGNAL *** LTP: $lastPrice | HA Close: $([Math]::Round($liveHA.Close,2)) > Prev High: $($previousCandle.High)" -ForegroundColor Yellow
+        Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] *** LONG EXIT SIGNAL *** LTP: $lastPrice | Close: $([Math]::Round($liveClose,2)) < Prev Low: $($previousCandle.Low)" -ForegroundColor Yellow
 
         if ($ExitTrade -eq 'no') {
             Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] EXIT TRADE DISABLED (ExitTrade=no) — skipping SELL order, position stays open" -ForegroundColor DarkYellow
             return
         }
 
-        # ── IMMEDIATE PE SELL (use same qty as entry) ──
-        $exitQty = $script:PE_EntryQty
-        Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] PE SELL | Symbol: $($script:PE_EntrySymbol) | Qty: $exitQty" -ForegroundColor Cyan
+        # ── IMMEDIATE CE SELL (use symbol & qty from API) ──
+        $exitSymbol = $upTrendStatus.TradingSymbols
+        $exitQty    = $upTrendStatus.RunningQuantity
+        Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] CE SELL | Symbol: $exitSymbol | Qty: $exitQty" -ForegroundColor Cyan
         $result = Place-ZerodhaOrder -CommonHeader $headers -Type "SELL" -Variety $Variety `
-            -Tradingsymbol $script:PE_EntrySymbol -Quantity $exitQty `
-            -OrderType $Order_type -Product $Product -Exchange $exchange -Tag "PE-EXIT" -MarketProtection $MarketProtection
+            -Tradingsymbol $exitSymbol -Quantity $exitQty `
+            -OrderType $Order_type -Product $Product -Exchange $exchange -Tag "CE-EXIT" -MarketProtection $MarketProtection
 
-        if ($result) {
-            $exitLTP = 0
-            try {
-                $qr = Invoke-RestMethod "https://api.kite.trade/quote/ltp?i=$([System.Uri]::EscapeDataString("${optExchange}:$($script:PE_EntrySymbol)"))" -Headers $headers -ErrorAction Stop
-                foreach ($p in $qr.data.PSObject.Properties) { $exitLTP = $p.Value.last_price; break }
-            } catch {}
-            $tradePnL = ($exitLTP - $script:PE_EntryOptionLTP) * $exitQty
-            $script:PE_TotalPnL += $tradePnL
-            $pnlColor = if ($tradePnL -ge 0) { 'Green' } else { 'Red' }
-            $orderLatency = ((Get-Date) - $now).TotalMilliseconds
-            Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] POSITION CLOSED in ${orderLatency}ms | SELL $($script:PE_EntrySymbol) | Trade P&L: $($tradePnL.ToString('N2')) | Total P&L: $($script:PE_TotalPnL.ToString('N2'))" -ForegroundColor $pnlColor
+        if (-not $result) {
+            Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] CE SELL order failed" -ForegroundColor DarkYellow
         } else {
-            Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] PE SELL order failed but closing position state" -ForegroundColor DarkYellow
+            $orderLatency = ((Get-Date) - $now).TotalMilliseconds
+            Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] POSITION CLOSED in ${orderLatency}ms | SELL $exitSymbol | P&L: $([Math]::Round($pnl,2))" -ForegroundColor Green
         }
 
         $script:StrategySignals.Add("EXIT  @ $lastPrice  P&L: $([Math]::Round($pnl,2)) ($timeStamp)")
-
-        $script:ShortOrderPlaced  = $false
-        $script:ShortEntryPrice   = 0.0
-        $script:ShortEntryTime    = ''
-        $script:PE_InPosition     = $false
-        $script:PE_EntrySymbol    = ''
-        $script:PE_EntryToken     = 0
-        $script:PE_EntryStrike    = 0
-        $script:PE_EntryPrice     = 0
-        $script:PE_EntryTime      = ''
-        $script:PE_EntryOptionLTP = 0
-        Remove-Item $PositionFile -Force -ErrorAction SilentlyContinue
-        $script:PE_EntryQty      = 0
-        $script:PE_EntryLots     = 0
+        $script:LongEntryPrice  = 0.0
     }
 }
 
 # ================================================================
-# Tick processing (builds HA candles + checks signals)
+# Tick processing (builds regular candles + checks signals)
 # ================================================================
 function script:Update-StrategyFromTick([int]$instrumentToken, [double]$lastPrice, [int]$volume, [double]$dayOpen, [double]$dayHigh, [double]$dayLow, [double]$dayClose, [int]$openInterest) {
     $script:STR_TickCount++
@@ -451,15 +386,11 @@ function script:Update-StrategyFromTick([int]$instrumentToken, [double]$lastPric
 
     if (($null -eq $currentCandle) -or ($currentCandle.TimeBucket -ne $timeBucket)) {
         if ($null -ne $currentCandle) {
-            $prevHA = $script:STR_PreviousHA[$instrumentToken]
-            $ha = script:Convert-ToHA $currentCandle $prevHA
-            $closedHA = @{ Open=$ha.Open; High=$ha.High; Low=$ha.Low; Close=$ha.Close }
-            $script:STR_PreviousHA[$instrumentToken] = $closedHA
-
+            # Store raw candle OHLC directly (no HA conversion)
             $script:STR_CompletedCandles[$instrumentToken].Add([PSCustomObject]@{
                 TimeBucket=$currentCandle.TimeBucket
-                Open=[Math]::Round($ha.Open, 2); High=[Math]::Round($ha.High, 2)
-                Low=[Math]::Round($ha.Low, 2); Close=[Math]::Round($ha.Close, 2)
+                Open=[Math]::Round($currentCandle.Open, 2); High=[Math]::Round($currentCandle.High, 2)
+                Low=[Math]::Round($currentCandle.Low, 2); Close=[Math]::Round($currentCandle.Close, 2)
                 Volume=$currentCandle.Volume; OpenInterest=$currentCandle.OpenInterest
                 TicksInCandle=$currentCandle.TicksInCandle
             })
@@ -486,7 +417,7 @@ function script:Update-StrategyFromTick([int]$instrumentToken, [double]$lastPric
     }
 
     # Check signal + trade on EVERY tick — zero delay
-    script:Check-ShortAndTrade $instrumentToken $lastPrice
+    script:Check-LongAndTrade $instrumentToken $lastPrice
 }
 
 # ================================================================
@@ -505,12 +436,11 @@ function script:Render-StrategyDisplay([int]$instrumentToken) {
 
     $currentCandle = $script:STR_ActiveCandle[$instrumentToken]
     if ($null -ne $currentCandle) {
-        $prevHA = $script:STR_PreviousHA[$instrumentToken]
-        $ha = script:Convert-ToHA $currentCandle $prevHA
+        # Display raw candle values directly (no HA conversion)
         $allCandles.Add([PSCustomObject]@{
             TimeBucket=$currentCandle.TimeBucket
-            Open=[Math]::Round($ha.Open, 2); High=[Math]::Round($ha.High, 2)
-            Low=[Math]::Round($ha.Low, 2); Close=[Math]::Round($ha.Close, 2)
+            Open=[Math]::Round($currentCandle.Open, 2); High=[Math]::Round($currentCandle.High, 2)
+            Low=[Math]::Round($currentCandle.Low, 2); Close=[Math]::Round($currentCandle.Close, 2)
             Volume=$currentCandle.Volume; OpenInterest=$currentCandle.OpenInterest
             TicksInCandle=$currentCandle.TicksInCandle
         })
@@ -523,7 +453,7 @@ function script:Render-StrategyDisplay([int]$instrumentToken) {
     $sb = [System.Text.StringBuilder]::new(2048)
     $null = $sb.AppendLine('')
     $null = $sb.AppendLine("  ================================================")
-    $null = $sb.AppendLine("  $($config.SymbolLabel) - HA Short + PE Auto-Trade (COMBINED)")
+    $null = $sb.AppendLine("  $($config.SymbolLabel) - Regular Long + CE Auto-Trade (COMBINED)")
     $null = $sb.AppendLine("  ================================================")
     $null = $sb.AppendLine("  Symbol  : $($config.SymbolName)  |  Token: $($config.InstrumentToken)  |  TF: $($config.TimeFrame)")
     if ($AmountToTrade -gt 0) {
@@ -531,18 +461,19 @@ function script:Render-StrategyDisplay([int]$instrumentToken) {
     } else {
         $null = $sb.AppendLine("  Trade   : Lots: $NoOfLotsPurchaseAtaTime  |  Qty: $Quantity  |  Product: $Product")
     }
-    $null = $sb.AppendLine("  Ticks   : $($script:STR_TickCount)  |  Window: $($StartTime.ToString('HH:mm:ss'))-$($StopTime.ToString('HH:mm:ss'))  |  Total P&L: $($script:PE_TotalPnL.ToString('N2'))")
+    $null = $sb.AppendLine("  Ticks   : $($script:STR_TickCount)  |  Window: $($StartTime.ToString('HH:mm:ss'))-$($StopTime.ToString('HH:mm:ss'))")
     $null = $sb.AppendLine("  Candles : $($allCandles.Count) total | Showing $($visibleCandles.Count)")
     $null = $sb.AppendLine("  Time    : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff')")
 
-    if ($script:PE_InPosition) {
-        $null = $sb.AppendLine("  POSITION: SHORT ACTIVE  PE: $($script:PE_EntrySymbol)  Strike: $($script:PE_EntryStrike)  Lots: $($script:PE_EntryLots)  Qty: $($script:PE_EntryQty)  Entry: $($script:PE_EntryPrice.ToString('N2')) @ $($script:PE_EntryTime)  Option LTP: $($script:PE_EntryOptionLTP)")
+    $posStatus = $script:LastPositionStatus
+    if ($posStatus -and $posStatus.Running -eq $true) {
+        $null = $sb.AppendLine("  POSITION: LONG ACTIVE  CE: $($posStatus.TradingSymbols)  Qty: $($posStatus.RunningQuantity)  Entry Spot: $($script:LongEntryPrice.ToString('N2'))")
         if ($null -ne $currentCandle) {
-            $unrealizedPnL = $script:ShortEntryPrice - $currentCandle.Close
-            $null = $sb.AppendLine("  LTP     : $($currentCandle.Close.ToString('N2'))  |  Unrealized Spot P&L: $($unrealizedPnL.ToString('N2'))")
+            $unrealizedPnL = $currentCandle.Close - $script:LongEntryPrice
+            $null = $sb.AppendLine("  LTP     : $($currentCandle.Close.ToString('N2'))  |  Unrealized P&L: $($unrealizedPnL.ToString('N2'))")
         }
     } else {
-        $null = $sb.AppendLine("  POSITION: FLAT  (Waiting for Short Entry signal)")
+        $null = $sb.AppendLine("  POSITION: FLAT  (Waiting for Long Entry signal)")
         if ($null -ne $currentCandle) {
             $null = $sb.AppendLine("  LTP     : $($currentCandle.Close.ToString('N2'))  |  Day O/H/L/C: $($currentCandle.DayOpen.ToString('N2'))/$($currentCandle.DayHigh.ToString('N2'))/$($currentCandle.DayLow.ToString('N2'))/$($currentCandle.DayClose.ToString('N2'))")
         }
@@ -550,7 +481,7 @@ function script:Render-StrategyDisplay([int]$instrumentToken) {
 
     $null = $sb.AppendLine('')
     $rowFormat = ' {0,-18} {1,14} {2,14} {3,14} {4,14} {5,10} {6,5} {7,6}'
-    $null = $sb.AppendLine(($rowFormat -f 'Time','HA Open','HA High','HA Low','HA Close','Volume','Ticks','Trend'))
+    $null = $sb.AppendLine(($rowFormat -f 'Time','Open','High','Low','Close','Volume','Ticks','Trend'))
     $null = $sb.AppendLine(' ' + ('-' * 102))
 
     Clear-Host
@@ -586,17 +517,22 @@ function script:Render-StrategyDisplay([int]$instrumentToken) {
 # Force-exit at stop time
 # ================================================================
 function script:Force-ExitAtStopTime {
-    if ($script:PE_InPosition -and $script:PE_EntrySymbol) {
-        $now = Get-Date
-        Write-Host "  [$($now.ToString('HH:mm:ss'))] STOP TIME — Force exiting: $($script:PE_EntrySymbol)" -ForegroundColor Red
-        $forceQty = if ($script:PE_EntryQty -gt 0) { $script:PE_EntryQty } else { $Quantity }
+    $now = Get-Date
+    $existingPositions = Check-AlreadyAnyOrderRunning -SearchKeyWord $underlyingName -NoOfLotsPurchaseAtaTime $NoOfLotsPurchaseAtaTime -Headers $headers
+    if ($null -eq $existingPositions -or @($existingPositions).Count -eq 0) { return }
+    $upTrendStatus = $existingPositions | Where-Object { $_.Type -eq 'UPTrend' }
+    if ($upTrendStatus.Running -eq $true) {
+        if ($ExitTrade -eq 'no') {
+            Write-Host "  [$($now.ToString('HH:mm:ss'))] STOP TIME — EXIT TRADE DISABLED (ExitTrade=no) — position stays open: $($upTrendStatus.TradingSymbols)" -ForegroundColor DarkYellow
+            return
+        }
+        $exitSymbol = $upTrendStatus.TradingSymbols
+        $exitQty    = $upTrendStatus.RunningQuantity
+        Write-Host "  [$($now.ToString('HH:mm:ss'))] STOP TIME — Force exiting: $exitSymbol | Qty: $exitQty" -ForegroundColor Red
         Place-ZerodhaOrder -CommonHeader $headers -Type "SELL" -Variety $Variety `
-            -Tradingsymbol $script:PE_EntrySymbol -Quantity $forceQty `
-            -OrderType $Order_type -Product $Product -Exchange $exchange -Tag "PE-TIMEEXIT" -MarketProtection $MarketProtection
-        $script:PE_InPosition    = $false
-        $script:PE_EntrySymbol   = ''
-        $script:ShortOrderPlaced = $false
-        Remove-Item $PositionFile -Force -ErrorAction SilentlyContinue
+            -Tradingsymbol $exitSymbol -Quantity $exitQty `
+            -OrderType $Order_type -Product $Product -Exchange $exchange -Tag "CE-TIMEEXIT" -MarketProtection $MarketProtection
+        $script:LongEntryPrice = 0.0
     }
 }
 
@@ -608,7 +544,7 @@ $modeStr = if ($FullMode) { 'full' } else { 'quote' }
 
 Write-Host ''
 Write-Host '  ============================================================' -ForegroundColor Cyan
-Write-Host '  COMBINED: HA Short Signal + PE Auto-Trade (Zero File Latency)' -ForegroundColor Cyan
+Write-Host '  COMBINED: Regular Long Signal + CE Auto-Trade (Zero File Latency)' -ForegroundColor Cyan
 Write-Host '  ============================================================' -ForegroundColor Cyan
 Write-Host "  Symbol   : $label ($sym)"
 Write-Host "  Token    : $instToken"
@@ -618,7 +554,7 @@ if ($AmountToTrade -gt 0) {
 } else {
     Write-Host "  Trade    : Lots: $NoOfLotsPurchaseAtaTime | Qty: $Quantity"
 }
-Write-Host "  Expiry   : $nearestExpiry | PE Strikes: $($allStrikes.Count)"
+Write-Host "  Expiry   : $nearestExpiry | CE Strikes: $($allStrikes.Count)"
 Write-Host "  Product  : $Product | Order: $Order_type | Mode: $modeStr"
 Write-Host "  Window   : $($StartTime.ToString('HH:mm:ss')) - $($StopTime.ToString('HH:mm:ss'))"
 Write-Host ''
@@ -736,6 +672,6 @@ while ($retryCount -le $maxRetries) {
 
 Write-Host ''
 Write-Host '  Disconnected.' -ForegroundColor Yellow
-Write-Host "  Total Trades: $($script:StrategySignals.Count) | Total P&L: $($script:PE_TotalPnL.ToString('N2'))" -ForegroundColor Gray
+Write-Host "  Total Trades: $($script:StrategySignals.Count)" -ForegroundColor Gray
 foreach ($sig in $script:StrategySignals) { Write-Host "    $sig" -ForegroundColor DarkGray }
 Write-Host ''

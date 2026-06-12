@@ -216,7 +216,9 @@ function Get-IntervalSeconds([string]$Interval) {
         '15second' { return 15 }
         '30second' { return 30 }
         'minute'   { return 60 }
+        '2minute'  { return 120 }
         '3minute'  { return 180 }
+        '4minute'  { return 240 }
         '5minute'  { return 300 }
         '10minute' { return 600 }
         '15minute' { return 900 }
@@ -426,8 +428,8 @@ function Get-KiteLiveCandles {
     param(
         [string]$TradingSymbol  = 'NIFTY',
         [int]$InstrumentToken,
-        [ValidateSet('5second','15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
-        [string]$TimeFrame      = '5minute',
+        [ValidateSet('5second','15second','30second','minute','2minute','3minute','4minute','5minute','10minute','15minute','30minute','60minute')]
+        [string]$TimeFrame      = '4minute',
         [int]$CandlesToShow     = 10,
         [switch]$FullMode,
         [switch]$ListSymbols,
@@ -712,8 +714,8 @@ function Get-KiteHeikinAshiCandles {
     param(
         [string]$TradingSymbol  = 'NIFTY',
         [int]$InstrumentToken,
-        [ValidateSet('5second','15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
-        [string]$TimeFrame      = '5minute',
+        [ValidateSet('5second','15second','30second','minute','2minute','3minute','4minute','5minute','10minute','15minute','30minute','60minute')]
+        [string]$TimeFrame      = '4minute',
         [int]$CandlesToShow     = 10,
         [switch]$FullMode,
         [switch]$ListSymbols,
@@ -1039,8 +1041,8 @@ function Invoke-KiteHALongStrategy {
     param(
         [string]$TradingSymbol  = 'NIFTY',
         [int]$InstrumentToken,
-        [ValidateSet('5second','15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
-        [string]$TimeFrame      = '5minute',
+        [ValidateSet('5second','15second','30second','minute','2minute','3minute','4minute','5minute','10minute','15minute','30minute','60minute')]
+        [string]$TimeFrame      = '4minute',
         [int]$CandlesToShow     = 10,
         [switch]$FullMode,
         [switch]$ListSymbols,
@@ -1431,8 +1433,8 @@ function Invoke-KiteHAShortStrategy {
     param(
         [string]$TradingSymbol  = 'NIFTY',
         [int]$InstrumentToken,
-        [ValidateSet('5second','15second','30second','minute','3minute','5minute','10minute','15minute','30minute','60minute')]
-        [string]$TimeFrame      = '5minute',
+        [ValidateSet('5second','15second','30second','minute','2minute','3minute','4minute','5minute','10minute','15minute','30minute','60minute')]
+        [string]$TimeFrame      = '4minute',
         [int]$CandlesToShow     = 10,
         [switch]$FullMode,
         [switch]$ListSymbols,
