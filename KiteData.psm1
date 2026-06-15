@@ -2471,5 +2471,43 @@ function Check-AlreadyAnyOrderRunning {
     return $Trend_Obj
 }
 
+# ════════════════════════════════════════════════════════════
+# FUNCTION: Cancel-AllStopLosses
+# Finds all TRIGGER PENDING orders matching CE/PE pattern
+# and cancels them via Kite API
+# ════════════════════════════════════════════════════════════
+function Cancel-AllStopLosses {
+    param(
+        [string]$TrendEntrySelection = 'CE|PE',
+        [Parameter(Mandatory=$true)]
+        [hashtable]$Headers
+    )
+
+    try {
+        $allOrders = (Invoke-RestMethod -Uri 'https://api.kite.trade/orders' -Headers $Headers -Method Get -ErrorAction Stop).data
+    } catch {
+        Write-Host "  Failed to fetch orders: $($_.Exception.Message)" -ForegroundColor Red
+        return @()
+    }
+
+    $pending = @($allOrders | Where-Object { $_.tradingsymbol -match $TrendEntrySelection -and $_.status -eq 'TRIGGER PENDING' })
+    if ($pending.Count -eq 0) {
+        Write-Host "  No TRIGGER PENDING orders found matching '$TrendEntrySelection'" -ForegroundColor DarkGray
+        return @()
+    }
+
+    Write-Host "  Found $($pending.Count) TRIGGER PENDING order(s) to cancel" -ForegroundColor Yellow
+    $results = foreach ($order in $pending) {
+        try {
+            $resp = Invoke-RestMethod -Uri "https://api.kite.trade/orders/regular/$($order.order_id)" -Headers $Headers -Method Delete -ErrorAction Stop
+            Write-Host "  Cancelled: $($order.tradingsymbol) | OrderID: $($order.order_id)" -ForegroundColor Green
+            $resp.data
+        } catch {
+            Write-Host "  Failed to cancel $($order.order_id): $($_.Exception.Message)" -ForegroundColor Red
+        }
+    }
+    return $results
+}
+
 # ── Module exports (single consolidated statement) ─────────
-Export-ModuleMember -Function Search-KiteInstrument, Show-KitePresets, Get-KiteLiveCandles, Get-KiteHeikinAshiCandles, Invoke-KiteHALongStrategy, Invoke-KiteHAShortStrategy, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol, Place-ZerodhaOrder, Get-IndexOptionConfig, Get-KiteSpotPrice, Get-KiteOptionInstruments, Get-ATMOption, Get-IntervalSeconds, Get-IntervalLabel, Parse-KiteTicks, Get-KiteOpenPositions, Get-ZerodhaCandleData, Get-HeikinAshiCandlesData, Check-AlreadyAnyOrderRunning
+Export-ModuleMember -Function Search-KiteInstrument, Show-KitePresets, Get-KiteLiveCandles, Get-KiteHeikinAshiCandles, Invoke-KiteHALongStrategy, Invoke-KiteHAShortStrategy, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol, Place-ZerodhaOrder, Get-IndexOptionConfig, Get-KiteSpotPrice, Get-KiteOptionInstruments, Get-ATMOption, Get-IntervalSeconds, Get-IntervalLabel, Parse-KiteTicks, Get-KiteOpenPositions, Get-ZerodhaCandleData, Get-HeikinAshiCandlesData, Check-AlreadyAnyOrderRunning, Cancel-AllStopLosses

@@ -282,6 +282,21 @@ while ($true) {
         }
     }
 
+    # ── Cancel orphaned SL orders (position exited but SL still pending) ──
+    if ($pendingSLOrders.Count -gt 0) {
+        $openSymbols = @($individualPositions | Select-Object -ExpandProperty tradingsymbol)
+        $orphanedSLs = @($pendingSLOrders | Where-Object { $_.tradingsymbol -match $SearchKeyWord -and $_.tradingsymbol -notin $openSymbols })
+        foreach ($orphan in $orphanedSLs) {
+            Write-Host "  Cancelling orphaned SL: $($orphan.tradingsymbol) | OrderID: $($orphan.order_id) | Trigger: $($orphan.trigger_price)" -ForegroundColor Magenta
+            try {
+                Invoke-RestMethod -Uri "https://api.kite.trade/orders/regular/$($orphan.order_id)" -Headers $headers -Method Delete -ErrorAction Stop | Out-Null
+                Write-Host "  Cancelled." -ForegroundColor Green
+            } catch {
+                Write-Host "  Failed to cancel: $_" -ForegroundColor Red
+            }
+        }
+    }
+
     if (-not $anyPositionFound) {
         Write-Host ("{0,-12} {1,-25} {2,8} {3,6} {4,8} {5,-20}" -f "  --","No active positions","--","--","--","Waiting...") -ForegroundColor DarkGray
     }
