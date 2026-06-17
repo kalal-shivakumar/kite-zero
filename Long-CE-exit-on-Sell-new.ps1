@@ -279,6 +279,8 @@ function script:Convert-ToHA([hashtable]$rawCandle, [hashtable]$previousHA) {
 # ================================================================
 $script:LastPositionCheckTime = [datetime]::MinValue
 $script:CachedCEPosition = $null
+$script:LastFullPositionCheckTime = [datetime]::MinValue
+$script:CachedFullPositions = $null
 
 function script:Get-LiveCEPosition {
     $now = Get-Date
@@ -305,9 +307,26 @@ function script:Get-LiveCEPosition {
     return $result
 }
 
+function script:Get-LiveFullPositions {
+    $now = Get-Date
+    # Throttle: reuse cached result if checked within last 3 seconds
+    if (($now - $script:LastFullPositionCheckTime).TotalSeconds -lt 3 -and $null -ne $script:CachedFullPositions) {
+        return $script:CachedFullPositions
+    }
+    $script:LastFullPositionCheckTime = $now
+    try {
+        $script:CachedFullPositions = Get-KiteOpenPositions -Headers $headers
+    } catch {
+        $script:CachedFullPositions = @{ Positions = @(); DisplayLines = @("  POSITIONS: Error - $($_.Exception.Message)"); TotalPnL = 0.0 }
+    }
+    return $script:CachedFullPositions
+}
+
 function script:Invalidate-PositionCache {
     $script:LastPositionCheckTime = [datetime]::MinValue
     $script:CachedCEPosition = $null
+    $script:LastFullPositionCheckTime = [datetime]::MinValue
+    $script:CachedFullPositions = $null
 }
 
 # ================================================================
@@ -553,6 +572,20 @@ function script:Render-StrategyDisplay([int]$instrumentToken) {
             Write-Host $line -ForegroundColor Yellow
         } else {
             Write-Host $line -ForegroundColor $color
+        }
+    }
+
+    # ── Running Positions (live from API) ──
+    $fullPos = script:Get-LiveFullPositions
+    if ($fullPos -and $fullPos.DisplayLines) {
+        Write-Host ''
+        foreach ($posLine in $fullPos.DisplayLines) {
+            $posColor = 'White'
+            if ($posLine -match 'P&L') {
+                if ($posLine -match '-\d') { $posColor = 'Red' } else { $posColor = 'Green' }
+            }
+            if ($posLine -match '──') { $posColor = 'DarkCyan' }
+            Write-Host $posLine -ForegroundColor $posColor
         }
     }
 

@@ -49,6 +49,10 @@ if (Test-Path $configPath) {
     $cfg = Get-Content $configPath -Raw | ConvertFrom-Json
     if ([string]::IsNullOrWhiteSpace($API_Key))    { $API_Key    = $cfg.API_Key }
     if ([string]::IsNullOrWhiteSpace($API_Secret)) { $API_Secret = $cfg.API_Secret }
+    if (-not $PSBoundParameters.ContainsKey('TradingSymbol') -and $cfg.TradingSymbol)   { $TradingSymbol = $cfg.TradingSymbol }
+    if (-not $PSBoundParameters.ContainsKey('InstrumentToken') -and $cfg.InstrumentToken) { $InstrumentToken = [int]$cfg.InstrumentToken }
+    if (-not $PSBoundParameters.ContainsKey('StartTime') -and $cfg.StartTime)           { $StartTime = $cfg.StartTime }
+    if (-not $PSBoundParameters.ContainsKey('EndTime') -and $cfg.StopTime)              { $EndTime = $cfg.StopTime }
 }
 
 # Sub-minute timeframes not supported by Kite historical API
@@ -77,6 +81,12 @@ $toDate   = Resolve-BacktestDate $EndDate
 # Resolve access token
 # ================================================================
 $tokenFile = Join-Path $rootDir 'accesstoken.json'
+if (-not $AccessToken -and (Test-Path $tokenFile)) {
+    try {
+        $tokenData = Get-Content $tokenFile -Raw | ConvertFrom-Json
+        if ($tokenData.access_token) { $AccessToken = $tokenData.access_token }
+    } catch {}
+}
 if (-not $AccessToken) {
     $AccessToken = Resolve-KiteAccessToken -ApiKey $API_Key -ApiSecret $API_Secret -TokenFilePath $tokenFile
     if (-not $AccessToken) { Write-Host '  No token. Exiting.' -ForegroundColor Red; exit 1 }

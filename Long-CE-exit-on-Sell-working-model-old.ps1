@@ -49,6 +49,7 @@ param(
 # ================================================================
 # Module & Config
 # ================================================================
+$ErrorActionPreference = 'Stop'
 $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Definition }
 Import-Module "$scriptDir\KiteData.psm1" -Force
 
@@ -227,43 +228,29 @@ $script:CE_EntryTime    = ''
 $script:CE_EntryQty     = 0
 $script:CE_EntryLots    = 0
 
-# Auto-detect existing positions at startup via API (no user prompt)
+# Restore position if script restarts
 $PositionFile = Join-Path $PlacedOrdersDir 'CE-Position.json'
-Write-Host ''
-Write-Host '  Checking for existing open CE positions...' -ForegroundColor Yellow
-$startupPositions = Check-AlreadyAnyOrderRunning -SearchKeyWord $underlyingName -NoOfLotsPurchaseAtaTime $NoOfLotsPurchaseAtaTime -Headers $headers
-if ($null -ne $startupPositions -and @($startupPositions).Count -gt 0) {
-    $startupUpTrend = $startupPositions | Where-Object { $_.Type -eq 'UPTrend' }
-    if ($startupUpTrend.Running -eq $true) {
-        # Existing CE position found via API — resume tracking
-        $spotQuoteKey = "$($exchange):$($TradingSymbol)"
-        $currentSpot = Get-KiteSpotPrice -SpotQuoteKey $spotQuoteKey -Headers $headers
-        $script:CE_InPosition  = $true
-        $script:CE_EntrySymbol = $startupUpTrend.TradingSymbols
-        $script:CE_EntryQty    = $startupUpTrend.RunningQuantity
-        $script:CE_EntryLots   = [int][Math]::Ceiling($startupUpTrend.RunningQuantity / $LotSize)
-        $script:CE_EntryPrice  = if ($currentSpot -gt 0) { $currentSpot } else { 0 }
-        $script:CE_EntryTime   = (Get-Date).ToString('HH:mm:ss')
-        $script:LongOrderPlaced = $true
-        $script:LongEntryPrice  = $script:CE_EntryPrice
-        # Also load saved data if position file exists
-        if (Test-Path $PositionFile) {
-            $saved = Get-Content $PositionFile -Raw | ConvertFrom-Json
-            $script:CE_EntryToken  = if ($saved.Token) { $saved.Token } else { 0 }
-            $script:CE_EntryStrike = if ($saved.Strike) { $saved.Strike } else { 0 }
-            $script:CE_EntryPrice  = $saved.Price
-            $script:LongEntryPrice = $saved.Price
-        }
-        Write-Host "  RESUMING — Existing CE position detected: $($startupUpTrend.TradingSymbols) | Qty: $($startupUpTrend.RunningQuantity) | Spot: $($currentSpot.ToString('N2'))" -ForegroundColor Green
-        $script:StrategySignals.Add("RESUME @ $currentSpot  CE: $($startupUpTrend.TradingSymbols) ($(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'))")
-    } else {
-        # No open CE position — clean up stale position file
+if (Test-Path $PositionFile) {
+    $saved = Get-Content $PositionFile -Raw | ConvertFrom-Json
+    Write-Host ""
+    Write-Host "  Existing position found: $($saved.Symbol) | Strike: $($saved.Strike) | Qty: $($saved.Qty) | Entry: $($saved.Price) @ $($saved.Time)" -ForegroundColor Yellow
+    $cleanup = Read-Host "  Do you want to cleanup old entries and start fresh? (y/n)"
+    if ($cleanup -eq 'y' -or $cleanup -eq 'Y') {
         Remove-Item $PositionFile -Force -ErrorAction SilentlyContinue
-        Write-Host '  No existing CE position found. Starting fresh.' -ForegroundColor DarkGray
+        Write-Host "  Old position cleared. Starting fresh." -ForegroundColor Green
+    } else {
+        $script:CE_InPosition  = $true
+        $script:CE_EntrySymbol = $saved.Symbol
+        $script:CE_EntryToken  = $saved.Token
+        $script:CE_EntryStrike = $saved.Strike
+        $script:CE_EntryPrice  = $saved.Price
+        $script:CE_EntryTime   = $saved.Time
+        $script:CE_EntryQty    = if ($saved.Qty) { [int]$saved.Qty } else { $Quantity }
+        $script:CE_EntryLots   = if ($saved.Lots) { [int]$saved.Lots } else { $NoOfLotsPurchaseAtaTime }
+        $script:LongOrderPlaced = $true
+        $script:LongEntryPrice  = $saved.Price
+        Write-Host "  Resuming position: $($script:CE_EntrySymbol) | Strike: $($script:CE_EntryStrike) | Qty: $($script:CE_EntryQty)" -ForegroundColor Yellow
     }
-} else {
-    Remove-Item $PositionFile -Force -ErrorAction SilentlyContinue
-    Write-Host '  No existing positions found. Starting fresh.' -ForegroundColor DarkGray
 }
 
 # ================================================================
@@ -384,10 +371,7 @@ function script:Check-LongAndTrade([int]$instrumentToken, [double]$lastPrice) {
             Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] EXIT TRADE DISABLED (ExitTrade=no) — skipping SELL order, position stays open" -ForegroundColor DarkYellow
             return
         }
-
-        # ── Cancel any pending stop-loss orders before exiting ──
         Cancel-AllStopLosses -TrendEntrySelection 'CE' -Headers $headers
-
         # ── IMMEDIATE CE SELL (use same qty as entry) ──
         $exitQty = $script:CE_EntryQty
         Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] CE SELL | Symbol: $($script:CE_EntrySymbol) | Qty: $exitQty" -ForegroundColor Cyan

@@ -290,6 +290,7 @@ function Get-IntervalMeta {
     param([string]$Interval)
     $map = @{
         'minute'   = @{ Label = '1 Min';   LookbackMin = 120 }
+        '2minute'  = @{ Label = '2 Min';   LookbackMin = 240 }
         '3minute'  = @{ Label = '3 Min';   LookbackMin = 360 }
         '5minute'  = @{ Label = '5 Min';   LookbackMin = 600 }
         '10minute' = @{ Label = '10 Min';  LookbackMin = 1200 }

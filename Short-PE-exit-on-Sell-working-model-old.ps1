@@ -49,6 +49,7 @@ param(
 # ================================================================
 # Module & Config
 # ================================================================
+$ErrorActionPreference = 'Stop'
 $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Definition }
 Import-Module "$scriptDir\KiteData.psm1" -Force
 
@@ -229,45 +230,31 @@ $script:PE_TotalPnL      = 0
 $script:PE_EntryQty      = 0
 $script:PE_EntryLots     = 0
 
-# Auto-detect existing positions at startup via API (no user prompt)
+# Restore position if script restarts
 $PositionFile = Join-Path $PlacedOrdersDir 'PE-Position.json'
-Write-Host ''
-Write-Host '  Checking for existing open PE positions...' -ForegroundColor Yellow
-$startupPositions = Check-AlreadyAnyOrderRunning -SearchKeyWord $underlyingName -NoOfLotsPurchaseAtaTime $NoOfLotsPurchaseAtaTime -Headers $headers
-if ($null -ne $startupPositions -and @($startupPositions).Count -gt 0) {
-    $startupDownTrend = $startupPositions | Where-Object { $_.Type -eq 'DownTrend' }
-    if ($startupDownTrend.Running -eq $true) {
-        # Existing PE position found via API — resume tracking
-        $spotQuoteKey = "$($exchange):$($TradingSymbol)"
-        $currentSpot = Get-KiteSpotPrice -SpotQuoteKey $spotQuoteKey -Headers $headers
-        $script:PE_InPosition    = $true
-        $script:PE_EntrySymbol   = $startupDownTrend.TradingSymbols
-        $script:PE_EntryQty      = $startupDownTrend.RunningQuantity
-        $script:PE_EntryLots     = [int][Math]::Ceiling($startupDownTrend.RunningQuantity / $LotSize)
-        $script:PE_EntryPrice    = if ($currentSpot -gt 0) { $currentSpot } else { 0 }
-        $script:PE_EntryTime     = (Get-Date).ToString('HH:mm:ss')
-        $script:ShortOrderPlaced = $true
-        $script:ShortEntryPrice  = $script:PE_EntryPrice
-        # Also load saved data if position file exists
-        if (Test-Path $PositionFile) {
-            $saved = Get-Content $PositionFile -Raw | ConvertFrom-Json
-            $script:PE_EntryToken    = if ($saved.Token) { $saved.Token } else { 0 }
-            $script:PE_EntryStrike   = if ($saved.Strike) { $saved.Strike } else { 0 }
-            $script:PE_EntryOptionLTP = if ($saved.OptionLTP) { $saved.OptionLTP } else { 0 }
-            $script:PE_TotalPnL      = if ($saved.TotalPnL)  { $saved.TotalPnL }  else { 0 }
-            $script:PE_EntryPrice    = $saved.Price
-            $script:ShortEntryPrice  = $saved.Price
-        }
-        Write-Host "  RESUMING — Existing PE position detected: $($startupDownTrend.TradingSymbols) | Qty: $($startupDownTrend.RunningQuantity) | Spot: $($currentSpot.ToString('N2'))" -ForegroundColor Green
-        $script:StrategySignals.Add("RESUME @ $currentSpot  PE: $($startupDownTrend.TradingSymbols) ($(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'))")
-    } else {
-        # No open PE position — clean up stale position file
+if (Test-Path $PositionFile) {
+    $saved = Get-Content $PositionFile -Raw | ConvertFrom-Json
+    Write-Host ""
+    Write-Host "  Existing position found: $($saved.Symbol) | Strike: $($saved.Strike) | Qty: $($saved.Qty) | Entry: $($saved.Price) @ $($saved.Time)" -ForegroundColor Yellow
+    $cleanup = Read-Host "  Do you want to cleanup old entries and start fresh? (y/n)"
+    if ($cleanup -eq 'y' -or $cleanup -eq 'Y') {
         Remove-Item $PositionFile -Force -ErrorAction SilentlyContinue
-        Write-Host '  No existing PE position found. Starting fresh.' -ForegroundColor DarkGray
+        Write-Host "  Old position cleared. Starting fresh." -ForegroundColor Green
+    } else {
+        $script:PE_InPosition    = $true
+        $script:PE_EntrySymbol   = $saved.Symbol
+        $script:PE_EntryToken    = $saved.Token
+        $script:PE_EntryStrike   = $saved.Strike
+        $script:PE_EntryPrice    = $saved.Price
+        $script:PE_EntryTime     = $saved.Time
+        $script:PE_EntryOptionLTP = if ($saved.OptionLTP) { $saved.OptionLTP } else { 0 }
+        $script:PE_TotalPnL      = if ($saved.TotalPnL)  { $saved.TotalPnL }  else { 0 }
+        $script:PE_EntryQty      = if ($saved.Qty) { [int]$saved.Qty } else { $Quantity }
+        $script:PE_EntryLots     = if ($saved.Lots) { [int]$saved.Lots } else { $NoOfLotsPurchaseAtaTime }
+        $script:ShortOrderPlaced = $true
+        $script:ShortEntryPrice  = $saved.Price
+        Write-Host "  Resuming position: $($script:PE_EntrySymbol) | Strike: $($script:PE_EntryStrike) | Qty: $($script:PE_EntryQty) | Entry LTP: $($script:PE_EntryOptionLTP)" -ForegroundColor Yellow
     }
-} else {
-    Remove-Item $PositionFile -Force -ErrorAction SilentlyContinue
-    Write-Host '  No existing positions found. Starting fresh.' -ForegroundColor DarkGray
 }
 
 # ================================================================
@@ -395,10 +382,7 @@ function script:Check-ShortAndTrade([int]$instrumentToken, [double]$lastPrice) {
             Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] EXIT TRADE DISABLED (ExitTrade=no) — skipping SELL order, position stays open" -ForegroundColor DarkYellow
             return
         }
-
-        # ── Cancel any pending stop-loss orders before exiting ──
         Cancel-AllStopLosses -TrendEntrySelection 'PE' -Headers $headers
-
         # ── IMMEDIATE PE SELL (use same qty as entry) ──
         $exitQty = $script:PE_EntryQty
         Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] PE SELL | Symbol: $($script:PE_EntrySymbol) | Qty: $exitQty" -ForegroundColor Cyan

@@ -24,7 +24,7 @@ $cfg = Get-Content $inputFile -Raw | ConvertFrom-Json
 
 $API_Key    = $cfg.API_Key
 $API_Secret = $cfg.API_Secret
-$TimeFrame  = if ($cfg.TimeFrame -eq 'minute') { '1' } elseif ($cfg.TimeFrame -eq 'day') { 'day' } elseif ($cfg.TimeFrame -match '^\d+$') { $cfg.TimeFrame } else { '1' }
+$TimeFrame  = if ($cfg.TimeFrame -eq 'minute') { '1' } elseif ($cfg.TimeFrame -eq 'day') { 'day' } elseif ($cfg.TimeFrame -match '^\d+$') { $cfg.TimeFrame } elseif ($cfg.TimeFrame -match '^(\d+)minute$') { $Matches[1] } elseif ($cfg.TimeFrame -match '^(\d+)second$') { '1' } else { '1' }
 $Product    = $cfg.Product
 $Variety    = if ($cfg.Variety) { $cfg.Variety } else { 'regular' }
 $MarketProtection = if ($cfg.MarketProtection) { [int]$cfg.MarketProtection } else { 3 }
