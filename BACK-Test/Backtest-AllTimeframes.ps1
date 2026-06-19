@@ -18,7 +18,7 @@ param(
     [int]$Days             = 50,
     [string[]]$TimeFrames  = @('minute','2minute'),
     [string]$EntryStartTime = '09:16',
-    [string]$EntryStopTime  = '15:28',
+    [string]$EntryStopTime  = '15:29',
     [string]$MarketCloseTime = '15:30',
     [int]$SLLookback          = 3,
     [switch]$ShowTrades,
@@ -113,39 +113,40 @@ $allResults = [System.Collections.Generic.List[PSCustomObject]]::new()
 $tfLabels = [ordered]@{ 'minute'='1m'; '2minute'='2m'; '3minute'='3m'; '4minute'='4m'; '5minute'='5m'; '10minute'='10m'; '15minute'='15m'; '30minute'='30m'; '60minute'='60m' }
 
 # Aggregate 1-min candles into N-min candles (for 2min, 4min etc.)
+# Uses sequential grouping per day (every N consecutive candles) to match Quick-HA-Analysis
 function Aggregate-Candles($rawCandles, [int]$minutes) {
     $aggregated = [System.Collections.Generic.List[object[]]]::new()
-    $bucket = [System.Collections.Generic.List[object[]]]::new()
-    $bucketStart = $null
+    # Group by day first, then aggregate sequentially within each day
+    $dayBuckets = [ordered]@{}
     foreach ($c in $rawCandles) {
         $ts = $c[0]
         if ($ts -is [string]) { try { $ts = [DateTime]::Parse($ts) } catch { continue } }
-        # Calculate bucket: floor minutes to nearest N
-        $totalMin = [int]($ts.TimeOfDay.TotalMinutes)
-        $bucketMin = [Math]::Floor($totalMin / $minutes) * $minutes
-        $curBucket = $ts.Date.AddMinutes($bucketMin)
-        if ($null -eq $bucketStart) { $bucketStart = $curBucket }
-        if ($curBucket -ne $bucketStart -and $bucket.Count -gt 0) {
-            # Close previous bucket
-            $bOpen  = [double]$bucket[0][1]
-            $bHigh  = ($bucket | ForEach-Object { [double]$_[2] } | Measure-Object -Maximum).Maximum
-            $bLow   = ($bucket | ForEach-Object { [double]$_[3] } | Measure-Object -Minimum).Minimum
-            $bClose = [double]$bucket[$bucket.Count - 1][4]
-            $bVol   = ($bucket | ForEach-Object { [long]$_[5] } | Measure-Object -Sum).Sum
-            $aggregated.Add(@($bucketStart, $bOpen, $bHigh, $bLow, $bClose, $bVol))
-            $bucket.Clear()
-            $bucketStart = $curBucket
-        }
-        $bucket.Add($c)
+        $dayKey = $ts.ToString('yyyy-MM-dd')
+        if (-not $dayBuckets.Contains($dayKey)) { $dayBuckets[$dayKey] = [System.Collections.Generic.List[object[]]]::new() }
+        $dayBuckets[$dayKey].Add($c)
     }
-    # Last bucket
-    if ($bucket.Count -gt 0) {
-        $bOpen  = [double]$bucket[0][1]
-        $bHigh  = ($bucket | ForEach-Object { [double]$_[2] } | Measure-Object -Maximum).Maximum
-        $bLow   = ($bucket | ForEach-Object { [double]$_[3] } | Measure-Object -Minimum).Minimum
-        $bClose = [double]$bucket[$bucket.Count - 1][4]
-        $bVol   = ($bucket | ForEach-Object { [long]$_[5] } | Measure-Object -Sum).Sum
-        $aggregated.Add(@($bucketStart, $bOpen, $bHigh, $bLow, $bClose, $bVol))
+    # Within each day, group sequentially (every N candles)
+    foreach ($dayKey in $dayBuckets.Keys) {
+        $dayCandles = $dayBuckets[$dayKey]
+        $bucket = [System.Collections.Generic.List[object[]]]::new()
+        $bucketStart = $null
+        foreach ($c in $dayCandles) {
+            $ts = $c[0]
+            if ($ts -is [string]) { try { $ts = [DateTime]::Parse($ts) } catch { continue } }
+            if ($null -eq $bucketStart) { $bucketStart = $ts }
+            $bucket.Add($c)
+            if ($bucket.Count -ge $minutes) {
+                $bOpen  = [double]$bucket[0][1]
+                $bHigh  = ($bucket | ForEach-Object { [double]$_[2] } | Measure-Object -Maximum).Maximum
+                $bLow   = ($bucket | ForEach-Object { [double]$_[3] } | Measure-Object -Minimum).Minimum
+                $bClose = [double]$bucket[$bucket.Count - 1][4]
+                $bVol   = ($bucket | ForEach-Object { [long]$_[5] } | Measure-Object -Sum).Sum
+                $aggregated.Add(@($bucketStart, $bOpen, $bHigh, $bLow, $bClose, $bVol))
+                $bucket.Clear()
+                $bucketStart = $null
+            }
+        }
+        # Drop incomplete last bucket (matches Quick-HA-Analysis behavior)
     }
     return $aggregated
 }
@@ -153,7 +154,10 @@ function Aggregate-Candles($rawCandles, [int]$minutes) {
 function Convert-ToHA($rawCandles) {
     $ha = [System.Collections.Generic.List[PSCustomObject]]::new()
     $prev = $null
+    $prevDate = $null
     foreach ($c in $rawCandles) {
+        $candleDate = ([datetime]$c[0]).Date
+        if ($candleDate -ne $prevDate) { $prev = $null; $prevDate = $candleDate }
         $open  = [double]$c[1]; $high = [double]$c[2]; $low = [double]$c[3]; $close = [double]$c[4]; $vol = [long]$c[5]
         $haClose = ($open + $high + $low + $close) / 4.0
         $haOpen  = if ($null -ne $prev) { ($prev.Open + $prev.Close) / 2.0 } else { ($open + $close) / 2.0 }

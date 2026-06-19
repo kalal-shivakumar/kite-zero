@@ -17,7 +17,7 @@ param(
     [string]$TimeFrame       = 'minute',
     [int]$SLLookback         = 3,
     [string]$EntryStartTime  = '09:16',
-    [string]$EntryStopTime   = '15:28',
+    [string]$EntryStopTime   = '15:29',
     [string]$MarketCloseTime = '15:30',
     [string]$AccessToken,
     [string]$API_Key,
@@ -214,14 +214,18 @@ if ($longTrades.Count -eq 0) {
         $es = ([DateTime]$t.E).ToString('HH:mm')
         $xs = ([DateTime]$t.X).ToString('HH:mm')
         $p  = Fmt-PnL $t.PnL
+        $pct = [Math]::Round($t.PnL / $t.EP * 100, 1)
+        $pctStr = if ($pct -ge 0) { "+${pct}%" } else { "${pct}%" }
         $cl = if ($t.PnL -ge 0) { 'Green' } elseif ($t.R -eq 'SL') { 'Red' } else { 'Yellow' }
-        Write-Host ("  {0,3}. {1} Buy@{2,8} -> {3} Exit@{4,8} [{5,-6}] {6,9}" -f $n, $es, $t.EP, $xs, $t.XP, $t.R, $p) -ForegroundColor $cl
+        Write-Host ("  {0,3}. {1} Buy@{2,8} -> {3} Exit@{4,8} [{5,-6}] {6,9} {7,8}" -f $n, $es, $t.EP, $xs, $t.XP, $t.R, $p, $pctStr) -ForegroundColor $cl
     }
     $lw  = @($longTrades | Where-Object { $_.PnL -gt 0 })
     $ll  = @($longTrades | Where-Object { $_.PnL -lt 0 })
     $lTot = [Math]::Round(($longTrades | Measure-Object -Property PnL -Sum).Sum, 2)
     $lWinPct = [Math]::Round($lw.Count / $longTrades.Count * 100, 1)
-    Write-Host "`n  Trades:$($longTrades.Count) W:$($lw.Count) L:$($ll.Count) Win%:${lWinPct}% PnL:$(Fmt-PnL $lTot)" -ForegroundColor Yellow
+    $lTotPct = [Math]::Round(($longTrades | ForEach-Object { $_.PnL / $_.EP * 100 } | Measure-Object -Sum).Sum, 1)
+    $lTotPctStr = if ($lTotPct -ge 0) { "+${lTotPct}%" } else { "${lTotPct}%" }
+    Write-Host "`n  Trades:$($longTrades.Count) W:$($lw.Count) L:$($ll.Count) Win%:${lWinPct}% PnL:$(Fmt-PnL $lTot) ($lTotPctStr)" -ForegroundColor Yellow
 }
 
 # Short trades
@@ -235,14 +239,18 @@ if ($shortTrades.Count -eq 0) {
         $es = ([DateTime]$t.E).ToString('HH:mm')
         $xs = ([DateTime]$t.X).ToString('HH:mm')
         $p  = Fmt-PnL $t.PnL
+        $pct = [Math]::Round($t.PnL / $t.EP * 100, 1)
+        $pctStr = if ($pct -ge 0) { "+${pct}%" } else { "${pct}%" }
         $cl = if ($t.PnL -ge 0) { 'Green' } elseif ($t.R -eq 'SL') { 'Red' } else { 'Yellow' }
-        Write-Host ("  {0,3}. {1} Sell@{2,8} -> {3} Cover@{4,8} [{5,-6}] {6,9}" -f $n, $es, $t.EP, $xs, $t.XP, $t.R, $p) -ForegroundColor $cl
+        Write-Host ("  {0,3}. {1} Sell@{2,8} -> {3} Cover@{4,8} [{5,-6}] {6,9} {7,8}" -f $n, $es, $t.EP, $xs, $t.XP, $t.R, $p, $pctStr) -ForegroundColor $cl
     }
     $sw  = @($shortTrades | Where-Object { $_.PnL -gt 0 })
     $sll = @($shortTrades | Where-Object { $_.PnL -lt 0 })
     $sTot = [Math]::Round(($shortTrades | Measure-Object -Property PnL -Sum).Sum, 2)
     $sWinPct = [Math]::Round($sw.Count / $shortTrades.Count * 100, 1)
-    Write-Host "`n  Trades:$($shortTrades.Count) W:$($sw.Count) L:$($sll.Count) Win%:${sWinPct}% PnL:$(Fmt-PnL $sTot)" -ForegroundColor Yellow
+    $sTotPct = [Math]::Round(($shortTrades | ForEach-Object { $_.PnL / $_.EP * 100 } | Measure-Object -Sum).Sum, 1)
+    $sTotPctStr = if ($sTotPct -ge 0) { "+${sTotPct}%" } else { "${sTotPct}%" }
+    Write-Host "`n  Trades:$($shortTrades.Count) W:$($sw.Count) L:$($sll.Count) Win%:${sWinPct}% PnL:$(Fmt-PnL $sTot) ($sTotPctStr)" -ForegroundColor Yellow
 }
 
 # Combined
