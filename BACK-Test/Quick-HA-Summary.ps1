@@ -11,7 +11,7 @@ param(
     [Parameter(Mandatory)][int]$InstrumentToken,
     [int]$Days              = 50,
     [string]$TimeFrame      = 'minute',
-    [int]$SLLookback        = 3,
+    [int]$SLLookback        = 1,
     [string]$EntryStartTime = '09:16',
     [string]$EntryStopTime  = '15:29',
     [string]$MarketCloseTime = '15:30'
@@ -112,16 +112,16 @@ for ($d = $Days; $d -ge 0; $d--) {
         }
         if ($inPos) {
             if ($cur.RawClose -le $sl) {
-                $longTrades += [PSCustomObject]@{ PnL=[Math]::Round($sl - $ep, 2) }
+                $longTrades += [PSCustomObject]@{ PnL=[Math]::Round($sl - $ep, 2); EntryTime=$et }
                 $inPos = $false; continue
             }
             if ($cur.haClose -lt $prv.haLow) {
-                $longTrades += [PSCustomObject]@{ PnL=[Math]::Round($cur.RawClose - $ep, 2) }
+                $longTrades += [PSCustomObject]@{ PnL=[Math]::Round($cur.RawClose - $ep, 2); EntryTime=$et }
                 $inPos = $false
             }
         }
     }
-    if ($inPos) { $longTrades += [PSCustomObject]@{ PnL=[Math]::Round($ha[-1].RawClose - $ep, 2) } }
+    if ($inPos) { $longTrades += [PSCustomObject]@{ PnL=[Math]::Round($ha[-1].RawClose - $ep, 2); EntryTime=$et } }
 
     # ── SHORT ──
     $shortTrades = @(); $inPos = $false
@@ -136,16 +136,16 @@ for ($d = $Days; $d -ge 0; $d--) {
         }
         if ($inPos) {
             if ($cur.RawClose -ge $sl) {
-                $shortTrades += [PSCustomObject]@{ PnL=[Math]::Round($ep - $sl, 2) }
+                $shortTrades += [PSCustomObject]@{ PnL=[Math]::Round($ep - $sl, 2); EntryTime=$et }
                 $inPos = $false; continue
             }
             if ($cur.haClose -gt $prv.haHigh) {
-                $shortTrades += [PSCustomObject]@{ PnL=[Math]::Round($ep - $cur.RawClose, 2) }
+                $shortTrades += [PSCustomObject]@{ PnL=[Math]::Round($ep - $cur.RawClose, 2); EntryTime=$et }
                 $inPos = $false
             }
         }
     }
-    if ($inPos) { $shortTrades += [PSCustomObject]@{ PnL=[Math]::Round($ep - $ha[-1].RawClose, 2) } }
+    if ($inPos) { $shortTrades += [PSCustomObject]@{ PnL=[Math]::Round($ep - $ha[-1].RawClose, 2); EntryTime=$et } }
 
     # Summarize
     $lPnL = if ($longTrades.Count -gt 0) { [Math]::Round(($longTrades | Measure-Object -Property PnL -Sum).Sum, 2) } else { 0 }
@@ -156,13 +156,16 @@ for ($d = $Days; $d -ge 0; $d--) {
     $allTrades = @($longTrades) + @($shortTrades)
     $bestTrade  = if ($allTrades.Count -gt 0) { [Math]::Round(($allTrades | Measure-Object -Property PnL -Maximum).Maximum, 2) } else { 0 }
     $worstTrade = if ($allTrades.Count -gt 0) { [Math]::Round(($allTrades | Measure-Object -Property PnL -Minimum).Minimum, 2) } else { 0 }
+    $bestTradeTime  = if ($allTrades.Count -gt 0) { $bt = $allTrades | Sort-Object PnL -Descending | Select-Object -First 1; ([DateTime]$bt.EntryTime).ToString('HH:mm') } else { '' }
+    $worstTradeTime = if ($allTrades.Count -gt 0) { $wt = $allTrades | Sort-Object PnL | Select-Object -First 1; ([DateTime]$wt.EntryTime).ToString('HH:mm') } else { '' }
 
     $results += [PSCustomObject]@{
         Date = $dateStr
         LTrades = $longTrades.Count; LWin = $lW; LPnL = $lPnL
         STrades = $shortTrades.Count; SWin = $sW; SPnL = $sPnL
         Combined = [Math]::Round($lPnL + $sPnL, 2)
-        BestTrade = $bestTrade; WorstTrade = $worstTrade
+        BestTrade = $bestTrade; BestTradeTime = $bestTradeTime
+        WorstTrade = $worstTrade; WorstTradeTime = $worstTradeTime
     }
 
     Write-Host "  $dateStr done ($($longTrades.Count)L/$($shortTrades.Count)S)" -ForegroundColor DarkGray
@@ -177,8 +180,8 @@ Write-Host "  $TradingSymbol | $TimeFrame | SL: $SLLookback | Last $Days days ($
 Write-Host "  ══════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 
-$hdr = "  {0,-12} {1,6} {2,4} {3,5} {4,10} {5,6} {6,4} {7,5} {8,10} {9,10} {10,10} {11,10} {12,10}" -f "Date","LTrd","LW","LW%","LongPnL","STrd","SW","SW%","ShortPnL","Combined","Cumulative","BestTrd","WorstTrd"
-$sep = "  " + ("-" * 122)
+$hdr = "  {0,-12} {1,6} {2,4} {3,5} {4,10} {5,6} {6,4} {7,5} {8,10} {9,10} {10,10} {11,10} {12,6} {13,10} {14,6}" -f "Date","LTrd","LW","LW%","LongPnL","STrd","SW","SW%","ShortPnL","Combined","Cumulative","BestTrd","BTime","WorstTrd","WTime"
+$sep = "  " + ("-" * 138)
 
 Write-Host $sep -ForegroundColor DarkGray
 Write-Host $hdr -ForegroundColor White
@@ -225,7 +228,7 @@ foreach ($r in $results) {
     $worstTrdStr = if ($r.WorstTrade -ge 0) { "+$($r.WorstTrade)" } else { "$($r.WorstTrade)" }
 
     $color = if ($r.Combined -ge 0) { 'Green' } else { 'Red' }
-    $line = "  {0,-12} {1,6} {2,4} {3,4}% {4,10} {5,6} {6,4} {7,4}% {8,10} {9,10} {10,10} {11,10} {12,10}" -f $r.Date, $r.LTrades, $r.LWin, $lWinPct, $lPnLStr, $r.STrades, $r.SWin, $sWinPct, $sPnLStr, $cPnLStr, $cumStr, $bestTrdStr, $worstTrdStr
+    $line = "  {0,-12} {1,6} {2,4} {3,4}% {4,10} {5,6} {6,4} {7,4}% {8,10} {9,10} {10,10} {11,10} {12,6} {13,10} {14,6}" -f $r.Date, $r.LTrades, $r.LWin, $lWinPct, $lPnLStr, $r.STrades, $r.SWin, $sWinPct, $sPnLStr, $cPnLStr, $cumStr, $bestTrdStr, $r.BestTradeTime, $worstTrdStr, $r.WorstTradeTime
     Write-Host $line -ForegroundColor $color
 }
 
@@ -255,4 +258,45 @@ Write-Host "  Win Days: $winDays/$($results.Count) ($dayWinPct%) | Long Total: $
 $bestWinPtsStr = if ($bestWinPts -ge 0) { "+$bestWinPts" } else { "$bestWinPts" }
 $worstLosePtsStr = "$worstLosePts"
 Write-Host "  Best Win Streak: $bestWinStreak days ($bestWinPtsStr pts) | Worst Lose Streak: $worstLoseStreak days ($worstLosePtsStr pts)" -ForegroundColor Yellow
+Write-Host ""
+
+# ── Export to CSV ───────────────────────────────────────────────
+$csvDir = Join-Path $scriptDir 'Results-csv'
+if (-not (Test-Path $csvDir)) { New-Item -ItemType Directory -Path $csvDir -Force | Out-Null }
+
+$csvCumulative = 0.0
+$csvRows = foreach ($r in $results) {
+    $csvCumulative += $r.Combined
+    $lWPct = if ($r.LTrades -gt 0) { [Math]::Round($r.LWin / $r.LTrades * 100, 1) } else { 0 }
+    $sWPct = if ($r.STrades -gt 0) { [Math]::Round($r.SWin / $r.STrades * 100, 1) } else { 0 }
+    [PSCustomObject]@{
+        Date        = $r.Date
+        LongTrades  = $r.LTrades
+        LongWins    = $r.LWin
+        LongWinPct  = $lWPct
+        LongPnL     = $r.LPnL
+        ShortTrades = $r.STrades
+        ShortWins   = $r.SWin
+        ShortWinPct = $sWPct
+        ShortPnL    = $r.SPnL
+        Combined    = $r.Combined
+        Cumulative  = [Math]::Round($csvCumulative, 2)
+        BestTrade   = $r.BestTrade
+        BestTradeTime  = $r.BestTradeTime
+        WorstTrade  = $r.WorstTrade
+        WorstTradeTime = $r.WorstTradeTime
+    }
+}
+
+# Add totals row
+$csvRows += [PSCustomObject]@{
+    Date='TOTAL'; LongTrades=$totalLTrd; LongWins=$totalLW; LongWinPct=$tLWinPct
+    LongPnL=[Math]::Round($totalLPnL,2); ShortTrades=$totalSTrd; ShortWins=$totalSW; ShortWinPct=$tSWinPct
+    ShortPnL=[Math]::Round($totalSPnL,2); Combined=[Math]::Round($totalComb,2); Cumulative=[Math]::Round($csvCumulative,2)
+    BestTrade=$overallBest; BestTradeTime=''; WorstTrade=$overallWorst; WorstTradeTime=''
+}
+
+$csvFile = Join-Path $csvDir "backtest-$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').csv"
+$csvRows | Export-Csv -Path $csvFile -NoTypeInformation -Force
+Write-Host "  CSV exported: $csvFile" -ForegroundColor Green
 Write-Host ""

@@ -3,8 +3,8 @@
   Combined HA Long+Short Signal with CE+PE Option Auto-Trade (zero-latency).
 .DESCRIPTION
   Streams live HA candles via Kite WebSocket. Trades both directions:
-  - Long entry (HA Close > prev High) → BUY CE, exit when HA Close < prev Low → SELL CE
-  - Short entry (HA Close < prev Low) → BUY PE, exit when HA Close > prev High → SELL PE
+  - Long entry (HA Close > prev High) -> BUY CE, exit when HA Close < prev Low -> SELL CE
+  - Short entry (HA Close < prev Low) -> BUY PE, exit when HA Close > prev High -> SELL PE
   Only one direction is active at a time.
 .EXAMPLE
   .\Long-Short-Combined.ps1
@@ -287,7 +287,7 @@ function script:Enter-Position([string]$dir, [double]$spotPrice, [string]$timeSt
 # ================================================================
 function script:Exit-Position([double]$lastPrice, [string]$timeStamp) {
     if ($ExitTrade -eq 'no') {
-        Write-Host "  [$(Get-Date -Format 'HH:mm:ss.fff')] EXIT DISABLED — position stays open" -ForegroundColor DarkYellow
+        Write-Host "  [$(Get-Date -Format 'HH:mm:ss.fff')] EXIT DISABLED - position stays open" -ForegroundColor DarkYellow
         return
     }
 
@@ -312,7 +312,7 @@ function script:Exit-Position([double]$lastPrice, [string]$timeStamp) {
         $latency = ((Get-Date) - $now).TotalMilliseconds
         Write-Host "  [$(Get-Date -Format 'HH:mm:ss.fff')] CLOSED in ${latency}ms | $($script:OptSymbol) | Trade P&L: $($tradePnL.ToString('N2')) | Total: $($script:TotalPnL.ToString('N2'))" -ForegroundColor $pnlColor
     } else {
-        Write-Host "  [$(Get-Date -Format 'HH:mm:ss.fff')] SELL failed — clearing state anyway" -ForegroundColor DarkYellow
+        Write-Host "  [$(Get-Date -Format 'HH:mm:ss.fff')] SELL failed - clearing state anyway" -ForegroundColor DarkYellow
     }
 
     $script:StrategySignals.Add("EXIT $($script:Direction) @ $lastPrice  P&L: $([Math]::Round($lastPrice - $script:EntryPrice, 2)) ($timeStamp)")
@@ -339,7 +339,7 @@ function script:Check-SignalAndTrade([int]$instrumentToken, [double]$lastPrice) 
     if ($now.TimeOfDay -lt $StartTime.TimeOfDay -or $now.TimeOfDay -gt $StopTime.TimeOfDay) { return }
     $timeStamp = $now.ToString('yyyy-MM-dd_HH-mm-ss')
 
-    # ── LONG ENTRY: HA Close > prev High (only if flat) ──
+    # -- LONG ENTRY: HA Close > prev High (only if flat) --
     if ($script:Direction -eq '' -and $liveHA.Close -gt $prev.High) {
         Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** LONG ENTRY *** LTP: $lastPrice | HA Close: $([Math]::Round($liveHA.Close,2)) > Prev High: $($prev.High)" -ForegroundColor Yellow
         $ok = script:Enter-Position 'LONG' $lastPrice $timeStamp
@@ -347,7 +347,7 @@ function script:Check-SignalAndTrade([int]$instrumentToken, [double]$lastPrice) 
         return
     }
 
-    # ── SHORT ENTRY: HA Close < prev Low (only if flat) ──
+    # -- SHORT ENTRY: HA Close < prev Low (only if flat) --
     if ($script:Direction -eq '' -and $liveHA.Close -lt $prev.Low) {
         Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** SHORT ENTRY *** LTP: $lastPrice | HA Close: $([Math]::Round($liveHA.Close,2)) < Prev Low: $($prev.Low)" -ForegroundColor Yellow
         $ok = script:Enter-Position 'SHORT' $lastPrice $timeStamp
@@ -355,14 +355,14 @@ function script:Check-SignalAndTrade([int]$instrumentToken, [double]$lastPrice) 
         return
     }
 
-    # ── LONG EXIT: HA Close < prev Low ──
+    # -- LONG EXIT: HA Close < prev Low --
     if ($script:Direction -eq 'LONG' -and $liveHA.Close -lt $prev.Low) {
         Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** LONG EXIT *** LTP: $lastPrice | HA Close: $([Math]::Round($liveHA.Close,2)) < Prev Low: $($prev.Low)" -ForegroundColor Yellow
         script:Exit-Position $lastPrice $timeStamp
         return
     }
 
-    # ── SHORT EXIT: HA Close > prev High ──
+    # -- SHORT EXIT: HA Close > prev High --
     if ($script:Direction -eq 'SHORT' -and $liveHA.Close -gt $prev.High) {
         Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** SHORT EXIT *** LTP: $lastPrice | HA Close: $([Math]::Round($liveHA.Close,2)) > Prev High: $($prev.High)" -ForegroundColor Yellow
         script:Exit-Position $lastPrice $timeStamp
@@ -509,7 +509,7 @@ function script:Render-StrategyDisplay([int]$instrumentToken) {
 function script:Force-ExitAtStopTime {
     if ($script:Direction -ne '' -and $script:OptSymbol) {
         $now = Get-Date
-        Write-Host "  [$($now.ToString('HH:mm:ss'))] STOP TIME — Force exiting: $($script:OptSymbol)" -ForegroundColor Red
+        Write-Host "  [$($now.ToString('HH:mm:ss'))] STOP TIME - Force exiting: $($script:OptSymbol)" -ForegroundColor Red
         $forceQty = if ($script:OptQty -gt 0) { $script:OptQty } else { $Quantity }
         Place-ZerodhaOrder -CommonHeader $headers -Type "SELL" -Variety $Variety `
             -Tradingsymbol $script:OptSymbol -Quantity $forceQty `
