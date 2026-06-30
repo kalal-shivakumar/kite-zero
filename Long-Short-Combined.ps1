@@ -47,7 +47,7 @@ param(
 # ================================================================
 $ErrorActionPreference = 'Stop'
 $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Definition }
-Import-Module "$scriptDir\KiteData.psm1" -Force
+Import-Module "$scriptDir\KiteData.psm1" -Force -warningaction SilentlyContinue
 
 $inputFile = Join-Path $scriptDir 'input.json'
 if (-not (Test-Path $inputFile)) { Write-Host '  ERROR: input.json not found.' -ForegroundColor Red; exit 1 }

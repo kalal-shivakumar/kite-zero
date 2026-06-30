@@ -1,9 +1,9 @@
 // ============================================================
-// Trading Bot Web Server — Multi-User Production
+// Trading Bot Web Server — Local Only
 // ============================================================
 // Flow per user:
 //   1. Enter API Key + Secret → Generate Kite login URL
-//   2. OAuth callback → Exchange token → Store in Key Vault
+//   2. OAuth callback → Exchange token → Store in session
 //   3. Dashboard: Profile loaded, config form shown
 //   4. Start Bot → In-process trading engine connects Kite WS
 //   5. SSE streams live ticks/candles/signals to browser
@@ -16,6 +16,8 @@ const crypto = require('crypto');
 const axios = require('axios');
 const WebSocket = require('ws');
 const path = require('path');
+const fs = require('fs');
+const { spawn } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -26,30 +28,46 @@ app.use(session({
     secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: process.env.NODE_ENV === 'production', httpOnly: true, maxAge: 12 * 60 * 60 * 1000 }
+    cookie: { secure: false, httpOnly: true, maxAge: 12 * 60 * 60 * 1000 }
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ── Azure SDK (lazy-loaded for portability) ──
-let SecretClient, DefaultAzureCredential;
-async function loadAzureSDK() {
-    if (!SecretClient) {
-        try {
-            const kvMod = await import('@azure/keyvault-secrets');
-            SecretClient = kvMod.SecretClient;
-            const idMod = await import('@azure/identity');
-            DefaultAzureCredential = idMod.DefaultAzureCredential;
-        } catch (e) {
-            console.warn('Azure SDK not available — Key Vault disabled:', e.message);
-        }
-    }
+const KITE_BASE_URL = 'https://api.kite.trade';
+
+// ── Local token persistence (accesstoken.json) ──
+const TOKEN_FILE = path.join(__dirname, '..', 'accesstoken.json');
+
+function saveTokenToFile(userId, userName, apiKey, accessToken) {
+    const data = {
+        user_id: userId,
+        user_name: userName || userId,
+        api_key: apiKey,
+        access_token: accessToken,
+        saved_at: new Date().toISOString()
+    };
+    fs.writeFileSync(TOKEN_FILE, JSON.stringify(data, null, 2));
+    console.log(`Token saved to ${TOKEN_FILE}`);
 }
 
-const KEYVAULT_NAME = process.env.AZURE_KEYVAULT_NAME || 'trading-bot-kv-sk';
-const KEYVAULT_URL = `https://${KEYVAULT_NAME}.vault.azure.net`;
-const KITE_BASE_URL = 'https://api.kite.trade';
+function loadTokenFromFile() {
+    try {
+        if (!fs.existsSync(TOKEN_FILE)) return null;
+        const data = JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf8'));
+        if (!data.access_token || !data.api_key) return null;
+        return data;
+    } catch { return null; }
+}
+
+async function isTokenValid(apiKey, accessToken) {
+    try {
+        const r = await axios.get(`${KITE_BASE_URL}/user/profile`, {
+            headers: { 'X-Kite-Version': '3', 'Authorization': `token ${apiKey}:${accessToken}` }
+        });
+        return r.data.status === 'success' ? r.data.data : null;
+    } catch { return null; }
+}
 
 // ══════════════════════════════════════════════════════════════
 // Per-user bot instances: userId → TradingBot
@@ -57,24 +75,6 @@ const KITE_BASE_URL = 'https://api.kite.trade';
 const activeBots = new Map();
 // Per-user SSE clients: userId → Set<res>
 const sseClients = new Map();
-
-// ── Key Vault helpers ──
-async function storeSecret(name, value) {
-    await loadAzureSDK();
-    if (!SecretClient) return;
-    const client = new SecretClient(KEYVAULT_URL, new DefaultAzureCredential());
-    await client.setSecret(name, value);
-}
-
-async function getSecret(name) {
-    await loadAzureSDK();
-    if (!SecretClient) return null;
-    try {
-        const client = new SecretClient(KEYVAULT_URL, new DefaultAzureCredential());
-        const s = await client.getSecret(name);
-        return s.value;
-    } catch { return null; }
-}
 
 function sha256(data) {
     return crypto.createHash('sha256').update(data).digest('hex');
@@ -96,6 +96,29 @@ function broadcastSSE(userId, event, data) {
     for (const res of clients) {
         try { res.write(payload); } catch { clients.delete(res); }
     }
+}
+
+// ── Trade history file persistence ──
+const TRADES_DIR = path.join(__dirname, 'data');
+function tradesFilePath(userId) {
+    return path.join(TRADES_DIR, `trades-${sanitizeId(userId)}.json`);
+}
+function loadTradesFromFile(userId) {
+    try {
+        const fp = tradesFilePath(userId);
+        if (fs.existsSync(fp)) return JSON.parse(fs.readFileSync(fp, 'utf8'));
+    } catch {}
+    return [];
+}
+function saveTradeToFile(userId, trade) {
+    try {
+        if (!fs.existsSync(TRADES_DIR)) fs.mkdirSync(TRADES_DIR, { recursive: true });
+        const fp = tradesFilePath(userId);
+        const trades = loadTradesFromFile(userId);
+        trade.id = trades.length + 1;
+        trades.push(trade);
+        fs.writeFileSync(fp, JSON.stringify(trades, null, 2));
+    } catch (e) { console.error('Failed to save trade:', e.message); }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -253,6 +276,7 @@ class TradingBot {
         this.optType = '';
 
         this.signals = [];
+        this.trades = [];
         this.totalPnL = 0;
         this.status = 'initializing';
         this.ws = null;
@@ -484,10 +508,22 @@ class TradingBot {
                 this.direction = dir; this.entryPrice = spot; this.entryTime = nowIST().toISOString();
                 this.optSymbol = atm.symbol; this.optToken = atm.token; this.optStrike = atm.strike;
                 this.optQty = qty; this.optType = optType;
-                this.signals.push({ type: 'ENTRY', dir, spot, symbol: atm.symbol, strike: atm.strike, qty, time: this.entryTime });
+
+                // Fetch actual option buy price if not already fetched
+                if (!this.optEntryLTP || this.optEntryLTP === 0) {
+                    try {
+                        const ek = encodeURIComponent(`${this.indexConfig.exchange}:${atm.symbol}`);
+                        const qr = await axios.get(`${KITE_BASE_URL}/quote/ltp?i=${ek}`, { headers: this.headers });
+                        for (const p of Object.values(qr.data.data)) {
+                            if (p.last_price > 0) this.optEntryLTP = p.last_price;
+                        }
+                    } catch {}
+                }
+
+                this.signals.push({ type: 'ENTRY', dir, spot, symbol: atm.symbol, strike: atm.strike, qty, optPrice: this.optEntryLTP, time: this.entryTime });
                 broadcastSSE(this.userId, 'signal', this.signals[this.signals.length - 1]);
                 broadcastSSE(this.userId, 'status', this.getSnapshot());
-                this.log(`Position OPEN: ${dir} ${atm.symbol} Strike:${atm.strike} Qty:${qty} @ Spot:${spot}`);
+                this.log(`Position OPEN: ${dir} ${atm.symbol} Strike:${atm.strike} Qty:${qty} @ Spot:${spot} | Option BUY: ₹${this.optEntryLTP}`);
             } else {
                 this.log(`Order failed: ${JSON.stringify(result)}`, 'error');
             }
@@ -527,11 +563,54 @@ class TradingBot {
                 marketProtection: this.config.marketProtection || 2, tag: `${this.optType}-EXIT`
             });
 
+            // Fetch option exit price (sell price)
+            let optExitLTP = 0;
+            try {
+                const ek = encodeURIComponent(`${this.indexConfig.exchange}:${this.optSymbol}`);
+                const qr = await axios.get(`${KITE_BASE_URL}/quote/ltp?i=${ek}`, { headers: this.headers });
+                for (const p of Object.values(qr.data.data)) {
+                    if (p.last_price > 0) optExitLTP = p.last_price;
+                }
+            } catch {}
+
+            // P&L based on spot price movement (strategy signal)
             const pnl = this.direction === 'LONG' ? ltp - this.entryPrice : this.entryPrice - ltp;
+            const pctPnL = this.entryPrice > 0 ? (pnl / this.entryPrice) * 100 : 0;
             this.totalPnL += pnl;
-            this.signals.push({ type: 'EXIT', dir: this.direction, spot: ltp, symbol: this.optSymbol, pnl: +pnl.toFixed(2), totalPnL: +this.totalPnL.toFixed(2), time: nowIST().toISOString() });
+
+            // Option P&L (actual premium difference)
+            const optBuy = this.optEntryLTP || 0;
+            const optSell = optExitLTP || 0;
+            const optPnL = (optSell - optBuy) * this.optQty;
+            const optPnLPct = optBuy > 0 ? ((optSell - optBuy) / optBuy) * 100 : 0;
+
+            this.signals.push({ type: 'EXIT', dir: this.direction, spot: ltp, symbol: this.optSymbol, pnl: +pnl.toFixed(2), totalPnL: +this.totalPnL.toFixed(2), optBuy, optSell, time: nowIST().toISOString() });
             broadcastSSE(this.userId, 'signal', this.signals[this.signals.length - 1]);
-            this.log(`CLOSED | ${this.optSymbol} | P&L: ${pnl.toFixed(2)} | Total: ${this.totalPnL.toFixed(2)}`);
+
+            // Record completed trade with option prices
+            const trade = {
+                id: this.trades.length + 1,
+                direction: this.direction,
+                symbol: this.optSymbol,
+                strike: this.optStrike,
+                qty: this.optQty,
+                entryTime: this.entryTime,
+                exitTime: nowIST().toISOString(),
+                entrySpot: +this.entryPrice.toFixed(2),
+                exitSpot: +ltp.toFixed(2),
+                optBuyPrice: +optBuy.toFixed(2),
+                optSellPrice: +optSell.toFixed(2),
+                optPnL: +optPnL.toFixed(2),
+                optPnLPct: +optPnLPct.toFixed(2),
+                spotPnL: +pnl.toFixed(2),
+                spotPnLPct: +pctPnL.toFixed(2),
+                totalPnL: +this.totalPnL.toFixed(2)
+            };
+            this.trades.push(trade);
+            saveTradeToFile(this.userId, trade);
+            broadcastSSE(this.userId, 'trade', trade);
+
+            this.log(`CLOSED | ${this.optSymbol} | Buy:₹${optBuy} Sell:₹${optSell} | Opt P&L: ₹${optPnL.toFixed(2)} (${optPnLPct.toFixed(2)}%) | Spot P&L: ${pnl.toFixed(2)} | Total: ${this.totalPnL.toFixed(2)}`);
 
             this.direction = ''; this.entryPrice = 0; this.entryTime = '';
             this.optSymbol = ''; this.optToken = 0; this.optStrike = 0; this.optEntryLTP = 0; this.optQty = 0; this.optType = '';
@@ -549,6 +628,7 @@ class TradingBot {
             optSymbol: this.optSymbol, optStrike: this.optStrike, optType: this.optType, optQty: this.optQty,
             totalPnL: +this.totalPnL.toFixed(2),
             signals: this.signals.slice(-30),
+            trades: this.trades,
             completedCandles: this.completedCandles.slice(-(this.config.candlesToShow || 15)),
             activeCandle: this.activeCandle,
             liveHA: liveHA ? { open: +liveHA.open.toFixed(2), high: +liveHA.high.toFixed(2), low: +liveHA.low.toFixed(2), close: +liveHA.close.toFixed(2) } : null,
@@ -570,9 +650,32 @@ class TradingBot {
 // ROUTES
 // ══════════════════════════════════════════════════════════════
 
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
     if (req.session.accessToken && req.session.userId) return res.redirect('/dashboard');
+    // Try to restore from saved token file
+    const saved = loadTokenFromFile();
+    if (saved) {
+        const profile = await isTokenValid(saved.api_key, saved.access_token);
+        if (profile) {
+            req.session.accessToken = saved.access_token;
+            req.session.apiKey = saved.api_key;
+            req.session.userId = saved.user_id || profile.user_id;
+            console.log(`Auto-login from accesstoken.json: ${profile.user_name || saved.user_id}`);
+            return res.redirect('/dashboard');
+        }
+    }
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Token status check (called by login page)
+app.get('/api/token-status', async (req, res) => {
+    const saved = loadTokenFromFile();
+    if (!saved) return res.json({ valid: false, reason: 'No saved token' });
+    const profile = await isTokenValid(saved.api_key, saved.access_token);
+    if (profile) {
+        return res.json({ valid: true, user: profile.user_name || saved.user_id, userId: profile.user_id || saved.user_id, savedAt: saved.saved_at });
+    }
+    return res.json({ valid: false, reason: 'Token expired' });
 });
 
 // Step 1: Accept API Key + Secret → Generate login URL
@@ -606,16 +709,12 @@ app.post('/api/set-token', async (req, res) => {
 
         const accessToken = r.data.data.access_token;
         const userId = r.data.data.user_id;
+        const userName = r.data.data.user_name || userId;
         req.session.accessToken = accessToken;
         req.session.userId = userId;
-
-        // Store in Key Vault (async, non-blocking)
-        const sid = sanitizeId(userId);
-        storeSecret(`kite-api-key-${sid}`, apiKey).catch(() => {});
-        storeSecret(`kite-api-secret-${sid}`, apiSecret).catch(() => {});
-        storeSecret(`kite-access-token-${sid}`, accessToken).catch(() => {});
         delete req.session.apiSecret;
 
+        saveTokenToFile(userId, userName, apiKey, accessToken);
         console.log(`User ${userId} authenticated via manual token`);
         res.json({ success: true, userId });
     } catch (e) {
@@ -640,16 +739,12 @@ app.get('/callback', async (req, res) => {
 
         const accessToken = r.data.data.access_token;
         const userId = r.data.data.user_id;
+        const userName = r.data.data.user_name || userId;
         req.session.accessToken = accessToken;
         req.session.userId = userId;
-
-        // Store in Key Vault (async, non-blocking)
-        const sid = sanitizeId(userId);
-        storeSecret(`kite-api-key-${sid}`, apiKey).catch(() => {});
-        storeSecret(`kite-api-secret-${sid}`, apiSecret).catch(() => {});
-        storeSecret(`kite-access-token-${sid}`, accessToken).catch(() => {});
         delete req.session.apiSecret;
 
+        saveTokenToFile(userId, userName, apiKey, accessToken);
         console.log(`User ${userId} authenticated`);
         res.redirect('/dashboard');
     } catch (e) {
@@ -658,9 +753,21 @@ app.get('/callback', async (req, res) => {
     }
 });
 
-app.get('/dashboard', (req, res) => {
-    if (!req.session.accessToken) return res.redirect('/');
-    res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+app.get('/dashboard', async (req, res) => {
+    // Try session first
+    if (req.session.accessToken) return res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+    // Fallback: restore from saved token file
+    const saved = loadTokenFromFile();
+    if (saved) {
+        const profile = await isTokenValid(saved.api_key, saved.access_token);
+        if (profile) {
+            req.session.accessToken = saved.access_token;
+            req.session.apiKey = saved.api_key;
+            req.session.userId = saved.user_id || profile.user_id;
+            return res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+        }
+    }
+    res.redirect('/');
 });
 
 // Profile
@@ -717,38 +824,139 @@ app.get('/api/stream', (req, res) => {
 });
 
 // ── Start bot ──
+// ── Per-user PS1 process tracking ──
+const activeProcesses = new Map(); // userId → { proc, status }
+
 app.post('/api/bot/start', async (req, res) => {
     if (!req.session.accessToken || !req.session.userId) return res.status(401).json({ error: 'Not logged in' });
     const uid = req.session.userId;
 
-    // Stop existing
+    // Stop existing process
+    if (activeProcesses.has(uid)) {
+        const prev = activeProcesses.get(uid);
+        if (prev.proc && !prev.proc.killed) prev.proc.kill('SIGTERM');
+        activeProcesses.delete(uid);
+    }
+
+    // Also stop in-process bot if any
     if (activeBots.has(uid)) { activeBots.get(uid).stop(); activeBots.delete(uid); }
 
     const config = req.body;
-    const bot = new TradingBot(uid, config, req.session.apiKey, req.session.accessToken);
+
+    // Write config to input.json
+    const inputJsonPath = path.join(__dirname, '..', 'input.json');
+    const inputData = {
+        API_Key: req.session.apiKey,
+        API_Secret: '',
+        TradingSymbol: config.tradingSymbol || 'Nifty',
+        InstrumentToken: config.instrumentToken || 0,
+        TimeFrame: config.timeFrame || '30second',
+        CandlesToShow: config.candlesToShow || 10,
+        FullMode: config.fullMode === true || config.fullMode === 'true',
+        IndexChoosen: config.indexChoosen || 'Nifty',
+        NoOfLotsPurchaseAtaTime: config.noOfLots || 1,
+        AmountToTrade: config.amountToTrade || 0,
+        Product: config.product || 'NRML',
+        StartTime: config.startTime || '09:16:01',
+        StopTime: config.stopTime || '15:30:00',
+        Order_type: config.orderType || 'MARKET',
+        ModeOfTrading: config.modeOfTrading || 'Option_Buyer',
+        ATMOffset: config.atmOffset || 1,
+        Variety: config.variety || 'regular',
+        MarketProtection: config.marketProtection || 2,
+        ExitTrade: config.exitTrade || 'yes',
+        SLCandlesLookback: config.slCandlesLookback || 1,
+        SLTriggerOffset: config.slTriggerOffset || 0.5
+    };
+
+    // Read existing input.json to preserve API_Secret
     try {
-        await bot.start();
-        activeBots.set(uid, bot);
-        res.json({ success: true, expiry: bot.nearestExpiry, symbol: bot.symbolLabel, qty: bot.quantity });
-    } catch (e) {
-        bot.stop();
-        res.status(500).json({ error: e.message });
-    }
+        const existing = JSON.parse(fs.readFileSync(inputJsonPath, 'utf8'));
+        if (existing.API_Secret) inputData.API_Secret = existing.API_Secret;
+    } catch {}
+
+    fs.writeFileSync(inputJsonPath, JSON.stringify(inputData, null, 4));
+    console.log(`Config saved to input.json for user ${uid}`);
+
+    // Spawn Long-Short-Combined.ps1
+    const scriptPath = path.join(__dirname, '..', 'Long-Short-Combined.ps1');
+    const proc = spawn('pwsh', ['-NoProfile', '-File', scriptPath, '-AccessToken', req.session.accessToken], {
+        cwd: path.join(__dirname, '..'),
+        env: { ...process.env },
+        stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    const entry = { proc, status: 'running', startTime: new Date().toISOString(), logs: [] };
+    activeProcesses.set(uid, entry);
+
+    const logLine = (msg, level = 'info') => {
+        const ts = new Date().toISOString().replace('T', ' ').substring(0, 23);
+        const logEntry = { ts, level, msg: msg.trim() };
+        entry.logs.push(logEntry);
+        if (entry.logs.length > 500) entry.logs = entry.logs.slice(-300);
+        broadcastSSE(uid, 'log', logEntry);
+    };
+
+    proc.stdout.on('data', (data) => {
+        const raw = data.toString().replace(/\x1b\[[0-9;]*[A-Za-z]/g, '').replace(/\x1b\[\?[0-9;]*[A-Za-z]/g, '');
+        const lines = raw.split('\n').filter(l => l.trim());
+        for (const line of lines) logLine(line);
+    });
+
+    proc.stderr.on('data', (data) => {
+        const raw = data.toString().replace(/\x1b\[[0-9;]*[A-Za-z]/g, '').replace(/\x1b\[\?[0-9;]*[A-Za-z]/g, '');
+        const lines = raw.split('\n').filter(l => l.trim());
+        for (const line of lines) logLine(line, 'error');
+    });
+
+    proc.on('close', (code) => {
+        entry.status = 'stopped';
+        logLine(`Process exited with code ${code}`, code === 0 ? 'info' : 'error');
+        broadcastSSE(uid, 'status', { status: 'stopped' });
+    });
+
+    broadcastSSE(uid, 'status', { status: 'running' });
+    broadcastSSE(uid, 'log', { ts: new Date().toISOString().replace('T', ' ').substring(0, 23), level: 'info', msg: 'Long-Short-Combined.ps1 started' });
+
+    res.json({ success: true, message: 'Script started' });
 });
 
 // ── Stop bot ──
 app.post('/api/bot/stop', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
-    const bot = activeBots.get(req.session.userId);
-    if (bot) { bot.stop(); activeBots.delete(req.session.userId); }
+    const uid = req.session.userId;
+
+    // Kill PS1 process
+    const entry = activeProcesses.get(uid);
+    if (entry && entry.proc && !entry.proc.killed) {
+        entry.proc.kill('SIGTERM');
+        entry.status = 'stopped';
+    }
+    activeProcesses.delete(uid);
+
+    // Also stop in-process bot if any
+    const bot = activeBots.get(uid);
+    if (bot) { bot.stop(); activeBots.delete(uid); }
+
     res.json({ success: true });
 });
 
 // ── Bot state (poll fallback) ──
 app.get('/api/bot/state', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    const entry = activeProcesses.get(req.session.userId);
     const bot = activeBots.get(req.session.userId);
+    if (entry && entry.status === 'running') {
+        return res.json({ status: 'running', logs: entry.logs.slice(-100) });
+    }
     res.json(bot ? bot.getSnapshot() : { status: 'idle' });
+});
+
+// ── Trade history (persisted) ──
+app.get('/api/bot/trades', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    const trades = loadTradesFromFile(req.session.userId);
+    res.json(trades);
 });
 
 // ── Logout ──
@@ -764,6 +972,5 @@ app.get('/api/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Trading Bot server on port ${PORT} — multi-user production`);
-    console.log(`Key Vault: ${KEYVAULT_URL}`);
+    console.log(`Trading Bot server on port ${PORT} — local mode`);
 });

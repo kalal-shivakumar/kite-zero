@@ -42,24 +42,7 @@ input:focus,select:focus{outline:none;border-color:#58a6ff}
 
 /* Right column */
 .right{display:flex;flex-direction:column;gap:1rem}
-
-/* Live ticker */
-.ticker{display:flex;gap:1rem;flex-wrap:wrap}
-.tk{flex:1;min-width:80px}
-.tk .lb{color:#8b949e;font-size:.68rem;text-transform:uppercase}
-.tk .vl{font-size:1rem;font-weight:700}
-
-/* Candle table */
-.ct{width:100%;border-collapse:collapse;font-family:'Cascadia Code','Consolas',monospace;font-size:.78rem}
-.ct th{color:#8b949e;text-align:right;padding:.25rem .4rem;border-bottom:1px solid #30363d;font-weight:normal;font-size:.7rem;text-transform:uppercase}
-.ct td{text-align:right;padding:.25rem .4rem;border-bottom:1px solid #21262d}
-.ct td:first-child,.ct th:first-child{text-align:left}
-.up{color:#3fb950} .dn{color:#f85149} .act{color:#d29922;font-weight:bold}
 .flat{color:#8b949e}
-
-/* Signals */
-.sig{font-family:monospace;font-size:.78rem;padding:.15rem 0}
-.sig-entry{color:#3fb950} .sig-exit{color:#f85149}
 
 /* Logs */
 .logbox{background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:.5rem;max-height:220px;overflow-y:auto;font-family:monospace;font-size:.75rem;line-height:1.5}
@@ -78,6 +61,27 @@ input:focus,select:focus{outline:none;border-color:#58a6ff}
 /* Connection dot */
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
 .dot-g{background:#3fb950} .dot-r{background:#f85149} .dot-y{background:#d29922}
+
+/* Tabs */
+.tabs{display:flex;gap:0;margin-bottom:1rem;border-bottom:2px solid #30363d}
+.tab-btn{padding:.6rem 1.5rem;background:none;border:none;color:#8b949e;font-size:.9rem;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-weight:600;transition:all .2s}
+.tab-btn:hover{color:#c9d1d9}
+.tab-btn.active{color:#58a6ff;border-bottom-color:#58a6ff}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+/* Trade History Table */
+.trade-tbl{width:100%;border-collapse:collapse;font-size:.82rem}
+.trade-tbl th{color:#8b949e;text-align:left;padding:.5rem .6rem;border-bottom:1px solid #30363d;font-weight:600;font-size:.75rem;text-transform:uppercase;position:sticky;top:0;background:#161b22}
+.trade-tbl td{padding:.5rem .6rem;border-bottom:1px solid #21262d}
+.trade-tbl tr:hover{background:#1c2128}
+.trade-summary{display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:1rem;padding:.8rem;background:#161b22;border:1px solid #30363d;border-radius:6px}
+.trade-summary .ts-item{text-align:center}
+.trade-summary .ts-item .lb{color:#8b949e;font-size:.7rem;text-transform:uppercase}
+.trade-summary .ts-item .vl{font-size:1rem;font-weight:700}
+.badge{display:inline-block;padding:.1rem .5rem;border-radius:3px;font-size:.72rem;font-weight:600}
+.badge-long{background:#238636;color:#fff}
+.badge-short{background:#da3633;color:#fff}
 </style>
 </head>
 <body>
@@ -89,9 +93,24 @@ input:focus,select:focus{outline:none;border-color:#58a6ff}
     </div>
 </div>
 <div class="wrap">
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('dashboard')">Dashboard</button>
+        <button class="tab-btn" onclick="switchTab('trades')">Trade History</button>
+    </div>
+
+    <!-- Tab: Dashboard -->
+    <div class="tab-content active" id="tab-dashboard">
+
+    <!-- START/STOP at TOP -->
+    <div style="display:flex;gap:1rem;margin-bottom:1rem;align-items:center">
+        <button class="btn btn-go" id="btnStart" onclick="startBot()" style="flex:none;padding:.7rem 2rem;font-size:1rem">▶ Start Trading</button>
+        <button class="btn btn-stop" id="btnStop" onclick="stopBot()" disabled style="flex:none;padding:.7rem 2rem;font-size:1rem">■ Stop</button>
+        <span id="stStatus" style="font-size:.9rem"><span class="dot dot-r"></span>Idle</span>
+    </div>
+
     <!-- Status strip -->
     <div class="strip">
-        <div class="sbox"><div class="lb">Status</div><div class="vl" id="stStatus"><span class="dot dot-r"></span>Idle</div></div>
         <div class="sbox"><div class="lb">Direction</div><div class="vl flat" id="stDir">FLAT</div></div>
         <div class="sbox"><div class="lb">Symbol</div><div class="vl" id="stOpt">—</div></div>
         <div class="sbox"><div class="lb">Entry</div><div class="vl" id="stEntry">—</div></div>
@@ -152,74 +171,106 @@ input:focus,select:focus{outline:none;border-color:#58a6ff}
                     <div class="fg"><label>SL Lookback</label><input type="number" id="cSLB" value="1" min="1"></div>
                 </div>
                 <div class="fg"><label>SL Trigger Offset</label><input type="number" id="cSLO" value="0.5" step="0.1"></div>
-                <div class="btns">
-                    <button class="btn btn-go" id="btnStart" onclick="startBot()">▶ Start Trading</button>
-                    <button class="btn btn-stop" id="btnStop" onclick="stopBot()" disabled>■ Stop</button>
-                </div>
             </div>
         </div>
 
         <!-- RIGHT: Live data -->
         <div class="right">
-            <!-- Live Ticker -->
+            <!-- Bot Logs (top) -->
             <div class="card">
-                <h2>Live Tick Data</h2>
-                <div class="ticker">
-                    <div class="tk"><div class="lb">Last Price</div><div class="vl" id="tkLTP">—</div></div>
-                    <div class="tk"><div class="lb">Day Open</div><div class="vl" id="tkO">—</div></div>
-                    <div class="tk"><div class="lb">Day High</div><div class="vl" id="tkH">—</div></div>
-                    <div class="tk"><div class="lb">Day Low</div><div class="vl" id="tkL">—</div></div>
-                    <div class="tk"><div class="lb">Day Close</div><div class="vl" id="tkC">—</div></div>
-                    <div class="tk"><div class="lb">Volume</div><div class="vl" id="tkV">—</div></div>
-                </div>
-                <div style="margin-top:.7rem;border-top:1px solid #30363d;padding-top:.5rem">
-                    <div class="ticker">
-                        <div class="tk"><div class="lb">Live HA Open</div><div class="vl" id="haO">—</div></div>
-                        <div class="tk"><div class="lb">Live HA High</div><div class="vl" id="haH">—</div></div>
-                        <div class="tk"><div class="lb">Live HA Low</div><div class="vl" id="haL">—</div></div>
-                        <div class="tk"><div class="lb">Live HA Close</div><div class="vl" id="haC">—</div></div>
-                    </div>
+                <h2>Bot Logs</h2>
+                <div class="logbox" id="logBox" style="max-height:350px"><div class="l-i">Ready.</div></div>
+            </div>
+
+            <!-- Trade Records -->
+            <div class="card">
+                <h2>Trade Records</h2>
+                <div style="overflow-y:auto;max-height:500px">
+                <table class="ptbl"><thead><tr><th>Time</th><th>Symbol</th><th>Entry ₹</th><th>Exit ₹</th><th>Qty</th><th>P&L ₹</th><th>P&L %</th><th>Cumulative ₹</th></tr></thead>
+                <tbody id="ordBody"><tr><td colspan="8" class="flat">Loading...</td></tr></tbody></table>
                 </div>
             </div>
 
-            <!-- HA Candle Table -->
-            <div class="card">
-                <h2>Heikin-Ashi Candles</h2>
-                <table class="ct">
-                    <thead><tr><th>Time</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Vol</th><th>Ticks</th><th>Trend</th></tr></thead>
-                    <tbody id="candleBody"><tr><td colspan="8" class="flat">Waiting for data...</td></tr></tbody>
+
+        </div>
+
+    </div>
+</div><!-- end tab-dashboard -->
+
+    <!-- Tab: Trade History -->
+    <div class="tab-content" id="tab-trades">
+        <div class="trade-summary">
+            <div class="ts-item"><div class="lb">Total Trades</div><div class="vl" id="tsTotalTrades">0</div></div>
+            <div class="ts-item"><div class="lb">Winners</div><div class="vl grn" id="tsWinners">0</div></div>
+            <div class="ts-item"><div class="lb">Losers</div><div class="vl red" id="tsLosers">0</div></div>
+            <div class="ts-item"><div class="lb">Win Rate</div><div class="vl" id="tsWinRate">0%</div></div>
+            <div class="ts-item"><div class="lb">Total P&L</div><div class="vl" id="tsTotalPnL">0.00</div></div>
+            <div class="ts-item"><div class="lb">Best Trade</div><div class="vl grn" id="tsBest">—</div></div>
+            <div class="ts-item"><div class="lb">Worst Trade</div><div class="vl red" id="tsWorst">—</div></div>
+        </div>
+        <div class="card">
+            <h2>All Trades</h2>
+            <div style="overflow-x:auto;max-height:600px;overflow-y:auto">
+                <table class="trade-tbl">
+                    <thead><tr><th>#</th><th>Direction</th><th>Symbol</th><th>Entry Time</th><th>Exit Time</th><th>Option Buy ₹</th><th>Option Sell ₹</th><th>Qty</th><th>P&L ₹</th><th>P&L %</th></tr></thead>
+                    <tbody id="tradeBody"><tr><td colspan="10" class="flat">No trades yet — start trading to see records here</td></tr></tbody>
                 </table>
             </div>
-
-            <!-- Signals -->
-            <div class="card">
-                <h2>Trade Signals</h2>
-                <div id="sigBox" style="max-height:160px;overflow-y:auto"><div class="sig flat">No signals yet</div></div>
-            </div>
-
-            <!-- Positions & Orders -->
-            <div class="card">
-                <h2>Open Positions</h2>
-                <table class="ptbl"><thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>LTP</th><th>P&L</th></tr></thead>
-                <tbody id="posBody"><tr><td colspan="5" class="flat">Loading...</td></tr></tbody></table>
-            </div>
-            <div class="card">
-                <h2>Today's Orders <span style="font-size:.7rem;color:#8b949e">(last 15)</span></h2>
-                <table class="ptbl"><thead><tr><th>Time</th><th>Symbol</th><th>Type</th><th>Qty</th><th>Price</th><th>Status</th></tr></thead>
-                <tbody id="ordBody"><tr><td colspan="6" class="flat">Loading...</td></tr></tbody></table>
-            </div>
         </div>
+    </div><!-- end tab-trades -->
 
-        <!-- Logs (full width) -->
-        <div class="card full">
-            <h2>Bot Logs</h2>
-            <div class="logbox" id="logBox"><div class="l-i">Ready.</div></div>
-        </div>
-    </div>
 </div>
 
 <script>
-let sse=null, candles=[], maxCandles=15;
+let sse=null, trades=[];
+
+// ── Tab switching ──
+function switchTab(tab){
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+    document.getElementById('tab-'+tab).classList.add('active');
+    document.querySelector(`.tab-btn[onclick="switchTab('${tab}')"]`).classList.add('active');
+    if(tab==='trades')renderTrades();
+}
+
+// ── Trade history rendering ──
+function renderTrades(){
+    const tb=document.getElementById('tradeBody');
+    if(!trades.length){tb.innerHTML='<tr><td colspan="10" class="flat">No trades yet — start trading to see records here</td></tr>';updateTradeSummary();return}
+    tb.innerHTML=trades.slice().reverse().map(t=>{
+        const dir=t.direction==='LONG'?'<span class="badge badge-long">LONG CE</span>':'<span class="badge badge-short">SHORT PE</span>';
+        const entryT=t.entryTime?new Date(t.entryTime).toLocaleTimeString('en-IN',{hour12:false}):'—';
+        const exitT=t.exitTime?new Date(t.exitTime).toLocaleTimeString('en-IN',{hour12:false}):'—';
+        const buyP=t.optBuyPrice||t.buyPrice||0;
+        const sellP=t.optSellPrice||t.sellPrice||0;
+        const pnl=t.optPnL!==undefined?t.optPnL:t.pnl||0;
+        const pct=t.optPnLPct!==undefined?t.optPnLPct:t.pnlPct||0;
+        const pnlCls=pnl>=0?'grn':'red';
+        const pctCls=pct>=0?'grn':'red';
+        return`<tr><td>${t.id}</td><td>${dir}</td><td>${t.symbol||'—'}</td><td>${entryT}</td><td>${exitT}</td><td>₹${buyP.toFixed(2)}</td><td>₹${sellP.toFixed(2)}</td><td>${t.qty||'—'}</td><td class="${pnlCls}">${pnl>=0?'+':''}₹${pnl.toFixed(2)}</td><td class="${pctCls}">${pct>=0?'+':''}${pct.toFixed(2)}%</td></tr>`;
+    }).join('');
+    updateTradeSummary();
+}
+
+function updateTradeSummary(){
+    const total=trades.length;
+    const winners=trades.filter(t=>(t.optPnL!==undefined?t.optPnL:t.pnl||0)>0).length;
+    const losers=trades.filter(t=>(t.optPnL!==undefined?t.optPnL:t.pnl||0)<0).length;
+    const winRate=total>0?((winners/total)*100).toFixed(1)+'%':'0%';
+    const totalPnL=trades.reduce((s,t)=>s+(t.optPnL!==undefined?t.optPnL:t.pnl||0),0);
+    const pnls=trades.map(t=>t.optPnL!==undefined?t.optPnL:t.pnl||0);
+    const best=pnls.length?Math.max(...pnls):0;
+    const worst=pnls.length?Math.min(...pnls):0;
+    setText('tsTotalTrades',total);
+    setText('tsWinners',winners);
+    setText('tsLosers',losers);
+    setText('tsWinRate',winRate);
+    const pnlEl=document.getElementById('tsTotalPnL');
+    pnlEl.textContent=(totalPnL>=0?'+':'')+'₹'+totalPnL.toFixed(2);
+    pnlEl.className='vl '+(totalPnL>=0?'grn':'red');
+    setText('tsBest',best>0?'+₹'+best.toFixed(2):'—');
+    setText('tsWorst',worst<0?'₹'+worst.toFixed(2):'—');
+}
 
 // ── Load profile ──
 (async()=>{
@@ -234,33 +285,49 @@ let sse=null, candles=[], maxCandles=15;
     }catch{document.getElementById('profBox').textContent='Error loading profile'}
 })();
 
-// ── Load positions ──
-async function loadPos(){
-    try{
-        const d=await(await fetch('/api/positions')).json();
-        const tb=document.getElementById('posBody');
-        const open=(d.net||[]).filter(p=>p.quantity!==0);
-        if(!open.length){tb.innerHTML='<tr><td colspan="5" class="flat">No open positions</td></tr>';return}
-        tb.innerHTML=open.map(p=>{const pnl=(+p.pnl||0).toFixed(2);return`<tr><td>${p.tradingsymbol}</td><td>${p.quantity}</td><td>${p.average_price}</td><td>${p.last_price}</td><td class="${pnl>=0?'grn':'red'}">${pnl}</td></tr>`}).join('');
-    }catch{}
-}
-
 async function loadOrd(){
     try{
         const d=await(await fetch('/api/orders')).json();
         const tb=document.getElementById('ordBody');
-        const ords=(d||[]).slice(-15).reverse();
-        if(!ords.length){tb.innerHTML='<tr><td colspan="6" class="flat">No orders</td></tr>';return}
-        tb.innerHTML=ords.map(o=>{
-            const t=o.order_timestamp?new Date(o.order_timestamp).toLocaleTimeString('en-IN',{hour12:false}):'--';
-            const c=o.status==='COMPLETE'?'grn':o.status==='REJECTED'?'red':'';
-            return`<tr><td>${t}</td><td>${o.tradingsymbol}</td><td>${o.transaction_type}</td><td>${o.quantity}</td><td>${o.average_price||'--'}</td><td class="${c}">${o.status}</td></tr>`;
+        const completed=(d||[]).filter(o=>o.status==='COMPLETE');
+        if(!completed.length){tb.innerHTML='<tr><td colspan="8" class="flat">No completed trades</td></tr>';return}
+        // Pair BUY with following SELL on same symbol
+        const buys=completed.filter(o=>o.transaction_type==='BUY').sort((a,b)=>new Date(a.order_timestamp)-new Date(b.order_timestamp));
+        const sells=completed.filter(o=>o.transaction_type==='SELL').sort((a,b)=>new Date(a.order_timestamp)-new Date(b.order_timestamp));
+        const records=[];
+        const usedSells=new Set();
+        for(const buy of buys){
+            const sell=sells.find(s=>s.tradingsymbol===buy.tradingsymbol&&!usedSells.has(s.order_id)&&new Date(s.order_timestamp)>=new Date(buy.order_timestamp));
+            if(sell){
+                usedSells.add(sell.order_id);
+                const entry=+buy.average_price;
+                const exit=+sell.average_price;
+                const qty=+buy.quantity;
+                const pnl=(exit-entry)*qty;
+                const pct=entry>0?((exit-entry)/entry)*100:0;
+                records.push({time:buy.order_timestamp,symbol:buy.tradingsymbol,entry,exit,qty,pnl,pct});
+            }else{
+                records.push({time:buy.order_timestamp,symbol:buy.tradingsymbol,entry:+buy.average_price,exit:null,qty:+buy.quantity,pnl:null,pct:null});
+            }
+        }
+        if(!records.length){tb.innerHTML='<tr><td colspan="8" class="flat">No trades</td></tr>';return}
+        // Calculate cumulative P&L (chronological order)
+        let cumPnL=0;
+        for(const r of records){if(r.pnl!==null)r.cum=(cumPnL+=r.pnl);}
+        tb.innerHTML=records.slice().reverse().map(r=>{
+            const t=r.time?new Date(r.time).toLocaleTimeString('en-IN',{hour12:false}):'--';
+            if(r.exit===null){
+                return`<tr><td>${t}</td><td>${r.symbol}</td><td>₹${r.entry.toFixed(2)}</td><td class="flat">OPEN</td><td>${r.qty}</td><td class="flat">—</td><td class="flat">—</td><td class="flat">—</td></tr>`;
+            }
+            const cls=r.pnl>=0?'grn':'red';
+            const cumCls=r.cum>=0?'grn':'red';
+            return`<tr><td>${t}</td><td>${r.symbol}</td><td>₹${r.entry.toFixed(2)}</td><td>₹${r.exit.toFixed(2)}</td><td>${r.qty}</td><td class="${cls}">${r.pnl>=0?'+':''}₹${r.pnl.toFixed(2)}</td><td class="${cls}">${r.pct>=0?'+':''}${r.pct.toFixed(2)}%</td><td class="${cumCls}">${r.cum>=0?'+':''}₹${r.cum.toFixed(2)}</td></tr>`;
         }).join('');
     }catch{}
 }
 
-loadPos();loadOrd();
-setInterval(()=>{loadPos();loadOrd()},15000);
+loadOrd();
+setInterval(()=>{loadOrd()},15000);
 
 // ── Config reader ──
 function getCfg(){
@@ -283,8 +350,6 @@ async function startBot(){
         if(d.success){
             document.getElementById('btnStop').disabled=false;
             b.textContent='Running...';
-            maxCandles=+document.getElementById('cShow').value||15;
-            candles=[];
             connectSSE();
         }else{alert(d.error||'Failed');b.disabled=false;b.textContent='▶ Start Trading'}
     }catch(e){alert(e.message);b.disabled=false;b.textContent='▶ Start Trading'}
@@ -307,10 +372,6 @@ function connectSSE(){
 
     sse.addEventListener('tick',e=>{
         const d=JSON.parse(e.data);
-        setText('tkLTP',d.ltp?.toFixed(2));
-        setText('tkO',d.dayO?.toFixed(2));setText('tkH',d.dayH?.toFixed(2));
-        setText('tkL',d.dayL?.toFixed(2));setText('tkC',d.dayC?.toFixed(2));
-        setText('tkV',d.volume?.toLocaleString());
         setText('stLTP',d.ltp?.toFixed(2));
         setText('stTicks',d.tickCount);
         setText('stPnL',d.totalPnL?.toFixed(2));
@@ -326,35 +387,15 @@ function connectSSE(){
             setText('stDir','FLAT');document.getElementById('stDir').className='vl flat';
             setText('stOpt','—');setText('stEntry','—');
         }
-
-        if(d.liveHA){
-            setText('haO',d.liveHA.o?.toFixed(2));setText('haH',d.liveHA.h?.toFixed(2));
-            setText('haL',d.liveHA.l?.toFixed(2));setText('haC',d.liveHA.c?.toFixed(2));
-            const cls=d.liveHA.c>=d.liveHA.o?'grn':'red';
-            ['haO','haH','haL','haC'].forEach(id=>document.getElementById(id).className='vl '+cls);
-        }
-        renderCandles();
     });
 
-    sse.addEventListener('candle',e=>{
-        candles.push(JSON.parse(e.data));
-        if(candles.length>maxCandles*2)candles=candles.slice(-maxCandles);
-        renderCandles();
-    });
-
-    sse.addEventListener('signal',e=>{
+    sse.addEventListener('trade',e=>{
         const d=JSON.parse(e.data);
-        const box=document.getElementById('sigBox');
-        const cls=d.type==='ENTRY'?'sig-entry':'sig-exit';
-        const t=d.time?new Date(d.time).toLocaleTimeString('en-IN',{hour12:false}):'';
-        let txt=`[${t}] ${d.type} ${d.dir||''} @ ${d.spot}`;
-        if(d.symbol)txt+=` | ${d.symbol}`;
-        if(d.strike)txt+=` Strike:${d.strike}`;
-        if(d.pnl!==undefined)txt+=` | P&L: ${d.pnl}`;
-        if(d.totalPnL!==undefined)txt+=` | Total: ${d.totalPnL}`;
-        box.innerHTML+=`<div class="sig ${cls}">${esc(txt)}</div>`;
-        box.scrollTop=box.scrollHeight;
-        loadPos();loadOrd();
+        // Avoid duplicates (file already has it, just append for live display)
+        if(!trades.find(t=>t.entryTime===d.entryTime&&t.exitTime===d.exitTime)){
+            trades.push(d);
+        }
+        renderTrades();
     });
 
     sse.addEventListener('log',e=>{
@@ -372,19 +413,6 @@ function connectSSE(){
     sse.addEventListener('status',e=>{
         const d=JSON.parse(e.data);
         setStatus(d.status);
-        if(d.completedCandles)candles=d.completedCandles;
-        if(d.signals){
-            const box=document.getElementById('sigBox');box.innerHTML='';
-            d.signals.forEach(s=>{
-                const cls=s.type==='ENTRY'?'sig-entry':'sig-exit';
-                const t=s.time?new Date(s.time).toLocaleTimeString('en-IN',{hour12:false}):'';
-                let txt=`[${t}] ${s.type} ${s.dir||''} @ ${s.spot}`;
-                if(s.symbol)txt+=` | ${s.symbol}`;
-                if(s.pnl!==undefined)txt+=` | P&L: ${s.pnl}`;
-                box.innerHTML+=`<div class="sig ${cls}">${esc(txt)}</div>`;
-            });
-        }
-        renderCandles();
     });
 
     sse.onerror=()=>{setTimeout(()=>{if(sse)connectSSE()},3000)};
@@ -398,19 +426,6 @@ function setStatus(s){
     else el.innerHTML='<span class="dot dot-r"></span>Idle';
 }
 
-function renderCandles(){
-    const tb=document.getElementById('candleBody');
-    const show=candles.slice(-maxCandles);
-    if(!show.length){tb.innerHTML='<tr><td colspan="8" class="flat">Waiting for candles...</td></tr>';return}
-    tb.innerHTML=show.map((c,i)=>{
-        const isLast=i===show.length-1;
-        const trend=c.close>=c.open?'UP':'DN';
-        const cls=isLast?'act':(trend==='UP'?'up':'dn');
-        const t=c.bucket?.substring(11)||'';
-        return`<tr class="${cls}"><td>${t}</td><td>${c.open?.toFixed(2)}</td><td>${c.high?.toFixed(2)}</td><td>${c.low?.toFixed(2)}</td><td>${c.close?.toFixed(2)}</td><td>${(c.volume||0).toLocaleString()}</td><td>${c.ticks||''}</td><td>${trend}</td></tr>`;
-    }).join('');
-}
-
 function setText(id,v){document.getElementById(id).textContent=v??'—'}
 function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
 
@@ -422,10 +437,16 @@ function esc(t){const d=document.createElement('div');d.textContent=t;return d.i
             document.getElementById('btnStart').disabled=true;
             document.getElementById('btnStart').textContent='Running...';
             document.getElementById('btnStop').disabled=false;
-            if(d.completedCandles)candles=d.completedCandles;
-            maxCandles=d.config?.candlesToShow||15;
             connectSSE();
         }
+    }catch{}
+})();
+
+// Load persisted trade history on page load
+(async()=>{
+    try{
+        const d=await(await fetch('/api/bot/trades')).json();
+        if(d&&d.length){trades=d;renderTrades();}
     }catch{}
 })();
 </script>

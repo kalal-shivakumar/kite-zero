@@ -76,15 +76,32 @@
                 <li>WebSocket tick stream</li>
                 <li>Configurable timeframes</li>
                 <li>Real-time dashboard</li>
-                <li>Per-user Key Vault</li>
                 <li>9:15 AM – 3:30 PM IST</li>
                 <li>Stop-loss monitor</li>
             </ul>
         </div>
     </div>
-    <p class="info">Each user gets isolated credentials stored securely in Azure Key Vault.</p>
+    <p class="info">Credentials are stored in your local session only.</p>
 </div>
 <script>
+// If we're on the login page, token was already checked server-side and found invalid/missing.
+// Only show expired message if token file exists but is expired.
+(async()=>{
+    try{
+        const r=await fetch('/api/token-status');
+        const d=await r.json();
+        if(d.valid){
+            // Server should have redirected us already, force it
+            window.location.replace('/dashboard');
+            return;
+        }
+        if(d.reason==='Token expired'){
+            document.getElementById('err').textContent='Session expired. Please generate a new login token.';
+            document.getElementById('err').style.display='block';
+        }
+    }catch{}
+})();
+
 async function doLogin(){
     const k=document.getElementById('apiKey').value.trim();
     const s=document.getElementById('apiSecret').value.trim();
