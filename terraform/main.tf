@@ -70,7 +70,7 @@ import {
 
 import {
   to = azurerm_service_plan.plan
-  id = "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group_name}/providers/Microsoft.Web/serverfarms/trading-bot-plan"
+  id = "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group_name}/providers/Microsoft.Web/serverFarms/trading-bot-plan"
 }
 
 import {
@@ -120,7 +120,7 @@ resource "azurerm_key_vault" "kv" {
   resource_group_name        = azurerm_resource_group.rg.name
   tenant_id                  = data.azurerm_client_config.current.tenant_id
   sku_name                   = "standard"
-  enable_rbac_authorization  = true
+  rbac_authorization_enabled = true
   soft_delete_retention_days = 90
   purge_protection_enabled   = false
 }
