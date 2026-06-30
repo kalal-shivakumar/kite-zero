@@ -105,7 +105,7 @@ input:focus,select:focus{outline:none;border-color:#58a6ff}
     <!-- START/STOP at TOP -->
     <div style="display:flex;gap:1rem;margin-bottom:1rem;align-items:center">
         <button class="btn btn-go" id="btnStart" onclick="startBot()" style="flex:none;padding:.7rem 2rem;font-size:1rem">▶ Start Trading</button>
-        <button class="btn btn-stop" id="btnStop" onclick="stopBot()" disabled style="flex:none;padding:.7rem 2rem;font-size:1rem">■ Stop</button>
+        <button class="btn btn-stop" id="btnStop" onclick="stopBot()" disabled style="flex:none;padding:.7rem 2rem;font-size:1rem">■ Stop Trading</button>
         <span id="stStatus" style="font-size:.9rem"><span class="dot dot-r"></span>Idle</span>
     </div>
 
@@ -171,6 +171,10 @@ input:focus,select:focus{outline:none;border-color:#58a6ff}
                     <div class="fg"><label>SL Lookback</label><input type="number" id="cSLB" value="1" min="1"></div>
                 </div>
                 <div class="fg"><label>SL Trigger Offset</label><input type="number" id="cSLO" value="0.5" step="0.1"></div>
+                <div class="btns">
+                    <button class="btn btn-go" id="btnSaveCfg" onclick="saveConfig()" style="background:#1f6feb">💾 Save Config</button>
+                </div>
+                <div id="cfgMsg" style="margin-top:.4rem;font-size:.78rem;display:none"></div>
             </div>
         </div>
 
@@ -223,6 +227,68 @@ input:focus,select:focus{outline:none;border-color:#58a6ff}
 
 <script>
 let sse=null, trades=[];
+
+// ── Config field IDs ──
+const cfgFields=['cSym','cIdx','cToken','cTF','cShow','cFull','cLots','cAmt','cProd','cOT','cStart','cStop','cMode','cATM','cVar','cMP','cExit','cSLB','cSLO'];
+
+function setSelectVal(id,val){
+    const el=document.getElementById(id);
+    for(let i=0;i<el.options.length;i++){if(el.options[i].value===String(val)){el.selectedIndex=i;return;}}
+}
+
+// Load config from input.json via API
+async function loadConfig(){
+    try{
+        const d=await(await fetch('/api/config')).json();
+        if(d.TradingSymbol) setSelectVal('cSym',d.TradingSymbol);
+        if(d.IndexChoosen) setSelectVal('cIdx',d.IndexChoosen);
+        if(d.InstrumentToken!==undefined) document.getElementById('cToken').value=d.InstrumentToken;
+        if(d.TimeFrame) setSelectVal('cTF',d.TimeFrame);
+        if(d.CandlesToShow!==undefined) document.getElementById('cShow').value=d.CandlesToShow;
+        if(d.FullMode!==undefined) setSelectVal('cFull',String(d.FullMode));
+        if(d.NoOfLotsPurchaseAtaTime!==undefined) document.getElementById('cLots').value=d.NoOfLotsPurchaseAtaTime;
+        if(d.AmountToTrade!==undefined) document.getElementById('cAmt').value=d.AmountToTrade;
+        if(d.Product) setSelectVal('cProd',d.Product);
+        if(d.Order_type) setSelectVal('cOT',d.Order_type);
+        if(d.StartTime) document.getElementById('cStart').value=d.StartTime;
+        if(d.StopTime) document.getElementById('cStop').value=d.StopTime;
+        if(d.ModeOfTrading) setSelectVal('cMode',d.ModeOfTrading);
+        if(d.ATMOffset!==undefined) document.getElementById('cATM').value=d.ATMOffset;
+        if(d.Variety) setSelectVal('cVar',d.Variety);
+        if(d.MarketProtection!==undefined) document.getElementById('cMP').value=d.MarketProtection;
+        if(d.ExitTrade) setSelectVal('cExit',d.ExitTrade);
+        if(d.SLCandlesLookback!==undefined) document.getElementById('cSLB').value=d.SLCandlesLookback;
+        if(d.SLTriggerOffset!==undefined) document.getElementById('cSLO').value=d.SLTriggerOffset;
+    }catch{}
+}
+loadConfig();
+
+// Save config to input.json
+async function saveConfig(){
+    const msg=document.getElementById('cfgMsg');
+    try{
+        const body={
+            TradingSymbol:$('#cSym'),IndexChoosen:$('#cIdx'),InstrumentToken:+$('#cToken'),
+            TimeFrame:$('#cTF'),CandlesToShow:+$('#cShow'),FullMode:$('#cFull')==='true',
+            NoOfLotsPurchaseAtaTime:+$('#cLots'),AmountToTrade:+$('#cAmt'),
+            Product:$('#cProd'),Order_type:$('#cOT'),StartTime:$('#cStart'),StopTime:$('#cStop'),
+            ModeOfTrading:$('#cMode'),ATMOffset:+$('#cATM'),Variety:$('#cVar'),
+            MarketProtection:+$('#cMP'),ExitTrade:$('#cExit'),
+            SLCandlesLookback:+$('#cSLB'),SLTriggerOffset:+$('#cSLO')
+        };
+        const r=await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const d=await r.json();
+        if(d.success){msg.style.display='block';msg.style.color='#3fb950';msg.textContent='✓ Config saved';}
+        else{msg.style.display='block';msg.style.color='#f85149';msg.textContent=d.error||'Save failed';}
+        setTimeout(()=>{msg.style.display='none'},3000);
+    }catch(e){msg.style.display='block';msg.style.color='#f85149';msg.textContent=e.message;setTimeout(()=>{msg.style.display='none'},3000);}
+}
+
+// Lock/unlock config fields
+function lockConfig(lock){
+    cfgFields.forEach(id=>{document.getElementById(id).disabled=lock});
+    document.getElementById('btnSaveCfg').disabled=lock;
+}
 
 // ── Tab switching ──
 function switchTab(tab){
@@ -327,7 +393,7 @@ async function loadOrd(){
 }
 
 loadOrd();
-setInterval(()=>{loadOrd()},15000);
+setInterval(()=>{loadOrd()},1000);
 
 // ── Config reader ──
 function getCfg(){
@@ -344,6 +410,7 @@ function $(id){const el=document.getElementById(id.replace('#',''));return el.ty
 // ── Start/Stop ──
 async function startBot(){
     const b=document.getElementById('btnStart');b.disabled=true;b.textContent='Starting...';
+    lockConfig(true);
     try{
         const r=await fetch('/api/bot/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getCfg())});
         const d=await r.json();
@@ -351,18 +418,20 @@ async function startBot(){
             document.getElementById('btnStop').disabled=false;
             b.textContent='Running...';
             connectSSE();
-        }else{alert(d.error||'Failed');b.disabled=false;b.textContent='▶ Start Trading'}
-    }catch(e){alert(e.message);b.disabled=false;b.textContent='▶ Start Trading'}
+        }else{alert(d.error||'Failed');b.disabled=false;b.textContent='▶ Start Trading';lockConfig(false)}
+    }catch(e){alert(e.message);b.disabled=false;b.textContent='▶ Start Trading';lockConfig(false)}
 }
 
 async function stopBot(){
     document.getElementById('btnStop').disabled=true;
+    document.getElementById('btnStop').textContent='Stopping...';
     await fetch('/api/bot/stop',{method:'POST'});
     document.getElementById('btnStart').disabled=false;
     document.getElementById('btnStart').textContent='▶ Start Trading';
-    document.getElementById('btnStop').textContent='■ Stop';
+    document.getElementById('btnStop').textContent='■ Stop Trading';
     if(sse){sse.close();sse=null}
     setStatus('idle');
+    lockConfig(false);
 }
 
 // ── SSE: Real-time data stream ──
@@ -437,6 +506,7 @@ function esc(t){const d=document.createElement('div');d.textContent=t;return d.i
             document.getElementById('btnStart').disabled=true;
             document.getElementById('btnStart').textContent='Running...';
             document.getElementById('btnStop').disabled=false;
+            lockConfig(true);
             connectSSE();
         }
     }catch{}

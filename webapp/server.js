@@ -823,6 +823,57 @@ app.get('/api/stream', (req, res) => {
     });
 });
 
+// ── Get config from input.json ──
+app.get('/api/config', (req, res) => {
+    try {
+        const inputJsonPath = path.join(__dirname, '..', 'input.json');
+        const data = JSON.parse(fs.readFileSync(inputJsonPath, 'utf8'));
+        // Don't send secrets to the client
+        const { API_Key, API_Secret, ...safeData } = data;
+        res.json(safeData);
+    } catch { res.json({}); }
+});
+
+// ── Save config to input.json (only when bot is stopped) ──
+app.post('/api/config', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    const uid = req.session.userId;
+    const entry = activeProcesses.get(uid);
+    if (entry && entry.status === 'running') {
+        return res.status(409).json({ error: 'Cannot change config while trading is active' });
+    }
+    const config = req.body;
+    const inputJsonPath = path.join(__dirname, '..', 'input.json');
+    try {
+        const existing = JSON.parse(fs.readFileSync(inputJsonPath, 'utf8'));
+        const updated = {
+            API_Key: existing.API_Key || '',
+            API_Secret: existing.API_Secret || '',
+            TradingSymbol: config.TradingSymbol || existing.TradingSymbol || 'Nifty',
+            InstrumentToken: config.InstrumentToken ?? existing.InstrumentToken ?? 0,
+            TimeFrame: config.TimeFrame || existing.TimeFrame || '30second',
+            CandlesToShow: config.CandlesToShow ?? existing.CandlesToShow ?? 10,
+            FullMode: config.FullMode ?? existing.FullMode ?? false,
+            IndexChoosen: config.IndexChoosen || existing.IndexChoosen || 'Nifty',
+            NoOfLotsPurchaseAtaTime: config.NoOfLotsPurchaseAtaTime ?? existing.NoOfLotsPurchaseAtaTime ?? 1,
+            AmountToTrade: config.AmountToTrade ?? existing.AmountToTrade ?? 0,
+            Product: config.Product || existing.Product || 'NRML',
+            StartTime: config.StartTime || existing.StartTime || '09:16:01',
+            StopTime: config.StopTime || existing.StopTime || '15:30:00',
+            Order_type: config.Order_type || existing.Order_type || 'MARKET',
+            ModeOfTrading: config.ModeOfTrading || existing.ModeOfTrading || 'Option_Buyer',
+            ATMOffset: config.ATMOffset ?? existing.ATMOffset ?? 1,
+            Variety: config.Variety || existing.Variety || 'regular',
+            MarketProtection: config.MarketProtection ?? existing.MarketProtection ?? 2,
+            ExitTrade: config.ExitTrade || existing.ExitTrade || 'yes',
+            SLCandlesLookback: config.SLCandlesLookback ?? existing.SLCandlesLookback ?? 1,
+            SLTriggerOffset: config.SLTriggerOffset ?? existing.SLTriggerOffset ?? 0.5
+        };
+        fs.writeFileSync(inputJsonPath, JSON.stringify(updated, null, 4));
+        res.json({ success: true });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ── Start bot ──
 // ── Per-user PS1 process tracking ──
 const activeProcesses = new Map(); // userId → { proc, status }
@@ -926,10 +977,14 @@ app.post('/api/bot/stop', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
     const uid = req.session.userId;
 
-    // Kill PS1 process
+    // Kill PS1 process (use taskkill on Windows to kill process tree)
     const entry = activeProcesses.get(uid);
     if (entry && entry.proc && !entry.proc.killed) {
-        entry.proc.kill('SIGTERM');
+        try {
+            process.platform === 'win32'
+                ? require('child_process').execSync(`taskkill /pid ${entry.proc.pid} /T /F`, { stdio: 'ignore' })
+                : entry.proc.kill('SIGTERM');
+        } catch {}
         entry.status = 'stopped';
     }
     activeProcesses.delete(uid);
