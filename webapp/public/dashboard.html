@@ -4,96 +4,280 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Trading Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',sans-serif;background:#0d1117;color:#c9d1d9;font-size:14px}
-.hdr{background:#161b22;border-bottom:1px solid #30363d;padding:.7rem 1.5rem;display:flex;justify-content:space-between;align-items:center}
-.hdr h1{color:#58a6ff;font-size:1.1rem}
-.hdr .ri{display:flex;align-items:center;gap:1rem}
-.hdr .user{color:#8b949e;font-size:.85rem}
-.hdr a{color:#f85149;text-decoration:none;font-size:.85rem}
-.wrap{max-width:1400px;margin:0 auto;padding:1rem}
+:root{
+    --bg:#f0f2f5;--surface:#ffffff;--surface2:#f8fafc;
+    --border:#e3e8ef;--border-hover:#d0d7e0;
+    --accent:#4f46e5;--accent2:#7c3aed;--accent-light:#eef2ff;--accent-glow:rgba(79,70,229,.08);
+    --green:#059669;--green-light:#ecfdf5;--green-border:#a7f3d0;
+    --red:#dc2626;--red-light:#fef2f2;--red-border:#fecaca;
+    --yellow:#d97706;--blue:#2563eb;
+    --text:#1e293b;--text-secondary:#475569;--text-muted:#94a3b8;
+    --input-bg:#f8fafc;--input-border:#e2e8f0;
+    --radius:10px;--radius-lg:16px;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.04);
+    --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+    --shadow-lg:0 4px 6px -1px rgba(0,0,0,.06),0 2px 4px -2px rgba(0,0,0,.04);
+}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;min-height:100vh}
 
-/* Status strip */
-.strip{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
-.sbox{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:.6rem 1rem;flex:1;min-width:120px;text-align:center}
-.sbox .lb{color:#8b949e;font-size:.7rem;text-transform:uppercase}
-.sbox .vl{font-size:1.1rem;font-weight:700}
-
-/* Grid */
-.grid{display:grid;grid-template-columns:340px 1fr;gap:1rem}
-@media(max-width:900px){.grid{grid-template-columns:1fr}}
-.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:1rem}
-.card h2{color:#58a6ff;font-size:.95rem;margin-bottom:.7rem;padding-bottom:.4rem;border-bottom:1px solid #30363d}
-
-/* Form */
-.fr{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
-.fg{margin-bottom:.5rem}
-.fg label{display:block;color:#8b949e;font-size:.72rem;margin-bottom:.15rem}
-input,select{width:100%;padding:.4rem;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:.85rem}
-input:focus,select:focus{outline:none;border-color:#58a6ff}
-.btns{display:flex;gap:.5rem;margin-top:.7rem}
-.btn{padding:.55rem 1rem;border:none;border-radius:5px;font-size:.9rem;cursor:pointer;font-weight:600;flex:1}
-.btn-go{background:#238636;color:#fff}
-.btn-go:hover{background:#2ea043}
-.btn-stop{background:#da3633;color:#fff}
-.btn-stop:hover{background:#f85149}
-.btn:disabled{opacity:.4;cursor:not-allowed}
-
-/* Right column */
-.right{display:flex;flex-direction:column;gap:1rem}
-.flat{color:#8b949e}
-
-/* Logs */
-.logbox{background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:.5rem;max-height:220px;overflow-y:auto;font-family:monospace;font-size:.75rem;line-height:1.5}
-.l-i{color:#8b949e} .l-e{color:#f85149} .l-t{color:#d29922} .l-s{color:#3fb950}
-
-/* Positions & orders */
-.ptbl{width:100%;border-collapse:collapse;font-size:.8rem}
-.ptbl th{color:#8b949e;text-align:left;padding:.35rem;border-bottom:1px solid #30363d}
-.ptbl td{padding:.35rem;border-bottom:1px solid #21262d}
-.grn{color:#3fb950} .red{color:#f85149}
-
-.full{grid-column:1/-1}
-.profile-row{display:flex;gap:1.5rem;flex-wrap:wrap;font-size:.85rem;color:#8b949e}
-.profile-row strong{color:#c9d1d9}
-
-/* Connection dot */
-.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
-.dot-g{background:#3fb950} .dot-r{background:#f85149} .dot-y{background:#d29922}
+/* Header */
+.hdr{
+    background:#fff;border-bottom:1px solid var(--border);
+    padding:.55rem 1.5rem;display:flex;justify-content:space-between;align-items:center;
+    position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,.04);
+}
+.hdr-left{display:flex;align-items:center;gap:.7rem}
+.hdr-logo{
+    width:34px;height:34px;border-radius:9px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;color:#fff;font-size:.85rem;
+    box-shadow:0 2px 8px rgba(79,70,229,.2);
+}
+.hdr h1{color:var(--text);font-size:1rem;font-weight:700;letter-spacing:-.01em}
+.hdr .ri{display:flex;align-items:center;gap:.8rem}
+.hdr .user{
+    color:var(--text-secondary);font-size:.82rem;display:flex;align-items:center;gap:.5rem;
+    padding:.3rem .8rem;background:var(--green-light);border:1px solid var(--green-border);
+    border-radius:20px;
+}
+.hdr .user::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px rgba(5,150,105,.4);animation:blink 2s infinite}
+.hdr-clock{
+    display:flex;align-items:center;gap:.5rem;
+    padding:.3rem .8rem;background:var(--surface2);border:1px solid var(--border);
+    border-radius:20px;font-size:.78rem;color:var(--text-muted);
+}
+.hdr-clock .clock-time{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--text-secondary);font-size:.82rem}
+.hdr-clock .mkt-dot{width:6px;height:6px;border-radius:50%}
+.hdr-clock .mkt-open{background:var(--green);box-shadow:0 0 5px rgba(5,150,105,.4)}
+.hdr-clock .mkt-closed{background:var(--red)}
+.logout-btn{
+    color:var(--text-muted);text-decoration:none;font-size:.78rem;font-weight:500;
+    padding:.35rem .8rem;border:1px solid var(--border);border-radius:8px;transition:all .15s;
+}
+.logout-btn:hover{color:var(--red);border-color:var(--red-border);background:var(--red-light)}
+.wrap{max-width:1500px;margin:0 auto;padding:1.2rem 1.5rem}
 
 /* Tabs */
-.tabs{display:flex;gap:0;margin-bottom:1rem;border-bottom:2px solid #30363d}
-.tab-btn{padding:.6rem 1.5rem;background:none;border:none;color:#8b949e;font-size:.9rem;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-weight:600;transition:all .2s}
-.tab-btn:hover{color:#c9d1d9}
-.tab-btn.active{color:#58a6ff;border-bottom-color:#58a6ff}
-.tab-content{display:none}
+.tabs{display:flex;gap:0;margin-bottom:1.2rem;border-bottom:2px solid var(--border);background:#fff;border-radius:var(--radius) var(--radius) 0 0;padding:0 .5rem}
+.tab-btn{
+    padding:.75rem 1.8rem;background:none;border:none;color:var(--text-muted);
+    font-size:.88rem;cursor:pointer;border-bottom:2px solid transparent;
+    margin-bottom:-2px;font-weight:600;transition:all .15s;font-family:inherit;
+}
+.tab-btn:hover{color:var(--text-secondary)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-content{display:none;animation:fadeIn .25s ease}
 .tab-content.active{display:block}
 
-/* Trade History Table */
-.trade-tbl{width:100%;border-collapse:collapse;font-size:.82rem}
-.trade-tbl th{color:#8b949e;text-align:left;padding:.5rem .6rem;border-bottom:1px solid #30363d;font-weight:600;font-size:.75rem;text-transform:uppercase;position:sticky;top:0;background:#161b22}
-.trade-tbl td{padding:.5rem .6rem;border-bottom:1px solid #21262d}
-.trade-tbl tr:hover{background:#1c2128}
-.trade-summary{display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:1rem;padding:.8rem;background:#161b22;border:1px solid #30363d;border-radius:6px}
-.trade-summary .ts-item{text-align:center}
-.trade-summary .ts-item .lb{color:#8b949e;font-size:.7rem;text-transform:uppercase}
-.trade-summary .ts-item .vl{font-size:1rem;font-weight:700}
-.badge{display:inline-block;padding:.1rem .5rem;border-radius:3px;font-size:.72rem;font-weight:600}
-.badge-long{background:#238636;color:#fff}
-.badge-short{background:#da3633;color:#fff}
+/* Control Bar */
+.control-bar{
+    display:flex;gap:.8rem;margin-bottom:1.2rem;align-items:center;
+    padding:.75rem 1.2rem;background:#fff;border:1px solid var(--border);
+    border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);
+}
+.ctrl-btn{
+    padding:.55rem 1.5rem;border:none;border-radius:var(--radius);
+    font-size:.86rem;cursor:pointer;font-weight:600;font-family:inherit;
+    transition:all .15s;display:flex;align-items:center;gap:.45rem;
+}
+.ctrl-btn-start{background:var(--green);color:#fff;box-shadow:0 2px 6px rgba(5,150,105,.18)}
+.ctrl-btn-start:hover{box-shadow:0 4px 14px rgba(5,150,105,.25);transform:translateY(-1px)}
+.ctrl-btn-stop{background:var(--red);color:#fff;box-shadow:0 2px 6px rgba(220,38,38,.15)}
+.ctrl-btn-stop:hover{box-shadow:0 4px 14px rgba(220,38,38,.22);transform:translateY(-1px)}
+.ctrl-btn:disabled{opacity:.35;cursor:not-allowed;transform:none!important;box-shadow:none!important}
+.status-pill{
+    display:flex;align-items:center;gap:.45rem;
+    padding:.35rem .9rem;border-radius:20px;font-size:.8rem;font-weight:500;
+    background:var(--surface2);border:1px solid var(--border);color:var(--text-secondary);
+}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot-g{background:var(--green);box-shadow:0 0 6px rgba(5,150,105,.4);animation:blink 2s infinite}
+.dot-r{background:var(--red)}
+.dot-y{background:var(--yellow);animation:blink 1.5s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:.8rem;margin-bottom:1.2rem}
+@media(max-width:1100px){.stats{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat-card{
+    background:#fff;border:1px solid var(--border);border-radius:var(--radius);
+    padding:.8rem 1rem;text-align:center;transition:all .2s;box-shadow:var(--shadow-sm);
+    position:relative;overflow:hidden;
+}
+.stat-card:hover{border-color:var(--border-hover);box-shadow:var(--shadow);transform:translateY(-1px)}
+.stat-card .lb{color:var(--text-muted);font-size:.66rem;text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:.35rem}
+.stat-card .vl{font-size:1.2rem;font-weight:700;font-family:'JetBrains Mono','Inter',monospace;color:var(--text)}
+.stat-card.highlight{border-color:#c7d2fe;background:linear-gradient(135deg,#eef2ff,#f5f3ff);position:relative;overflow:hidden}
+.stat-card.highlight::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px 3px 0 0}
+.stat-card.stat-green{border-left:3px solid var(--green)}
+.stat-card.stat-blue{border-left:3px solid var(--blue)}
+.stat-card.stat-yellow{border-left:3px solid var(--yellow)}
+
+/* Grid */
+.grid{display:grid;grid-template-columns:360px 1fr;gap:1.2rem}
+@media(max-width:1000px){.grid{grid-template-columns:1fr}}
+
+/* Cards */
+.card{
+    background:#fff;border:1px solid var(--border);
+    border-radius:var(--radius-lg);padding:1.2rem;
+    box-shadow:var(--shadow-sm);transition:all .15s;
+}
+.card:hover{box-shadow:var(--shadow)}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;padding-bottom:.7rem;border-bottom:1px solid var(--border)}
+.card-header h2{color:var(--text);font-size:.9rem;font-weight:700;display:flex;align-items:center;gap:.5rem}
+.card-header h2::before{content:'';width:3px;height:14px;border-radius:2px;background:linear-gradient(180deg,var(--accent),var(--accent2))}
+.card-header .card-badge{font-size:.68rem;padding:.2rem .55rem;background:var(--accent-light);color:var(--accent);border-radius:5px;font-weight:600;border:1px solid #c7d2fe}
+
+/* Form */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:.65rem}
+.fg{margin-bottom:0}
+.fg label{display:block;color:var(--text-muted);font-size:.7rem;margin-bottom:.25rem;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+input,select{
+    width:100%;padding:.5rem .7rem;
+    background:var(--input-bg);border:1px solid var(--input-border);
+    border-radius:8px;color:var(--text);font-size:.83rem;font-family:inherit;
+    transition:all .15s;
+}
+input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);background:#fff}
+select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right .6rem center}
+select option{background:#fff;color:var(--text)}
+.btn-save{
+    width:100%;padding:.6rem;margin-top:.7rem;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#fff;border:none;border-radius:8px;
+    font-size:.85rem;cursor:pointer;font-weight:600;font-family:inherit;
+    transition:all .15s;box-shadow:0 2px 8px rgba(79,70,229,.15);
+}
+.btn-save:hover{box-shadow:0 4px 12px rgba(79,70,229,.25);transform:translateY(-1px)}
+.btn-save:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+
+/* Right col */
+.right{display:flex;flex-direction:column;gap:1.2rem}
+
+/* Logs */
+.logbox{
+    background:var(--surface2);border:1px solid var(--border);
+    border-radius:8px;padding:.7rem .9rem;
+    max-height:300px;overflow-y:auto;
+    font-family:'JetBrains Mono',monospace;font-size:.74rem;line-height:1.8;
+}
+.logbox::-webkit-scrollbar{width:5px}
+.logbox::-webkit-scrollbar-track{background:transparent}
+.logbox::-webkit-scrollbar-thumb{background:var(--border-hover);border-radius:3px}
+.logbox::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}
+.l-i{color:var(--text-muted)} .l-e{color:var(--red);font-weight:500} .l-t{color:#b45309;font-weight:500} .l-s{color:var(--green);font-weight:500}
+.log-entry{padding:.1rem 0;border-bottom:1px solid rgba(0,0,0,.02)}
+
+/* Empty states */
+.empty-state{text-align:center;padding:2.5rem 1rem;color:var(--text-muted)}
+.empty-state svg{width:40px;height:40px;opacity:.2;margin-bottom:.6rem}
+.empty-state p{font-size:.82rem}
+
+/* Tables */
+.tbl-wrap{overflow-y:auto;max-height:400px}
+.tbl-wrap::-webkit-scrollbar{width:4px}
+.tbl-wrap::-webkit-scrollbar-thumb{background:var(--border-hover);border-radius:2px}
+.ptbl{width:100%;border-collapse:collapse;font-size:.8rem}
+.ptbl th{
+    color:var(--text-muted);text-align:left;padding:.55rem .6rem;
+    border-bottom:2px solid var(--border);font-weight:600;font-size:.7rem;
+    text-transform:uppercase;letter-spacing:.04em;position:sticky;top:0;background:#fff;
+}
+.ptbl td{padding:.55rem .6rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.78rem}
+.ptbl tr:hover{background:var(--surface2)}
+.grn{color:var(--green)} .red{color:var(--red)} .flat{color:var(--text-muted)}
+
+/* Profile */
+.profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.profile-item{padding:.55rem .75rem;background:var(--surface2);border-radius:8px;border:1px solid var(--border)}
+.profile-item .p-label{font-size:.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;font-weight:600;margin-bottom:.15rem}
+.profile-item .p-value{font-size:.85rem;color:var(--text);font-weight:600}
+
+/* Trade History */
+.trade-summary{display:grid;grid-template-columns:repeat(7,1fr);gap:.8rem;margin-bottom:1.2rem}
+@media(max-width:1100px){.trade-summary{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:600px){.trade-summary{grid-template-columns:repeat(2,1fr)}}
+.ts-card{
+    background:#fff;border:1px solid var(--border);border-radius:var(--radius);
+    padding:.75rem;text-align:center;box-shadow:var(--shadow-sm);
+}
+.ts-card .lb{color:var(--text-muted);font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;font-weight:600;margin-bottom:.25rem}
+.ts-card .vl{font-size:1.05rem;font-weight:700;font-family:'JetBrains Mono',monospace}
+.trade-tbl{width:100%;border-collapse:collapse;font-size:.8rem}
+.trade-tbl th{
+    color:var(--text-muted);text-align:left;padding:.6rem .7rem;
+    border-bottom:2px solid var(--border);font-weight:600;font-size:.7rem;
+    text-transform:uppercase;letter-spacing:.04em;position:sticky;top:0;background:#fff;
+}
+.trade-tbl td{padding:.55rem .7rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.78rem}
+.trade-tbl tr:hover{background:var(--surface2)}
+.badge{display:inline-flex;align-items:center;padding:.2rem .6rem;border-radius:5px;font-size:.7rem;font-weight:600;font-family:'Inter',sans-serif}
+.badge-long{background:var(--green-light);color:var(--green);border:1px solid var(--green-border)}
+.badge-short{background:var(--red-light);color:var(--red);border:1px solid var(--red-border)}
+
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+
+/* Cumulative PNL Banner */
+.pnl-banner{
+    display:grid;grid-template-columns:1fr auto auto auto auto;gap:1.5rem;
+    align-items:center;padding:1rem 1.5rem;
+    background:#fff;border:1px solid var(--border);
+    border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);
+    margin-bottom:1rem;position:relative;overflow:hidden;
+    transition:all .2s;
+}
+.pnl-banner::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:3px;
+    background:linear-gradient(90deg,var(--accent),var(--accent2),var(--green));
+}
+.pnl-banner:hover{box-shadow:var(--shadow)}
+.pnl-main{display:flex;flex-direction:column;gap:.15rem}
+.pnl-main .pnl-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;font-weight:600;color:var(--text-muted)}
+.pnl-main .pnl-value{
+    font-size:1.8rem;font-weight:800;font-family:'JetBrains Mono',monospace;
+    letter-spacing:-.02em;transition:color .3s;
+}
+.pnl-main .pnl-value.positive{color:var(--green)}
+.pnl-main .pnl-value.negative{color:var(--red)}
+.pnl-main .pnl-value.neutral{color:var(--text-muted)}
+.pnl-stat{text-align:center;min-width:70px}
+.pnl-stat .ps-label{font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;font-weight:600;color:var(--text-muted);margin-bottom:.2rem}
+.pnl-stat .ps-value{font-size:1.05rem;font-weight:700;font-family:'JetBrains Mono',monospace}
+.pnl-stat .ps-value.grn{color:var(--green)} .pnl-stat .ps-value.red{color:var(--red)}
+.pnl-divider{width:1px;height:36px;background:var(--border)}
+@media(max-width:700px){
+    .pnl-banner{grid-template-columns:1fr;gap:.8rem;text-align:center}
+    .pnl-main .pnl-value{font-size:1.5rem}
+    .pnl-divider{display:none}
+    .pnl-stats-row{display:flex;justify-content:center;gap:1.5rem}
+}
 </style>
 </head>
 <body>
 <div class="hdr">
-    <h1>Kite HA Trading Bot</h1>
+    <div class="hdr-left">
+        <div class="hdr-logo">K</div>
+        <h1>Kite HA Trading</h1>
+    </div>
     <div class="ri">
+        <div class="hdr-clock">
+            <span class="mkt-dot" id="mktDot"></span>
+            <span class="clock-time" id="hdrClock">--:--:--</span>
+            <span id="mktLabel" style="font-size:.68rem;font-weight:600">IST</span>
+        </div>
         <span class="user" id="userInfo">Loading...</span>
-        <a href="/api/logout">Logout</a>
+        <a class="logout-btn" href="/api/logout">Logout</a>
     </div>
 </div>
 <div class="wrap">
-    <!-- Tabs -->
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('dashboard')">Dashboard</button>
         <button class="tab-btn" onclick="switchTab('trades')">Trade History</button>
@@ -102,133 +286,150 @@ input:focus,select:focus{outline:none;border-color:#58a6ff}
     <!-- Tab: Dashboard -->
     <div class="tab-content active" id="tab-dashboard">
 
-    <!-- START/STOP at TOP -->
-    <div style="display:flex;gap:1rem;margin-bottom:1rem;align-items:center">
-        <button class="btn btn-go" id="btnStart" onclick="startBot()" style="flex:none;padding:.7rem 2rem;font-size:1rem">▶ Start Trading</button>
-        <button class="btn btn-stop" id="btnStop" onclick="stopBot()" disabled style="flex:none;padding:.7rem 2rem;font-size:1rem">■ Stop Trading</button>
-        <span id="stStatus" style="font-size:.9rem"><span class="dot dot-r"></span>Idle</span>
+    <!-- Cumulative PNL Banner -->
+    <div class="pnl-banner" id="pnlBanner">
+        <div class="pnl-main">
+            <div class="pnl-label">Cumulative P&L (Today)</div>
+            <div class="pnl-value neutral" id="cumPnlValue">₹0.00</div>
+        </div>
+        <div class="pnl-divider"></div>
+        <div class="pnl-stat">
+            <div class="ps-label">Trades</div>
+            <div class="ps-value" id="cumTrades">0</div>
+        </div>
+        <div class="pnl-stat">
+            <div class="ps-label">Winners</div>
+            <div class="ps-value grn" id="cumWinners">0</div>
+        </div>
+        <div class="pnl-stat">
+            <div class="ps-label">Win Rate</div>
+            <div class="ps-value" id="cumWinRate">0%</div>
+        </div>
     </div>
 
-    <!-- Status strip -->
-    <div class="strip">
-        <div class="sbox"><div class="lb">Direction</div><div class="vl flat" id="stDir">FLAT</div></div>
-        <div class="sbox"><div class="lb">Symbol</div><div class="vl" id="stOpt">—</div></div>
-        <div class="sbox"><div class="lb">Entry</div><div class="vl" id="stEntry">—</div></div>
-        <div class="sbox"><div class="lb">LTP</div><div class="vl" id="stLTP">—</div></div>
-        <div class="sbox"><div class="lb">Ticks</div><div class="vl" id="stTicks">0</div></div>
-        <div class="sbox"><div class="lb">Total P&L</div><div class="vl flat" id="stPnL">0.00</div></div>
+    <div class="control-bar">
+        <button class="ctrl-btn ctrl-btn-start" id="btnStart" onclick="startBot()">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 13,8 3,15"/></svg>
+            Start Trading
+        </button>
+        <button class="ctrl-btn ctrl-btn-stop" id="btnStop" onclick="stopBot()" disabled>
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="12" height="12" rx="2"/></svg>
+            Stop
+        </button>
+        <div class="status-pill" id="stStatus"><span class="dot dot-r"></span>Idle</div>
+    </div>
+
+    <div class="stats">
+        <div class="stat-card stat-blue"><div class="lb">Direction</div><div class="vl flat" id="stDir">FLAT</div></div>
+        <div class="stat-card"><div class="lb">Symbol</div><div class="vl" id="stOpt">—</div></div>
+        <div class="stat-card stat-green"><div class="lb">Entry</div><div class="vl" id="stEntry">—</div></div>
+        <div class="stat-card stat-yellow"><div class="lb">LTP</div><div class="vl" id="stLTP">—</div></div>
+        <div class="stat-card"><div class="lb">Ticks</div><div class="vl" id="stTicks">0</div></div>
+        <div class="stat-card highlight"><div class="lb">Total P&L</div><div class="vl flat" id="stPnL">₹0.00</div></div>
     </div>
 
     <div class="grid">
-        <!-- LEFT: Config -->
         <div>
-            <div class="card" style="margin-bottom:1rem">
-                <h2>Profile</h2>
-                <div class="profile-row" id="profBox">Loading...</div>
+            <div class="card" style="margin-bottom:1.2rem">
+                <div class="card-header"><h2>Profile</h2></div>
+                <div class="profile-grid" id="profBox">
+                    <div class="profile-item"><div class="p-label">Name</div><div class="p-value">—</div></div>
+                    <div class="profile-item"><div class="p-label">Broker</div><div class="p-value">—</div></div>
+                </div>
             </div>
             <div class="card">
-                <h2>Strategy Config</h2>
-                <div class="fr">
+                <div class="card-header"><h2>Strategy Config</h2><span class="card-badge">v2.0</span></div>
+                <div class="form-grid">
                     <div class="fg"><label>Symbol</label>
                         <select id="cSym"><option value="Nifty">NIFTY</option><option value="BANKNIFTY">BANKNIFTY</option><option value="FINNIFTY">FINNIFTY</option><option value="MIDCPNIFTY">MIDCPNIFTY</option><option value="SENSEX">SENSEX</option></select>
                     </div>
                     <div class="fg"><label>Index</label>
                         <select id="cIdx"><option value="Nifty">NIFTY</option><option value="BANKNIFTY">BANKNIFTY</option><option value="FinNifty">FINNIFTY</option><option value="MIDCPNIFTY">MIDCPNIFTY</option><option value="SENSEX">SENSEX</option></select>
                     </div>
-                </div>
-                <div class="fr">
-                    <div class="fg"><label>Instrument Token (0=auto)</label><input type="number" id="cToken" value="0"></div>
+                    <div class="fg"><label>Token (0=auto)</label><input type="number" id="cToken" value="0"></div>
                     <div class="fg"><label>TimeFrame</label>
                         <select id="cTF"><option value="5second">5s</option><option value="15second">15s</option><option value="30second" selected>30s</option><option value="minute">1m</option><option value="2minute">2m</option><option value="3minute">3m</option><option value="5minute">5m</option><option value="10minute">10m</option><option value="15minute">15m</option><option value="30minute">30m</option><option value="60minute">60m</option></select>
                     </div>
-                </div>
-                <div class="fr">
-                    <div class="fg"><label>Candles to Show</label><input type="number" id="cShow" value="10"></div>
+                    <div class="fg"><label>Candles</label><input type="number" id="cShow" value="10"></div>
                     <div class="fg"><label>Mode</label><select id="cFull"><option value="false">Quote</option><option value="true">Full</option></select></div>
-                </div>
-                <div class="fr">
                     <div class="fg"><label>Lots</label><input type="number" id="cLots" value="1" min="1"></div>
                     <div class="fg"><label>Amount (0=lots)</label><input type="number" id="cAmt" value="0"></div>
-                </div>
-                <div class="fr">
                     <div class="fg"><label>Product</label><select id="cProd"><option value="NRML">NRML</option><option value="MIS">MIS</option></select></div>
                     <div class="fg"><label>Order Type</label><select id="cOT"><option value="MARKET">MARKET</option><option value="LIMIT">LIMIT</option></select></div>
-                </div>
-                <div class="fr">
                     <div class="fg"><label>Start Time</label><input type="text" id="cStart" value="09:16:01"></div>
                     <div class="fg"><label>Stop Time</label><input type="text" id="cStop" value="15:30:00"></div>
-                </div>
-                <div class="fr">
                     <div class="fg"><label>Trading Mode</label><select id="cMode"><option value="Option_Buyer">Buyer</option><option value="Option_Seller">Seller</option></select></div>
                     <div class="fg"><label>ATM Offset</label><input type="number" id="cATM" value="1"></div>
-                </div>
-                <div class="fr">
                     <div class="fg"><label>Variety</label><select id="cVar"><option value="regular">Regular</option><option value="amo">AMO</option></select></div>
                     <div class="fg"><label>Mkt Protection %</label><input type="number" id="cMP" value="2" min="0" max="100"></div>
-                </div>
-                <div class="fr">
                     <div class="fg"><label>Exit Trade</label><select id="cExit"><option value="yes">Yes</option><option value="no">No</option></select></div>
                     <div class="fg"><label>SL Lookback</label><input type="number" id="cSLB" value="1" min="1"></div>
                 </div>
-                <div class="fg"><label>SL Trigger Offset</label><input type="number" id="cSLO" value="0.5" step="0.1"></div>
-                <div class="btns">
-                    <button class="btn btn-go" id="btnSaveCfg" onclick="saveConfig()" style="background:#1f6feb">💾 Save Config</button>
-                </div>
-                <div id="cfgMsg" style="margin-top:.4rem;font-size:.78rem;display:none"></div>
+                <div class="fg" style="margin-top:.65rem"><label>SL Trigger Offset</label><input type="number" id="cSLO" value="0.5" step="0.1"></div>
+                <button class="btn-save" id="btnSaveCfg" onclick="saveConfig()">Save Configuration</button>
+                <div id="cfgMsg" style="margin-top:.5rem;font-size:.78rem;display:none;padding:.4rem .7rem;border-radius:6px"></div>
             </div>
         </div>
 
-        <!-- RIGHT: Live data -->
         <div class="right">
-            <!-- Bot Logs (top) -->
             <div class="card">
-                <h2>Bot Logs</h2>
-                <div class="logbox" id="logBox" style="max-height:350px"><div class="l-i">Ready.</div></div>
+                <div class="card-header"><h2>Live Logs</h2><span class="card-badge" id="logCount">0 entries</span></div>
+                <div class="logbox" id="logBox"><div class="l-i" style="opacity:.5">⏳ System ready. Waiting for start command...</div></div>
             </div>
-
-            <!-- Trade Records -->
             <div class="card">
-                <h2>Trade Records</h2>
-                <div style="overflow-y:auto;max-height:500px">
-                <table class="ptbl"><thead><tr><th>Time</th><th>Symbol</th><th>Entry ₹</th><th>Exit ₹</th><th>Qty</th><th>P&L ₹</th><th>P&L %</th><th>Cumulative ₹</th></tr></thead>
-                <tbody id="ordBody"><tr><td colspan="8" class="flat">Loading...</td></tr></tbody></table>
+                <div class="card-header"><h2>Trade Records</h2></div>
+                <div class="tbl-wrap">
+                <table class="ptbl"><thead><tr><th>Time</th><th>Symbol</th><th>Entry</th><th>Exit</th><th>Qty</th><th>P&L</th><th>P&L %</th><th>Cumulative</th></tr></thead>
+                <tbody id="ordBody"><tr><td colspan="8" class="flat"><div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg><p>No completed trades yet</p></div></td></tr></tbody></table>
                 </div>
             </div>
-
-
         </div>
-
     </div>
-</div><!-- end tab-dashboard -->
+</div>
 
-    <!-- Tab: Trade History -->
     <div class="tab-content" id="tab-trades">
         <div class="trade-summary">
-            <div class="ts-item"><div class="lb">Total Trades</div><div class="vl" id="tsTotalTrades">0</div></div>
-            <div class="ts-item"><div class="lb">Winners</div><div class="vl grn" id="tsWinners">0</div></div>
-            <div class="ts-item"><div class="lb">Losers</div><div class="vl red" id="tsLosers">0</div></div>
-            <div class="ts-item"><div class="lb">Win Rate</div><div class="vl" id="tsWinRate">0%</div></div>
-            <div class="ts-item"><div class="lb">Total P&L</div><div class="vl" id="tsTotalPnL">0.00</div></div>
-            <div class="ts-item"><div class="lb">Best Trade</div><div class="vl grn" id="tsBest">—</div></div>
-            <div class="ts-item"><div class="lb">Worst Trade</div><div class="vl red" id="tsWorst">—</div></div>
+            <div class="ts-card"><div class="lb">Total Trades</div><div class="vl" id="tsTotalTrades">0</div></div>
+            <div class="ts-card"><div class="lb">Winners</div><div class="vl grn" id="tsWinners">0</div></div>
+            <div class="ts-card"><div class="lb">Losers</div><div class="vl red" id="tsLosers">0</div></div>
+            <div class="ts-card"><div class="lb">Win Rate</div><div class="vl" id="tsWinRate">0%</div></div>
+            <div class="ts-card"><div class="lb">Total P&L</div><div class="vl" id="tsTotalPnL">₹0.00</div></div>
+            <div class="ts-card"><div class="lb">Best Trade</div><div class="vl grn" id="tsBest">—</div></div>
+            <div class="ts-card"><div class="lb">Worst Trade</div><div class="vl red" id="tsWorst">—</div></div>
         </div>
         <div class="card">
-            <h2>All Trades</h2>
+            <div class="card-header"><h2>All Trades</h2></div>
             <div style="overflow-x:auto;max-height:600px;overflow-y:auto">
                 <table class="trade-tbl">
-                    <thead><tr><th>#</th><th>Direction</th><th>Symbol</th><th>Entry Time</th><th>Exit Time</th><th>Option Buy ₹</th><th>Option Sell ₹</th><th>Qty</th><th>P&L ₹</th><th>P&L %</th></tr></thead>
-                    <tbody id="tradeBody"><tr><td colspan="10" class="flat">No trades yet — start trading to see records here</td></tr></tbody>
+                    <thead><tr><th>#</th><th>Direction</th><th>Symbol</th><th>Entry Time</th><th>Exit Time</th><th>Buy ₹</th><th>Sell ₹</th><th>Qty</th><th>P&L</th><th>P&L %</th></tr></thead>
+                    <tbody id="tradeBody"><tr><td colspan="10" class="flat"><div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg><p>No trades yet — start trading to see records here</p></div></td></tr></tbody>
                 </table>
             </div>
         </div>
-    </div><!-- end tab-trades -->
+    </div>
 
 </div>
 
 <script>
-let sse=null, trades=[];
+let sse=null, trades=[], logEntries=0;
 
-// ── Config field IDs ──
+// Live IST clock in header
+function updateHeaderClock(){
+    const now=new Date();
+    const ist=new Date(now.toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
+    const h=ist.getHours(),m=ist.getMinutes(),s=ist.getSeconds();
+    const pad=n=>String(n).padStart(2,'0');
+    document.getElementById('hdrClock').textContent=pad(h)+':'+pad(m)+':'+pad(s);
+    const dot=document.getElementById('mktDot');
+    const lbl=document.getElementById('mktLabel');
+    const mins=h*60+m;
+    const day=ist.getDay();
+    if(day===0||day===6){dot.className='mkt-dot mkt-closed';lbl.textContent='WEEKEND'}
+    else if(mins>=555&&mins<=930){dot.className='mkt-dot mkt-open';lbl.textContent='LIVE'}
+    else{dot.className='mkt-dot mkt-closed';lbl.textContent=mins<555?'PRE-MKT':'CLOSED'}
+}
+updateHeaderClock();setInterval(updateHeaderClock,1000);
+
 const cfgFields=['cSym','cIdx','cToken','cTF','cShow','cFull','cLots','cAmt','cProd','cOT','cStart','cStop','cMode','cATM','cVar','cMP','cExit','cSLB','cSLO'];
 
 function setSelectVal(id,val){
@@ -236,7 +437,6 @@ function setSelectVal(id,val){
     for(let i=0;i<el.options.length;i++){if(el.options[i].value===String(val)){el.selectedIndex=i;return;}}
 }
 
-// Load config from input.json via API
 async function loadConfig(){
     try{
         const d=await(await fetch('/api/config')).json();
@@ -263,7 +463,6 @@ async function loadConfig(){
 }
 loadConfig();
 
-// Save config to input.json
 async function saveConfig(){
     const msg=document.getElementById('cfgMsg');
     try{
@@ -278,19 +477,17 @@ async function saveConfig(){
         };
         const r=await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
         const d=await r.json();
-        if(d.success){msg.style.display='block';msg.style.color='#3fb950';msg.textContent='✓ Config saved';}
-        else{msg.style.display='block';msg.style.color='#f85149';msg.textContent=d.error||'Save failed';}
+        if(d.success){msg.style.display='block';msg.style.color='var(--green)';msg.style.background='var(--green-light)';msg.textContent='✓ Configuration saved successfully';}
+        else{msg.style.display='block';msg.style.color='var(--red)';msg.style.background='var(--red-light)';msg.textContent=d.error||'Save failed';}
         setTimeout(()=>{msg.style.display='none'},3000);
-    }catch(e){msg.style.display='block';msg.style.color='#f85149';msg.textContent=e.message;setTimeout(()=>{msg.style.display='none'},3000);}
+    }catch(e){msg.style.display='block';msg.style.color='var(--red)';msg.style.background='var(--red-light)';msg.textContent=e.message;setTimeout(()=>{msg.style.display='none'},3000);}
 }
 
-// Lock/unlock config fields
 function lockConfig(lock){
     cfgFields.forEach(id=>{document.getElementById(id).disabled=lock});
     document.getElementById('btnSaveCfg').disabled=lock;
 }
 
-// ── Tab switching ──
 function switchTab(tab){
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
@@ -299,7 +496,6 @@ function switchTab(tab){
     if(tab==='trades')renderTrades();
 }
 
-// ── Trade history rendering ──
 function renderTrades(){
     const tb=document.getElementById('tradeBody');
     if(!trades.length){tb.innerHTML='<tr><td colspan="10" class="flat">No trades yet — start trading to see records here</td></tr>';updateTradeSummary();return}
@@ -316,6 +512,20 @@ function renderTrades(){
         return`<tr><td>${t.id}</td><td>${dir}</td><td>${t.symbol||'—'}</td><td>${entryT}</td><td>${exitT}</td><td>₹${buyP.toFixed(2)}</td><td>₹${sellP.toFixed(2)}</td><td>${t.qty||'—'}</td><td class="${pnlCls}">${pnl>=0?'+':''}₹${pnl.toFixed(2)}</td><td class="${pctCls}">${pct>=0?'+':''}${pct.toFixed(2)}%</td></tr>`;
     }).join('');
     updateTradeSummary();
+}
+
+function updateCumulativePnl(pnl, totalTrades, winners){
+    const el=document.getElementById('cumPnlValue');
+    el.textContent=(pnl>=0?'+':'')+'₹'+pnl.toFixed(2);
+    el.className='pnl-value '+(pnl>0?'positive':pnl<0?'negative':'neutral');
+    document.getElementById('cumTrades').textContent=totalTrades;
+    document.getElementById('cumWinners').textContent=winners;
+    document.getElementById('cumWinRate').textContent=totalTrades>0?((winners/totalTrades)*100).toFixed(0)+'%':'0%';
+    // Update banner top border color based on PnL
+    const banner=document.getElementById('pnlBanner');
+    if(pnl>0)banner.style.borderColor='var(--green-border)';
+    else if(pnl<0)banner.style.borderColor='var(--red-border)';
+    else banner.style.borderColor='var(--border)';
 }
 
 function updateTradeSummary(){
@@ -336,19 +546,21 @@ function updateTradeSummary(){
     pnlEl.className='vl '+(totalPnL>=0?'grn':'red');
     setText('tsBest',best>0?'+₹'+best.toFixed(2):'—');
     setText('tsWorst',worst<0?'₹'+worst.toFixed(2):'—');
+    // Update cumulative banner from bot trades
+    updateCumulativePnl(totalPnL, total, winners);
 }
 
-// ── Load profile ──
 (async()=>{
     try{
         const r=await(await fetch('/api/profile')).json();
-        document.getElementById('userInfo').textContent=`${r.user_name} (${r.user_id})`;
+        document.getElementById('userInfo').textContent=r.user_name||'User';
         document.getElementById('profBox').innerHTML=`
-            <div><strong>${r.user_name}</strong> (${r.user_id})</div>
-            <div>Email: <strong>${r.email||'N/A'}</strong></div>
-            <div>Broker: <strong>${r.broker||'ZERODHA'}</strong></div>
-            <div>Exchanges: <strong>${(r.exchanges||[]).join(', ')}</strong></div>`;
-    }catch{document.getElementById('profBox').textContent='Error loading profile'}
+            <div class="profile-item"><div class="p-label">Name</div><div class="p-value">${r.user_name||'—'}</div></div>
+            <div class="profile-item"><div class="p-label">User ID</div><div class="p-value">${r.user_id||'—'}</div></div>
+            <div class="profile-item"><div class="p-label">Email</div><div class="p-value">${r.email||'N/A'}</div></div>
+            <div class="profile-item"><div class="p-label">Broker</div><div class="p-value">${r.broker||'ZERODHA'}</div></div>
+            <div class="profile-item" style="grid-column:1/-1"><div class="p-label">Exchanges</div><div class="p-value">${(r.exchanges||[]).join(', ')||'—'}</div></div>`;
+    }catch{document.getElementById('profBox').innerHTML='<div class="profile-item" style="grid-column:1/-1"><div class="p-label">Status</div><div class="p-value" style="color:var(--red)">Error loading profile</div></div>'}
 })();
 
 async function loadOrd(){
@@ -357,7 +569,6 @@ async function loadOrd(){
         const tb=document.getElementById('ordBody');
         const completed=(d||[]).filter(o=>o.status==='COMPLETE');
         if(!completed.length){tb.innerHTML='<tr><td colspan="8" class="flat">No completed trades</td></tr>';return}
-        // Pair BUY with following SELL on same symbol
         const buys=completed.filter(o=>o.transaction_type==='BUY').sort((a,b)=>new Date(a.order_timestamp)-new Date(b.order_timestamp));
         const sells=completed.filter(o=>o.transaction_type==='SELL').sort((a,b)=>new Date(a.order_timestamp)-new Date(b.order_timestamp));
         const records=[];
@@ -366,36 +577,32 @@ async function loadOrd(){
             const sell=sells.find(s=>s.tradingsymbol===buy.tradingsymbol&&!usedSells.has(s.order_id)&&new Date(s.order_timestamp)>=new Date(buy.order_timestamp));
             if(sell){
                 usedSells.add(sell.order_id);
-                const entry=+buy.average_price;
-                const exit=+sell.average_price;
-                const qty=+buy.quantity;
-                const pnl=(exit-entry)*qty;
-                const pct=entry>0?((exit-entry)/entry)*100:0;
+                const entry=+buy.average_price;const exit=+sell.average_price;const qty=+buy.quantity;
+                const pnl=(exit-entry)*qty;const pct=entry>0?((exit-entry)/entry)*100:0;
                 records.push({time:buy.order_timestamp,symbol:buy.tradingsymbol,entry,exit,qty,pnl,pct});
             }else{
                 records.push({time:buy.order_timestamp,symbol:buy.tradingsymbol,entry:+buy.average_price,exit:null,qty:+buy.quantity,pnl:null,pct:null});
             }
         }
-        if(!records.length){tb.innerHTML='<tr><td colspan="8" class="flat">No trades</td></tr>';return}
-        // Calculate cumulative P&L (chronological order)
+        if(!records.length){tb.innerHTML='<tr><td colspan="8" class="flat">No trades</td></tr>';updateCumulativePnl(0,0,0);return}
         let cumPnL=0;
         for(const r of records){if(r.pnl!==null)r.cum=(cumPnL+=r.pnl);}
+        // Update cumulative banner from order records
+        const closedRecords=records.filter(r=>r.pnl!==null);
+        const ordWinners=closedRecords.filter(r=>r.pnl>0).length;
+        if(!trades.length) updateCumulativePnl(cumPnL, closedRecords.length, ordWinners);
         tb.innerHTML=records.slice().reverse().map(r=>{
             const t=r.time?new Date(r.time).toLocaleTimeString('en-IN',{hour12:false}):'--';
             if(r.exit===null){
                 return`<tr><td>${t}</td><td>${r.symbol}</td><td>₹${r.entry.toFixed(2)}</td><td class="flat">OPEN</td><td>${r.qty}</td><td class="flat">—</td><td class="flat">—</td><td class="flat">—</td></tr>`;
             }
-            const cls=r.pnl>=0?'grn':'red';
-            const cumCls=r.cum>=0?'grn':'red';
+            const cls=r.pnl>=0?'grn':'red';const cumCls=r.cum>=0?'grn':'red';
             return`<tr><td>${t}</td><td>${r.symbol}</td><td>₹${r.entry.toFixed(2)}</td><td>₹${r.exit.toFixed(2)}</td><td>${r.qty}</td><td class="${cls}">${r.pnl>=0?'+':''}₹${r.pnl.toFixed(2)}</td><td class="${cls}">${r.pct>=0?'+':''}${r.pct.toFixed(2)}%</td><td class="${cumCls}">${r.cum>=0?'+':''}₹${r.cum.toFixed(2)}</td></tr>`;
         }).join('');
     }catch{}
 }
+loadOrd();setInterval(()=>{loadOrd()},1000);
 
-loadOrd();
-setInterval(()=>{loadOrd()},1000);
-
-// ── Config reader ──
 function getCfg(){
     return {
         tradingSymbol:$('#cSym'),instrumentToken:+$('#cToken'),timeFrame:$('#cTF'),candlesToShow:+$('#cShow'),
@@ -407,51 +614,48 @@ function getCfg(){
 }
 function $(id){const el=document.getElementById(id.replace('#',''));return el.type==='number'?el.value:el.value}
 
-// ── Start/Stop ──
 async function startBot(){
-    const b=document.getElementById('btnStart');b.disabled=true;b.textContent='Starting...';
+    const b=document.getElementById('btnStart');b.disabled=true;b.innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 13,8 3,15"/></svg> Starting...';
     lockConfig(true);
     try{
         const r=await fetch('/api/bot/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getCfg())});
         const d=await r.json();
         if(d.success){
             document.getElementById('btnStop').disabled=false;
-            b.textContent='Running...';
+            b.innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 13,8 3,15"/></svg> Running...';
             connectSSE();
-        }else{alert(d.error||'Failed');b.disabled=false;b.textContent='▶ Start Trading';lockConfig(false)}
-    }catch(e){alert(e.message);b.disabled=false;b.textContent='▶ Start Trading';lockConfig(false)}
+        }else{alert(d.error||'Failed');b.disabled=false;b.innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 13,8 3,15"/></svg> Start Trading';lockConfig(false)}
+    }catch(e){alert(e.message);b.disabled=false;b.innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 13,8 3,15"/></svg> Start Trading';lockConfig(false)}
 }
 
 async function stopBot(){
     document.getElementById('btnStop').disabled=true;
-    document.getElementById('btnStop').textContent='Stopping...';
+    document.getElementById('btnStop').innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="12" height="12" rx="2"/></svg> Stopping...';
     await fetch('/api/bot/stop',{method:'POST'});
     document.getElementById('btnStart').disabled=false;
-    document.getElementById('btnStart').textContent='▶ Start Trading';
-    document.getElementById('btnStop').textContent='■ Stop Trading';
+    document.getElementById('btnStart').innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 13,8 3,15"/></svg> Start Trading';
+    document.getElementById('btnStop').innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="12" height="12" rx="2"/></svg> Stop';
     if(sse){sse.close();sse=null}
     setStatus('idle');
     lockConfig(false);
 }
 
-// ── SSE: Real-time data stream ──
 function connectSSE(){
     if(sse)sse.close();
     sse=new EventSource('/api/stream');
 
     sse.addEventListener('tick',e=>{
         const d=JSON.parse(e.data);
-        setText('stLTP',d.ltp?.toFixed(2));
+        setText('stLTP','₹'+d.ltp?.toFixed(2));
         setText('stTicks',d.tickCount);
-        setText('stPnL',d.totalPnL?.toFixed(2));
         const pnlEl=document.getElementById('stPnL');
+        pnlEl.textContent=(d.totalPnL>=0?'+':'')+'₹'+d.totalPnL?.toFixed(2);
         pnlEl.className='vl '+(d.totalPnL>=0?'grn':'red');
-
         if(d.direction){
             setText('stDir',d.direction);
             document.getElementById('stDir').className='vl '+(d.direction==='LONG'?'grn':'red');
             setText('stOpt',d.optSymbol||'—');
-            setText('stEntry',d.entryPrice?.toFixed(2));
+            setText('stEntry','₹'+d.entryPrice?.toFixed(2));
         }else{
             setText('stDir','FLAT');document.getElementById('stDir').className='vl flat';
             setText('stOpt','—');setText('stEntry','—');
@@ -460,10 +664,7 @@ function connectSSE(){
 
     sse.addEventListener('trade',e=>{
         const d=JSON.parse(e.data);
-        // Avoid duplicates (file already has it, just append for live display)
-        if(!trades.find(t=>t.entryTime===d.entryTime&&t.exitTime===d.exitTime)){
-            trades.push(d);
-        }
+        if(!trades.find(t=>t.entryTime===d.entryTime&&t.exitTime===d.exitTime)){trades.push(d)}
         renderTrades();
     });
 
@@ -477,11 +678,12 @@ function connectSSE(){
         box.innerHTML+=`<div class="${cls}">[${d.ts?.substring(11,23)||''}] ${esc(d.msg)}</div>`;
         if(box.children.length>500)box.removeChild(box.firstChild);
         box.scrollTop=box.scrollHeight;
+        logEntries++;
+        document.getElementById('logCount').textContent=logEntries+' entries';
     });
 
     sse.addEventListener('status',e=>{
-        const d=JSON.parse(e.data);
-        setStatus(d.status);
+        const d=JSON.parse(e.data);setStatus(d.status);
     });
 
     sse.onerror=()=>{setTimeout(()=>{if(sse)connectSSE()},3000)};
@@ -498,21 +700,18 @@ function setStatus(s){
 function setText(id,v){document.getElementById(id).textContent=v??'—'}
 function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
 
-// Check if bot already running
 (async()=>{
     try{
         const d=await(await fetch('/api/bot/state')).json();
         if(d.status==='running'){
             document.getElementById('btnStart').disabled=true;
-            document.getElementById('btnStart').textContent='Running...';
+            document.getElementById('btnStart').innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 13,8 3,15"/></svg> Running...';
             document.getElementById('btnStop').disabled=false;
-            lockConfig(true);
-            connectSSE();
+            lockConfig(true);connectSSE();
         }
     }catch{}
 })();
 
-// Load persisted trade history on page load
 (async()=>{
     try{
         const d=await(await fetch('/api/bot/trades')).json();

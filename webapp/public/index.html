@@ -3,54 +3,189 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kite Trading Bot</title>
+    <title>Kite Trading Bot — Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:'Segoe UI',sans-serif;background:#0d1117;color:#c9d1d9;min-height:100vh;display:flex;align-items:center;justify-content:center}
-        .container{max-width:460px;width:100%;padding:2rem}
-        .card{background:#161b22;border:1px solid #30363d;border-radius:12px;padding:2rem}
-        h1{color:#58a6ff;font-size:1.6rem;margin-bottom:.3rem}
-        .sub{color:#8b949e;margin-bottom:1.8rem;font-size:.9rem}
-        .fg{margin-bottom:1rem}
-        .fg label{display:block;color:#8b949e;font-size:.82rem;margin-bottom:.3rem}
-        .fg input{width:100%;padding:.65rem;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:.95rem}
-        .fg input:focus{outline:none;border-color:#58a6ff}
-        .btn{width:100%;padding:.75rem;background:#238636;color:#fff;border:none;border-radius:6px;font-size:1rem;cursor:pointer;font-weight:600;margin-top:.5rem}
-        .btn:hover{background:#2ea043}
-        .btn:disabled{background:#21262d;cursor:not-allowed}
-        .btn-blue{background:#1f6feb}
-        .btn-blue:hover{background:#388bfd}
-        .err{color:#f85149;margin-top:.5rem;font-size:.85rem;display:none}
-        .link-box{display:none;text-align:center;margin-top:1.2rem;padding:1rem;background:#0d1117;border-radius:8px;border:1px solid #30363d}
-        .link-box p{color:#8b949e;font-size:.8rem;margin-bottom:.5rem}
-        .token-section{display:none;margin-top:1.2rem;padding:1rem;background:#0d1117;border-radius:8px;border:1px solid #30363d}
-        .token-section label{display:block;color:#8b949e;font-size:.82rem;margin-bottom:.3rem}
-        .token-section input{width:100%;padding:.65rem;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:.95rem;margin-bottom:.5rem}
-        .token-section input:focus{outline:none;border-color:#58a6ff}
-        .token-section .hint{color:#8b949e;font-size:.75rem;margin-bottom:.8rem}
-        .success{color:#3fb950;margin-top:.5rem;font-size:.85rem;display:none}
-        .feat{margin-top:1.5rem;padding-top:1rem;border-top:1px solid #30363d}
-        .feat h3{color:#58a6ff;margin-bottom:.6rem;font-size:.95rem}
-        .feat ul{list-style:none;columns:2;column-gap:1rem}
-        .feat li{padding:.2rem 0;color:#8b949e;font-size:.8rem}
-        .feat li::before{content:"▸ ";color:#238636}
-        .info{color:#8b949e;font-size:.78rem;margin-top:1rem;text-align:center}
-        .badge{display:inline-block;padding:.2rem .5rem;background:#388bfd26;color:#58a6ff;border-radius:4px;font-size:.7rem;margin-left:.5rem;vertical-align:middle}
+        :root{
+            --bg:#f0f2f5;--card:#ffffff;--card-hover:#fafbfc;
+            --border:#e3e8ef;--border-hover:#d0d7e0;
+            --accent:#4f46e5;--accent2:#7c3aed;--accent-light:#eef2ff;--accent-glow:rgba(79,70,229,.08);
+            --green:#059669;--green-light:#ecfdf5;--green-border:#a7f3d0;
+            --red:#dc2626;--red-light:#fef2f2;--red-border:#fecaca;
+            --yellow:#d97706;--blue:#2563eb;
+            --text:#1e293b;--text-secondary:#475569;--text-muted:#94a3b8;
+            --input-bg:#f8fafc;--input-border:#e2e8f0;
+            --radius:10px;--radius-lg:16px;
+            --shadow-sm:0 1px 2px rgba(0,0,0,.04);
+            --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+            --shadow-lg:0 4px 6px -1px rgba(0,0,0,.06),0 2px 4px -2px rgba(0,0,0,.04);
+            --shadow-xl:0 20px 25px -5px rgba(0,0,0,.06),0 8px 10px -6px rgba(0,0,0,.04);
+        }
+        body{
+            font-family:'Inter',system-ui,-apple-system,sans-serif;
+            background:var(--bg);color:var(--text);min-height:100vh;
+            display:flex;align-items:center;justify-content:center;
+            position:relative;
+        }
+        body::before{
+            content:'';position:fixed;top:0;left:0;right:0;height:55vh;
+            background:linear-gradient(135deg,#4338ca 0%,#6d28d9 40%,#7c3aed 70%,#8b5cf6 100%);
+            z-index:0;
+        }
+        body::after{
+            content:'';position:fixed;top:0;left:0;right:0;height:55vh;
+            background:url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='g' width='60' height='60' patternUnits='userSpaceOnUse'%3E%3Ccircle cx='30' cy='30' r='1' fill='rgba(255,255,255,0.07)'/%3E%3C/pattern%3E%3C/defs%3E%3Crect fill='url(%23g)' width='60' height='60'/%3E%3C/svg%3E");
+            z-index:0;
+        }
+
+        .container{position:relative;z-index:1;max-width:480px;width:100%;padding:2rem}
+
+        .card{
+            background:var(--card);
+            border:1px solid var(--border);border-radius:var(--radius-lg);
+            padding:2.5rem 2.5rem 2rem;
+            box-shadow:var(--shadow-xl),0 0 0 1px rgba(0,0,0,.02);
+            animation:fadeIn .5s cubic-bezier(.22,1,.36,1);
+        }
+
+        /* Step indicators */
+        .steps{display:flex;align-items:center;gap:.5rem;margin-bottom:1.8rem}
+        .step{display:flex;align-items:center;gap:.4rem;font-size:.72rem;font-weight:600;color:var(--text-muted);transition:color .2s}
+        .step.active{color:var(--accent)}
+        .step.done{color:var(--green)}
+        .step-num{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;background:var(--input-bg);border:1.5px solid var(--border);transition:all .2s}
+        .step.active .step-num{background:var(--accent-light);border-color:var(--accent);color:var(--accent)}
+        .step.done .step-num{background:var(--green-light);border-color:var(--green);color:var(--green)}
+        .step-line{width:20px;height:1.5px;background:var(--border);flex-shrink:0}
+
+        .logo{display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem}
+        .logo-icon{
+            width:46px;height:46px;border-radius:13px;
+            background:linear-gradient(135deg,var(--accent),var(--accent2));
+            display:flex;align-items:center;justify-content:center;
+            font-size:1.3rem;font-weight:800;color:#fff;
+            box-shadow:0 4px 14px rgba(79,70,229,.25);
+        }
+        h1{color:var(--text);font-size:1.5rem;font-weight:700;letter-spacing:-.025em}
+        .sub{color:var(--text-secondary);margin-bottom:1.5rem;font-size:.88rem;font-weight:400;line-height:1.55}
+
+        .fg{margin-bottom:1.1rem;position:relative}
+        .fg label{display:flex;align-items:center;gap:.35rem;color:var(--text-secondary);font-size:.76rem;font-weight:600;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.04em}
+        .fg label svg{width:13px;height:13px;opacity:.5}
+        .fg input{
+            width:100%;padding:.78rem 1rem;
+            background:var(--input-bg);border:1.5px solid var(--input-border);
+            border-radius:var(--radius);color:var(--text);font-size:.9rem;
+            font-family:inherit;transition:all .2s ease;
+        }
+        .fg input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow),0 1px 2px rgba(0,0,0,.04);background:#fff}
+        .fg input::placeholder{color:var(--text-muted)}
+
+        .btn{
+            width:100%;padding:.8rem;
+            background:linear-gradient(135deg,var(--accent),var(--accent2));
+            color:#fff;border:none;border-radius:var(--radius);
+            font-size:.92rem;cursor:pointer;font-weight:600;
+            font-family:inherit;margin-top:.6rem;
+            transition:all .2s ease;
+            box-shadow:0 2px 8px rgba(79,70,229,.2);
+        }
+        .btn:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(79,70,229,.3)}
+        .btn:active{transform:translateY(0)}
+        .btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+        .btn-emerald{background:linear-gradient(135deg,#059669,#10b981);box-shadow:0 2px 8px rgba(5,150,105,.2)}
+        .btn-emerald:hover{box-shadow:0 4px 16px rgba(5,150,105,.3)}
+
+        .err{color:var(--red);margin-top:.7rem;font-size:.83rem;display:none;padding:.6rem .8rem;background:var(--red-light);border-radius:8px;border:1px solid var(--red-border)}
+        .success{color:var(--green);margin-top:.7rem;font-size:.83rem;display:none;padding:.6rem .8rem;background:var(--green-light);border-radius:8px;border:1px solid var(--green-border)}
+
+        .link-box{
+            display:none;text-align:center;margin-top:1.3rem;
+            padding:1.2rem;background:var(--accent-light);
+            border-radius:var(--radius);border:1px solid #c7d2fe;
+        }
+        .link-box p{color:var(--text-secondary);font-size:.82rem;line-height:1.5}
+        .link-box code{color:var(--accent);font-weight:600;background:#ddd6fe30;padding:.15rem .45rem;border-radius:4px;font-size:.8rem}
+
+        .token-section{
+            display:none;margin-top:1.2rem;padding:1.2rem;
+            background:#faf5ff;border-radius:var(--radius);border:1px solid #e9d5ff;
+        }
+        .token-section label{display:block;color:var(--text-secondary);font-size:.78rem;font-weight:600;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.04em}
+        .token-section input{
+            width:100%;padding:.75rem 1rem;
+            background:#fff;border:1px solid var(--input-border);
+            border-radius:var(--radius);color:var(--text);font-size:.9rem;
+            font-family:inherit;transition:all .2s ease;margin-bottom:.8rem;
+        }
+        .token-section input:focus{outline:none;border-color:var(--accent2);box-shadow:0 0 0 3px rgba(124,58,237,.08)}
+        .token-section .hint{color:var(--text-muted);font-size:.76rem;margin-bottom:.8rem}
+
+        .divider{margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border)}
+        .feat h3{color:var(--text-muted);margin-bottom:.8rem;font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em}
+        .feat-grid{display:grid;grid-template-columns:1fr 1fr;gap:.35rem .8rem}
+        .feat-grid li{list-style:none;padding:.35rem 0;color:var(--text-secondary);font-size:.8rem;display:flex;align-items:center;gap:.5rem}
+        .feat-grid li::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0;opacity:.6}
+
+        .info{color:var(--text-muted);font-size:.76rem;margin-top:1.2rem;text-align:center;display:flex;align-items:center;justify-content:center;gap:.4rem}
+
+        .market-clock{font-size:.72rem;color:var(--text-muted);text-align:center;margin-bottom:1rem;display:flex;align-items:center;justify-content:center;gap:.5rem}
+        .market-clock .time{font-family:'JetBrains Mono',monospace;color:var(--text-secondary);font-weight:600;font-size:.82rem}
+        .market-clock .market-status{padding:.15rem .5rem;border-radius:10px;font-size:.65rem;font-weight:600}
+        .market-clock .market-open{background:var(--green-light);color:var(--green);border:1px solid var(--green-border)}
+        .market-clock .market-closed{background:var(--red-light);color:var(--red);border:1px solid var(--red-border)}
+
+        .live-badge{
+            display:inline-flex;align-items:center;gap:.35rem;
+            padding:.2rem .65rem;background:var(--green-light);
+            color:var(--green);border-radius:20px;font-size:.68rem;
+            font-weight:600;border:1px solid var(--green-border);
+            margin-left:.6rem;vertical-align:middle;
+        }
+        .live-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 2s infinite}
+        @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+        /* Powered by footer */
+        .powered{display:flex;align-items:center;justify-content:center;gap:.4rem;margin-top:.6rem;font-size:.7rem;color:var(--text-muted)}
+        .powered svg{width:12px;height:12px;opacity:.4}
     </style>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
 <div class="container">
     <div class="card">
-        <h1>Kite Trading Bot <span class="badge">Multi-User</span></h1>
-        <p class="sub">Heikin-Ashi CE+PE Auto-Trade — Zero Latency</p>
+        <div class="logo">
+            <div class="logo-icon">K</div>
+            <div>
+                <h1>Kite Trading Bot <span class="live-badge">LIVE</span></h1>
+            </div>
+        </div>
+        <p class="sub">Heikin-Ashi automated options trading — CE + PE signals with zero latency execution</p>
+
+        <div class="market-clock">
+            <span>IST</span>
+            <span class="time" id="clockTime">--:--:--</span>
+            <span class="market-status" id="mktStatus">—</span>
+        </div>
+
+        <div class="steps" id="loginSteps">
+            <div class="step active" id="step1"><span class="step-num">1</span>Credentials</div>
+            <div class="step-line"></div>
+            <div class="step" id="step2"><span class="step-num">2</span>Kite Login</div>
+            <div class="step-line"></div>
+            <div class="step" id="step3"><span class="step-num">3</span>Connect</div>
+        </div>
 
         <div class="fg">
-            <label>Kite API Key</label>
-            <input type="text" id="apiKey" placeholder="Your Kite Connect API Key" autocomplete="off">
+            <label><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2.5 2.5 0 00-2.5 2.5v3h-1A1.5 1.5 0 003 8v5.5A1.5 1.5 0 004.5 15h7a1.5 1.5 0 001.5-1.5V8a1.5 1.5 0 00-1.5-1.5h-1v-3A2.5 2.5 0 008 1zm1 5.5v-3a1 1 0 10-2 0v3h2z"/></svg>API Key</label>
+            <input type="text" id="apiKey" placeholder="Enter your Kite Connect API Key" autocomplete="off">
         </div>
         <div class="fg">
-            <label>Kite API Secret</label>
-            <input type="password" id="apiSecret" placeholder="Your Kite Connect API Secret" autocomplete="off">
+            <label><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2.5 2.5 0 00-2.5 2.5v3h-1A1.5 1.5 0 003 8v5.5A1.5 1.5 0 004.5 15h7a1.5 1.5 0 001.5-1.5V8a1.5 1.5 0 00-1.5-1.5h-1v-3A2.5 2.5 0 008 1zm1 5.5v-3a1 1 0 10-2 0v3h2z"/></svg>API Secret</label>
+            <input type="password" id="apiSecret" placeholder="Enter your Kite Connect API Secret" autocomplete="off">
         </div>
 
         <button class="btn" id="loginBtn" onclick="doLogin()">Generate Login URL</button>
@@ -65,12 +200,12 @@
             <label>Request Token</label>
             <p class="hint">Paste the entire redirect URL or just the request_token value</p>
             <input type="text" id="requestToken" placeholder="Paste full URL or request_token here" autocomplete="off">
-            <button class="btn btn-blue" id="tokenBtn" onclick="submitToken()">Submit Token & Login</button>
+            <button class="btn btn-emerald" id="tokenBtn" onclick="submitToken()">Authenticate & Connect</button>
         </div>
 
-        <div class="feat">
-            <h3>Strategy</h3>
-            <ul>
+        <div class="divider feat">
+            <h3>Strategy Features</h3>
+            <ul class="feat-grid">
                 <li>HA Long + Short signals</li>
                 <li>Auto CE/PE at ATM</li>
                 <li>WebSocket tick stream</li>
@@ -78,23 +213,35 @@
                 <li>Real-time dashboard</li>
                 <li>9:15 AM – 3:30 PM IST</li>
                 <li>Stop-loss monitor</li>
+                <li>Multi-user support</li>
             </ul>
         </div>
     </div>
-    <p class="info">Credentials are stored in your local session only.</p>
+    <p class="info"><svg viewBox="0 0 16 16" fill="currentColor" width="13" height="13" style="opacity:.5"><path d="M8 1a2.5 2.5 0 00-2.5 2.5v3h-1A1.5 1.5 0 003 8v5.5A1.5 1.5 0 004.5 15h7a1.5 1.5 0 001.5-1.5V8a1.5 1.5 0 00-1.5-1.5h-1v-3A2.5 2.5 0 008 1zm1 5.5v-3a1 1 0 10-2 0v3h2z"/></svg> Credentials stored locally — never sent to third parties</p>
+    <div class="powered"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 3.5A1.5 1.5 0 017 2h2a1.5 1.5 0 011.5 1.5v.5h3A.5.5 0 0114 4.5v.5H2v-.5A.5.5 0 012.5 4h3v-.5zM3 6h10v7.5a1.5 1.5 0 01-1.5 1.5h-7A1.5 1.5 0 013 13.5V6z"/></svg> Powered by Kite Connect API + Heikin-Ashi Engine</div>
 </div>
 <script>
-// If we're on the login page, token was already checked server-side and found invalid/missing.
-// Only show expired message if token file exists but is expired.
+// Live IST clock + market status
+function updateClock(){
+    const now=new Date();
+    const ist=new Date(now.toLocaleString('en-US',{timeZone:'Asia/Kolkata'}));
+    const h=ist.getHours(),m=ist.getMinutes();
+    const pad=n=>String(n).padStart(2,'0');
+    document.getElementById('clockTime').textContent=pad(h)+':'+pad(m)+':'+pad(ist.getSeconds());
+    const ms=document.getElementById('mktStatus');
+    const mins=h*60+m;
+    if(ist.getDay()===0||ist.getDay()===6){ms.textContent='WEEKEND';ms.className='market-status market-closed'}
+    else if(mins>=555&&mins<=930){ms.textContent='MARKET OPEN';ms.className='market-status market-open'}
+    else if(mins<555){ms.textContent='PRE-MARKET';ms.className='market-status market-closed'}
+    else{ms.textContent='MARKET CLOSED';ms.className='market-status market-closed'}
+}
+updateClock();setInterval(updateClock,1000);
+
 (async()=>{
     try{
         const r=await fetch('/api/token-status');
         const d=await r.json();
-        if(d.valid){
-            // Server should have redirected us already, force it
-            window.location.replace('/dashboard');
-            return;
-        }
+        if(d.valid){window.location.replace('/dashboard');return}
         if(d.reason==='Token expired'){
             document.getElementById('err').textContent='Session expired. Please generate a new login token.';
             document.getElementById('err').style.display='block';
@@ -106,42 +253,44 @@ async function doLogin(){
     const k=document.getElementById('apiKey').value.trim();
     const s=document.getElementById('apiSecret').value.trim();
     const e=document.getElementById('err');
-    if(!k||!s){e.textContent='Both fields required';e.style.display='block';return}
+    if(!k||!s){e.textContent='Both fields are required';e.style.display='block';return}
     e.style.display='none';
     const b=document.getElementById('loginBtn');b.disabled=true;b.textContent='Generating...';
     try{
         const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({apiKey:k,apiSecret:s})});
         const d=await r.json();
         if(d.loginUrl){
-            // Open Kite login in new window/tab
-            window.open(d.loginUrl, '_blank');
+            window.open(d.loginUrl,'_blank');
             document.getElementById('linkBox').style.display='block';
             document.getElementById('tokenSection').style.display='block';
             b.textContent='URL Opened ✓';
+            document.getElementById('step1').className='step done';
+            document.getElementById('step2').className='step active';
         }else{e.textContent=d.error||'Failed';e.style.display='block';b.disabled=false;b.textContent='Generate Login URL'}
     }catch(x){e.textContent='Network error';e.style.display='block';b.disabled=false;b.textContent='Generate Login URL'}
 }
 
 async function submitToken(){
     let token=document.getElementById('requestToken').value.trim();
-    // Extract request_token from full URL if pasted
-    try{const u=new URL(token);const t=u.searchParams.get('request_token');if(t)token=t;}catch(e){/* not a URL, treat as raw token */}
+    try{const u=new URL(token);const t=u.searchParams.get('request_token');if(t)token=t;}catch(e){}
     const e=document.getElementById('err');
     const suc=document.getElementById('suc');
     if(!token){e.textContent='Please paste the request_token';e.style.display='block';return}
     e.style.display='none';suc.style.display='none';
     const b=document.getElementById('tokenBtn');b.disabled=true;b.textContent='Authenticating...';
+    document.getElementById('step2').className='step done';
+    document.getElementById('step3').className='step active';
     try{
         const r=await fetch('/api/set-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestToken:token,apiKey:document.getElementById('apiKey').value.trim(),apiSecret:document.getElementById('apiSecret').value.trim()})});
         const d=await r.json();
         if(d.success){
-            suc.textContent='Login successful! Redirecting...';suc.style.display='block';
+            document.getElementById('step3').className='step done';
+            suc.textContent='✓ Login successful! Redirecting to dashboard...';suc.style.display='block';
             setTimeout(()=>window.location.href='/dashboard',1000);
-        }else{e.textContent=d.error||'Token exchange failed';e.style.display='block';b.disabled=false;b.textContent='Submit Token & Login'}
-    }catch(x){e.textContent='Network error';e.style.display='block';b.disabled=false;b.textContent='Submit Token & Login'}
+        }else{e.textContent=d.error||'Token exchange failed';e.style.display='block';b.disabled=false;b.textContent='Authenticate & Connect'}
+    }catch(x){e.textContent='Network error';e.style.display='block';b.disabled=false;b.textContent='Authenticate & Connect'}
 }
 
-// Show error from redirect
 const p=new URLSearchParams(location.search);
 if(p.get('error')){document.getElementById('err').textContent='Login failed: '+p.get('error');document.getElementById('err').style.display='block'}
 </script>

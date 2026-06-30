@@ -1029,3 +1029,10 @@ app.get('/api/health', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Trading Bot server on port ${PORT} — local mode`);
 });
+
+process.on('uncaughtException', (err) => {
+    console.error('UNCAUGHT EXCEPTION:', err.stack || err);
+});
+process.on('unhandledRejection', (reason) => {
+    console.error('UNHANDLED REJECTION:', reason);
+});
