@@ -18,11 +18,17 @@
         .btn{width:100%;padding:.75rem;background:#238636;color:#fff;border:none;border-radius:6px;font-size:1rem;cursor:pointer;font-weight:600;margin-top:.5rem}
         .btn:hover{background:#2ea043}
         .btn:disabled{background:#21262d;cursor:not-allowed}
+        .btn-blue{background:#1f6feb}
+        .btn-blue:hover{background:#388bfd}
         .err{color:#f85149;margin-top:.5rem;font-size:.85rem;display:none}
         .link-box{display:none;text-align:center;margin-top:1.2rem;padding:1rem;background:#0d1117;border-radius:8px;border:1px solid #30363d}
-        .link-box a{color:#58a6ff;font-size:1.05rem;text-decoration:none;font-weight:600}
-        .link-box a:hover{text-decoration:underline}
         .link-box p{color:#8b949e;font-size:.8rem;margin-bottom:.5rem}
+        .token-section{display:none;margin-top:1.2rem;padding:1rem;background:#0d1117;border-radius:8px;border:1px solid #30363d}
+        .token-section label{display:block;color:#8b949e;font-size:.82rem;margin-bottom:.3rem}
+        .token-section input{width:100%;padding:.65rem;background:#161b22;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:.95rem;margin-bottom:.5rem}
+        .token-section input:focus{outline:none;border-color:#58a6ff}
+        .token-section .hint{color:#8b949e;font-size:.75rem;margin-bottom:.8rem}
+        .success{color:#3fb950;margin-top:.5rem;font-size:.85rem;display:none}
         .feat{margin-top:1.5rem;padding-top:1rem;border-top:1px solid #30363d}
         .feat h3{color:#58a6ff;margin-bottom:.6rem;font-size:.95rem}
         .feat ul{list-style:none;columns:2;column-gap:1rem}
@@ -49,10 +55,17 @@
 
         <button class="btn" id="loginBtn" onclick="doLogin()">Generate Login URL</button>
         <div class="err" id="err"></div>
+        <div class="success" id="suc"></div>
 
         <div class="link-box" id="linkBox">
-            <p>Click to authenticate with Zerodha:</p>
-            <a href="#" id="kiteUrl" target="_self">Login to Kite →</a>
+            <p>Kite login opened in a new window. After login, copy the <code>request_token</code> from the redirect URL and paste below.</p>
+        </div>
+
+        <div class="token-section" id="tokenSection">
+            <label>Request Token</label>
+            <p class="hint">From the redirected URL: ...?request_token=<b>THIS_VALUE</b>&action=login</p>
+            <input type="text" id="requestToken" placeholder="Paste request_token here" autocomplete="off">
+            <button class="btn btn-blue" id="tokenBtn" onclick="submitToken()">Submit Token & Login</button>
         </div>
 
         <div class="feat">
@@ -83,12 +96,32 @@ async function doLogin(){
         const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({apiKey:k,apiSecret:s})});
         const d=await r.json();
         if(d.loginUrl){
-            document.getElementById('kiteUrl').href=d.loginUrl;
+            // Open Kite login in new window/tab
+            window.open(d.loginUrl, '_blank');
             document.getElementById('linkBox').style.display='block';
-            b.textContent='URL Ready ✓';
+            document.getElementById('tokenSection').style.display='block';
+            b.textContent='URL Opened ✓';
         }else{e.textContent=d.error||'Failed';e.style.display='block';b.disabled=false;b.textContent='Generate Login URL'}
     }catch(x){e.textContent='Network error';e.style.display='block';b.disabled=false;b.textContent='Generate Login URL'}
 }
+
+async function submitToken(){
+    const token=document.getElementById('requestToken').value.trim();
+    const e=document.getElementById('err');
+    const suc=document.getElementById('suc');
+    if(!token){e.textContent='Please paste the request_token';e.style.display='block';return}
+    e.style.display='none';suc.style.display='none';
+    const b=document.getElementById('tokenBtn');b.disabled=true;b.textContent='Authenticating...';
+    try{
+        const r=await fetch('/api/set-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestToken:token})});
+        const d=await r.json();
+        if(d.success){
+            suc.textContent='Login successful! Redirecting...';suc.style.display='block';
+            setTimeout(()=>window.location.href='/dashboard',1000);
+        }else{e.textContent=d.error||'Token exchange failed';e.style.display='block';b.disabled=false;b.textContent='Submit Token & Login'}
+    }catch(x){e.textContent='Network error';e.style.display='block';b.disabled=false;b.textContent='Submit Token & Login'}
+}
+
 // Show error from redirect
 const p=new URLSearchParams(location.search);
 if(p.get('error')){document.getElementById('err').textContent='Login failed: '+p.get('error');document.getElementById('err').style.display='block'}

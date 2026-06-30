@@ -584,6 +584,39 @@ app.post('/api/login', (req, res) => {
     res.json({ loginUrl: `https://kite.zerodha.com/connect/login?api_key=${encodeURIComponent(apiKey)}&v=3` });
 });
 
+// Step 2a: Manual token submission (user pastes request_token from redirect URL)
+app.post('/api/set-token', async (req, res) => {
+    const { requestToken } = req.body;
+    const { apiKey, apiSecret } = req.session;
+    if (!requestToken || !apiKey || !apiSecret) return res.status(400).json({ error: 'Missing request token or credentials. Please start over.' });
+
+    try {
+        const checksum = sha256(apiKey + requestToken + apiSecret);
+        const r = await axios.post(`${KITE_BASE_URL}/session/token`, null, {
+            params: { api_key: apiKey, request_token: requestToken, checksum }, headers: { 'X-Kite-Version': '3' }
+        });
+        if (r.data.status !== 'success') return res.json({ error: 'Token exchange failed' });
+
+        const accessToken = r.data.data.access_token;
+        const userId = r.data.data.user_id;
+        req.session.accessToken = accessToken;
+        req.session.userId = userId;
+
+        // Store in Key Vault (async, non-blocking)
+        const sid = sanitizeId(userId);
+        storeSecret(`kite-api-key-${sid}`, apiKey).catch(() => {});
+        storeSecret(`kite-api-secret-${sid}`, apiSecret).catch(() => {});
+        storeSecret(`kite-access-token-${sid}`, accessToken).catch(() => {});
+        delete req.session.apiSecret;
+
+        console.log(`User ${userId} authenticated via manual token`);
+        res.json({ success: true, userId });
+    } catch (e) {
+        console.error('Token exchange error:', e.response?.data || e.message);
+        res.json({ error: e.response?.data?.message || 'Token exchange failed. Token may be expired.' });
+    }
+});
+
 // Step 2: OAuth callback
 app.get('/callback', async (req, res) => {
     const { request_token } = req.query;
