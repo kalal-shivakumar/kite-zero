@@ -586,9 +586,11 @@ app.post('/api/login', (req, res) => {
 
 // Step 2a: Manual token submission (user pastes request_token from redirect URL)
 app.post('/api/set-token', async (req, res) => {
-    const { requestToken } = req.body;
+    let { requestToken } = req.body;
     const { apiKey, apiSecret } = req.session;
     if (!requestToken || !apiKey || !apiSecret) return res.status(400).json({ error: 'Missing request token or credentials. Please start over.' });
+    // Extract request_token from full URL if user pasted the entire redirect URL
+    try { const u = new URL(requestToken); const t = u.searchParams.get('request_token'); if (t) requestToken = t; } catch (_) {}
 
     try {
         const checksum = sha256(apiKey + requestToken + apiSecret);

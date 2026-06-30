@@ -63,8 +63,8 @@
 
         <div class="token-section" id="tokenSection">
             <label>Request Token</label>
-            <p class="hint">From the redirected URL: ...?request_token=<b>THIS_VALUE</b>&action=login</p>
-            <input type="text" id="requestToken" placeholder="Paste request_token here" autocomplete="off">
+            <p class="hint">Paste the entire redirect URL or just the request_token value</p>
+            <input type="text" id="requestToken" placeholder="Paste full URL or request_token here" autocomplete="off">
             <button class="btn btn-blue" id="tokenBtn" onclick="submitToken()">Submit Token & Login</button>
         </div>
 
@@ -106,7 +106,9 @@ async function doLogin(){
 }
 
 async function submitToken(){
-    const token=document.getElementById('requestToken').value.trim();
+    let token=document.getElementById('requestToken').value.trim();
+    // Extract request_token from full URL if pasted
+    try{const u=new URL(token);const t=u.searchParams.get('request_token');if(t)token=t;}catch(e){/* not a URL, treat as raw token */}
     const e=document.getElementById('err');
     const suc=document.getElementById('suc');
     if(!token){e.textContent='Please paste the request_token';e.style.display='block';return}
