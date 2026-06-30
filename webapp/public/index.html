@@ -115,7 +115,7 @@ async function submitToken(){
     e.style.display='none';suc.style.display='none';
     const b=document.getElementById('tokenBtn');b.disabled=true;b.textContent='Authenticating...';
     try{
-        const r=await fetch('/api/set-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestToken:token})});
+        const r=await fetch('/api/set-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestToken:token,apiKey:document.getElementById('apiKey').value.trim(),apiSecret:document.getElementById('apiSecret').value.trim()})});
         const d=await r.json();
         if(d.success){
             suc.textContent='Login successful! Redirecting...';suc.style.display='block';

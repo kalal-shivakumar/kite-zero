@@ -586,16 +586,21 @@ app.post('/api/login', (req, res) => {
 
 // Step 2a: Manual token submission (user pastes request_token from redirect URL)
 app.post('/api/set-token', async (req, res) => {
-    let { requestToken } = req.body;
-    const { apiKey, apiSecret } = req.session;
+    let { requestToken, apiKey: bodyKey, apiSecret: bodySecret } = req.body;
+    const apiKey = req.session.apiKey || bodyKey;
+    const apiSecret = req.session.apiSecret || bodySecret;
     if (!requestToken || !apiKey || !apiSecret) return res.status(400).json({ error: 'Missing request token or credentials. Please start over.' });
+    // Store in session in case they weren't there
+    req.session.apiKey = apiKey;
+    req.session.apiSecret = apiSecret;
     // Extract request_token from full URL if user pasted the entire redirect URL
     try { const u = new URL(requestToken); const t = u.searchParams.get('request_token'); if (t) requestToken = t; } catch (_) {}
 
     try {
         const checksum = sha256(apiKey + requestToken + apiSecret);
-        const r = await axios.post(`${KITE_BASE_URL}/session/token`, null, {
-            params: { api_key: apiKey, request_token: requestToken, checksum }, headers: { 'X-Kite-Version': '3' }
+        const form = new URLSearchParams({ api_key: apiKey, request_token: requestToken, checksum });
+        const r = await axios.post(`${KITE_BASE_URL}/session/token`, form.toString(), {
+            headers: { 'X-Kite-Version': '3', 'Content-Type': 'application/x-www-form-urlencoded' }
         });
         if (r.data.status !== 'success') return res.json({ error: 'Token exchange failed' });
 
@@ -627,8 +632,9 @@ app.get('/callback', async (req, res) => {
 
     try {
         const checksum = sha256(apiKey + request_token + apiSecret);
-        const r = await axios.post(`${KITE_BASE_URL}/session/token`, null, {
-            params: { api_key: apiKey, request_token, checksum }, headers: { 'X-Kite-Version': '3' }
+        const form = new URLSearchParams({ api_key: apiKey, request_token, checksum });
+        const r = await axios.post(`${KITE_BASE_URL}/session/token`, form.toString(), {
+            headers: { 'X-Kite-Version': '3', 'Content-Type': 'application/x-www-form-urlencoded' }
         });
         if (r.data.status !== 'success') return res.redirect('/?error=login_failed');
 
