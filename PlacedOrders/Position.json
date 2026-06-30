@@ -1,13 +1,13 @@
 {
-  "Token": 14434050,
-  "OptionLTP": 108.6,
-  "Time": "2026-06-22_12-25-21",
-  "Strike": 24200.0,
-  "Price": 24124.4,
-  "TotalPnL": -2060.5000000000014,
-  "Symbol": "NIFTY2662324200PE",
-  "Qty": 65,
-  "OptType": "PE",
-  "Direction": "SHORT",
-  "Lots": 1
+  "Token": 227230725,
+  "Symbol": "SENSEX26JUN77500CE",
+  "TotalPnL": -36.00000000000023,
+  "Time": "2026-06-25_10-59-48",
+  "Lots": 1,
+  "Price": 77562.54,
+  "Qty": 20,
+  "Strike": 77500.0,
+  "OptionLTP": 166.2,
+  "Direction": "LONG",
+  "OptType": "CE"
 }
