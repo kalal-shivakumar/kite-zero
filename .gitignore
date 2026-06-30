@@ -15,3 +15,13 @@ PlacedOrders/Short-Exit-*.txt
 
 # Backtest output
 BACK-Test/*.csv
+
+# Node.js
+webapp/node_modules/
+webapp/.env
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/.terraform.lock.hcl

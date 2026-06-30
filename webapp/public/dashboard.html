@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trading Dashboard</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',sans-serif;background:#0d1117;color:#c9d1d9;font-size:14px}
+.hdr{background:#161b22;border-bottom:1px solid #30363d;padding:.7rem 1.5rem;display:flex;justify-content:space-between;align-items:center}
+.hdr h1{color:#58a6ff;font-size:1.1rem}
+.hdr .ri{display:flex;align-items:center;gap:1rem}
+.hdr .user{color:#8b949e;font-size:.85rem}
+.hdr a{color:#f85149;text-decoration:none;font-size:.85rem}
+.wrap{max-width:1400px;margin:0 auto;padding:1rem}
+
+/* Status strip */
+.strip{display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+.sbox{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:.6rem 1rem;flex:1;min-width:120px;text-align:center}
+.sbox .lb{color:#8b949e;font-size:.7rem;text-transform:uppercase}
+.sbox .vl{font-size:1.1rem;font-weight:700}
+
+/* Grid */
+.grid{display:grid;grid-template-columns:340px 1fr;gap:1rem}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:1rem}
+.card h2{color:#58a6ff;font-size:.95rem;margin-bottom:.7rem;padding-bottom:.4rem;border-bottom:1px solid #30363d}
+
+/* Form */
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.fg{margin-bottom:.5rem}
+.fg label{display:block;color:#8b949e;font-size:.72rem;margin-bottom:.15rem}
+input,select{width:100%;padding:.4rem;background:#0d1117;border:1px solid #30363d;border-radius:4px;color:#c9d1d9;font-size:.85rem}
+input:focus,select:focus{outline:none;border-color:#58a6ff}
+.btns{display:flex;gap:.5rem;margin-top:.7rem}
+.btn{padding:.55rem 1rem;border:none;border-radius:5px;font-size:.9rem;cursor:pointer;font-weight:600;flex:1}
+.btn-go{background:#238636;color:#fff}
+.btn-go:hover{background:#2ea043}
+.btn-stop{background:#da3633;color:#fff}
+.btn-stop:hover{background:#f85149}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* Right column */
+.right{display:flex;flex-direction:column;gap:1rem}
+
+/* Live ticker */
+.ticker{display:flex;gap:1rem;flex-wrap:wrap}
+.tk{flex:1;min-width:80px}
+.tk .lb{color:#8b949e;font-size:.68rem;text-transform:uppercase}
+.tk .vl{font-size:1rem;font-weight:700}
+
+/* Candle table */
+.ct{width:100%;border-collapse:collapse;font-family:'Cascadia Code','Consolas',monospace;font-size:.78rem}
+.ct th{color:#8b949e;text-align:right;padding:.25rem .4rem;border-bottom:1px solid #30363d;font-weight:normal;font-size:.7rem;text-transform:uppercase}
+.ct td{text-align:right;padding:.25rem .4rem;border-bottom:1px solid #21262d}
+.ct td:first-child,.ct th:first-child{text-align:left}
+.up{color:#3fb950} .dn{color:#f85149} .act{color:#d29922;font-weight:bold}
+.flat{color:#8b949e}
+
+/* Signals */
+.sig{font-family:monospace;font-size:.78rem;padding:.15rem 0}
+.sig-entry{color:#3fb950} .sig-exit{color:#f85149}
+
+/* Logs */
+.logbox{background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:.5rem;max-height:220px;overflow-y:auto;font-family:monospace;font-size:.75rem;line-height:1.5}
+.l-i{color:#8b949e} .l-e{color:#f85149} .l-t{color:#d29922} .l-s{color:#3fb950}
+
+/* Positions & orders */
+.ptbl{width:100%;border-collapse:collapse;font-size:.8rem}
+.ptbl th{color:#8b949e;text-align:left;padding:.35rem;border-bottom:1px solid #30363d}
+.ptbl td{padding:.35rem;border-bottom:1px solid #21262d}
+.grn{color:#3fb950} .red{color:#f85149}
+
+.full{grid-column:1/-1}
+.profile-row{display:flex;gap:1.5rem;flex-wrap:wrap;font-size:.85rem;color:#8b949e}
+.profile-row strong{color:#c9d1d9}
+
+/* Connection dot */
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+.dot-g{background:#3fb950} .dot-r{background:#f85149} .dot-y{background:#d29922}
+</style>
+</head>
+<body>
+<div class="hdr">
+    <h1>Kite HA Trading Bot</h1>
+    <div class="ri">
+        <span class="user" id="userInfo">Loading...</span>
+        <a href="/api/logout">Logout</a>
+    </div>
+</div>
+<div class="wrap">
+    <!-- Status strip -->
+    <div class="strip">
+        <div class="sbox"><div class="lb">Status</div><div class="vl" id="stStatus"><span class="dot dot-r"></span>Idle</div></div>
+        <div class="sbox"><div class="lb">Direction</div><div class="vl flat" id="stDir">FLAT</div></div>
+        <div class="sbox"><div class="lb">Symbol</div><div class="vl" id="stOpt">—</div></div>
+        <div class="sbox"><div class="lb">Entry</div><div class="vl" id="stEntry">—</div></div>
+        <div class="sbox"><div class="lb">LTP</div><div class="vl" id="stLTP">—</div></div>
+        <div class="sbox"><div class="lb">Ticks</div><div class="vl" id="stTicks">0</div></div>
+        <div class="sbox"><div class="lb">Total P&L</div><div class="vl flat" id="stPnL">0.00</div></div>
+    </div>
+
+    <div class="grid">
+        <!-- LEFT: Config -->
+        <div>
+            <div class="card" style="margin-bottom:1rem">
+                <h2>Profile</h2>
+                <div class="profile-row" id="profBox">Loading...</div>
+            </div>
+            <div class="card">
+                <h2>Strategy Config</h2>
+                <div class="fr">
+                    <div class="fg"><label>Symbol</label>
+                        <select id="cSym"><option value="Nifty">NIFTY</option><option value="BANKNIFTY">BANKNIFTY</option><option value="FINNIFTY">FINNIFTY</option><option value="MIDCPNIFTY">MIDCPNIFTY</option><option value="SENSEX">SENSEX</option></select>
+                    </div>
+                    <div class="fg"><label>Index</label>
+                        <select id="cIdx"><option value="Nifty">NIFTY</option><option value="BANKNIFTY">BANKNIFTY</option><option value="FinNifty">FINNIFTY</option><option value="MIDCPNIFTY">MIDCPNIFTY</option><option value="SENSEX">SENSEX</option></select>
+                    </div>
+                </div>
+                <div class="fr">
+                    <div class="fg"><label>Instrument Token (0=auto)</label><input type="number" id="cToken" value="0"></div>
+                    <div class="fg"><label>TimeFrame</label>
+                        <select id="cTF"><option value="5second">5s</option><option value="15second">15s</option><option value="30second" selected>30s</option><option value="minute">1m</option><option value="2minute">2m</option><option value="3minute">3m</option><option value="5minute">5m</option><option value="10minute">10m</option><option value="15minute">15m</option><option value="30minute">30m</option><option value="60minute">60m</option></select>
+                    </div>
+                </div>
+                <div class="fr">
+                    <div class="fg"><label>Candles to Show</label><input type="number" id="cShow" value="10"></div>
+                    <div class="fg"><label>Mode</label><select id="cFull"><option value="false">Quote</option><option value="true">Full</option></select></div>
+                </div>
+                <div class="fr">
+                    <div class="fg"><label>Lots</label><input type="number" id="cLots" value="1" min="1"></div>
+                    <div class="fg"><label>Amount (0=lots)</label><input type="number" id="cAmt" value="0"></div>
+                </div>
+                <div class="fr">
+                    <div class="fg"><label>Product</label><select id="cProd"><option value="NRML">NRML</option><option value="MIS">MIS</option></select></div>
+                    <div class="fg"><label>Order Type</label><select id="cOT"><option value="MARKET">MARKET</option><option value="LIMIT">LIMIT</option></select></div>
+                </div>
+                <div class="fr">
+                    <div class="fg"><label>Start Time</label><input type="text" id="cStart" value="09:16:01"></div>
+                    <div class="fg"><label>Stop Time</label><input type="text" id="cStop" value="15:30:00"></div>
+                </div>
+                <div class="fr">
+                    <div class="fg"><label>Trading Mode</label><select id="cMode"><option value="Option_Buyer">Buyer</option><option value="Option_Seller">Seller</option></select></div>
+                    <div class="fg"><label>ATM Offset</label><input type="number" id="cATM" value="1"></div>
+                </div>
+                <div class="fr">
+                    <div class="fg"><label>Variety</label><select id="cVar"><option value="regular">Regular</option><option value="amo">AMO</option></select></div>
+                    <div class="fg"><label>Mkt Protection %</label><input type="number" id="cMP" value="2" min="0" max="100"></div>
+                </div>
+                <div class="fr">
+                    <div class="fg"><label>Exit Trade</label><select id="cExit"><option value="yes">Yes</option><option value="no">No</option></select></div>
+                    <div class="fg"><label>SL Lookback</label><input type="number" id="cSLB" value="1" min="1"></div>
+                </div>
+                <div class="fg"><label>SL Trigger Offset</label><input type="number" id="cSLO" value="0.5" step="0.1"></div>
+                <div class="btns">
+                    <button class="btn btn-go" id="btnStart" onclick="startBot()">▶ Start Trading</button>
+                    <button class="btn btn-stop" id="btnStop" onclick="stopBot()" disabled>■ Stop</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: Live data -->
+        <div class="right">
+            <!-- Live Ticker -->
+            <div class="card">
+                <h2>Live Tick Data</h2>
+                <div class="ticker">
+                    <div class="tk"><div class="lb">Last Price</div><div class="vl" id="tkLTP">—</div></div>
+                    <div class="tk"><div class="lb">Day Open</div><div class="vl" id="tkO">—</div></div>
+                    <div class="tk"><div class="lb">Day High</div><div class="vl" id="tkH">—</div></div>
+                    <div class="tk"><div class="lb">Day Low</div><div class="vl" id="tkL">—</div></div>
+                    <div class="tk"><div class="lb">Day Close</div><div class="vl" id="tkC">—</div></div>
+                    <div class="tk"><div class="lb">Volume</div><div class="vl" id="tkV">—</div></div>
+                </div>
+                <div style="margin-top:.7rem;border-top:1px solid #30363d;padding-top:.5rem">
+                    <div class="ticker">
+                        <div class="tk"><div class="lb">Live HA Open</div><div class="vl" id="haO">—</div></div>
+                        <div class="tk"><div class="lb">Live HA High</div><div class="vl" id="haH">—</div></div>
+                        <div class="tk"><div class="lb">Live HA Low</div><div class="vl" id="haL">—</div></div>
+                        <div class="tk"><div class="lb">Live HA Close</div><div class="vl" id="haC">—</div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HA Candle Table -->
+            <div class="card">
+                <h2>Heikin-Ashi Candles</h2>
+                <table class="ct">
+                    <thead><tr><th>Time</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Vol</th><th>Ticks</th><th>Trend</th></tr></thead>
+                    <tbody id="candleBody"><tr><td colspan="8" class="flat">Waiting for data...</td></tr></tbody>
+                </table>
+            </div>
+
+            <!-- Signals -->
+            <div class="card">
+                <h2>Trade Signals</h2>
+                <div id="sigBox" style="max-height:160px;overflow-y:auto"><div class="sig flat">No signals yet</div></div>
+            </div>
+
+            <!-- Positions & Orders -->
+            <div class="card">
+                <h2>Open Positions</h2>
+                <table class="ptbl"><thead><tr><th>Symbol</th><th>Qty</th><th>Avg</th><th>LTP</th><th>P&L</th></tr></thead>
+                <tbody id="posBody"><tr><td colspan="5" class="flat">Loading...</td></tr></tbody></table>
+            </div>
+            <div class="card">
+                <h2>Today's Orders <span style="font-size:.7rem;color:#8b949e">(last 15)</span></h2>
+                <table class="ptbl"><thead><tr><th>Time</th><th>Symbol</th><th>Type</th><th>Qty</th><th>Price</th><th>Status</th></tr></thead>
+                <tbody id="ordBody"><tr><td colspan="6" class="flat">Loading...</td></tr></tbody></table>
+            </div>
+        </div>
+
+        <!-- Logs (full width) -->
+        <div class="card full">
+            <h2>Bot Logs</h2>
+            <div class="logbox" id="logBox"><div class="l-i">Ready.</div></div>
+        </div>
+    </div>
+</div>
+
+<script>
+let sse=null, candles=[], maxCandles=15;
+
+// ── Load profile ──
+(async()=>{
+    try{
+        const r=await(await fetch('/api/profile')).json();
+        document.getElementById('userInfo').textContent=`${r.user_name} (${r.user_id})`;
+        document.getElementById('profBox').innerHTML=`
+            <div><strong>${r.user_name}</strong> (${r.user_id})</div>
+            <div>Email: <strong>${r.email||'N/A'}</strong></div>
+            <div>Broker: <strong>${r.broker||'ZERODHA'}</strong></div>
+            <div>Exchanges: <strong>${(r.exchanges||[]).join(', ')}</strong></div>`;
+    }catch{document.getElementById('profBox').textContent='Error loading profile'}
+})();
+
+// ── Load positions ──
+async function loadPos(){
+    try{
+        const d=await(await fetch('/api/positions')).json();
+        const tb=document.getElementById('posBody');
+        const open=(d.net||[]).filter(p=>p.quantity!==0);
+        if(!open.length){tb.innerHTML='<tr><td colspan="5" class="flat">No open positions</td></tr>';return}
+        tb.innerHTML=open.map(p=>{const pnl=(+p.pnl||0).toFixed(2);return`<tr><td>${p.tradingsymbol}</td><td>${p.quantity}</td><td>${p.average_price}</td><td>${p.last_price}</td><td class="${pnl>=0?'grn':'red'}">${pnl}</td></tr>`}).join('');
+    }catch{}
+}
+
+async function loadOrd(){
+    try{
+        const d=await(await fetch('/api/orders')).json();
+        const tb=document.getElementById('ordBody');
+        const ords=(d||[]).slice(-15).reverse();
+        if(!ords.length){tb.innerHTML='<tr><td colspan="6" class="flat">No orders</td></tr>';return}
+        tb.innerHTML=ords.map(o=>{
+            const t=o.order_timestamp?new Date(o.order_timestamp).toLocaleTimeString('en-IN',{hour12:false}):'--';
+            const c=o.status==='COMPLETE'?'grn':o.status==='REJECTED'?'red':'';
+            return`<tr><td>${t}</td><td>${o.tradingsymbol}</td><td>${o.transaction_type}</td><td>${o.quantity}</td><td>${o.average_price||'--'}</td><td class="${c}">${o.status}</td></tr>`;
+        }).join('');
+    }catch{}
+}
+
+loadPos();loadOrd();
+setInterval(()=>{loadPos();loadOrd()},15000);
+
+// ── Config reader ──
+function getCfg(){
+    return {
+        tradingSymbol:$('#cSym'),instrumentToken:+$('#cToken'),timeFrame:$('#cTF'),candlesToShow:+$('#cShow'),
+        fullMode:$('#cFull')==='true',indexChoosen:$('#cIdx'),noOfLots:+$('#cLots'),amountToTrade:+$('#cAmt'),
+        product:$('#cProd'),startTime:$('#cStart'),stopTime:$('#cStop'),orderType:$('#cOT'),
+        modeOfTrading:$('#cMode'),atmOffset:+$('#cATM'),variety:$('#cVar'),marketProtection:+$('#cMP'),
+        exitTrade:$('#cExit'),slCandlesLookback:+$('#cSLB'),slTriggerOffset:+$('#cSLO')
+    };
+}
+function $(id){const el=document.getElementById(id.replace('#',''));return el.type==='number'?el.value:el.value}
+
+// ── Start/Stop ──
+async function startBot(){
+    const b=document.getElementById('btnStart');b.disabled=true;b.textContent='Starting...';
+    try{
+        const r=await fetch('/api/bot/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getCfg())});
+        const d=await r.json();
+        if(d.success){
+            document.getElementById('btnStop').disabled=false;
+            b.textContent='Running...';
+            maxCandles=+document.getElementById('cShow').value||15;
+            candles=[];
+            connectSSE();
+        }else{alert(d.error||'Failed');b.disabled=false;b.textContent='▶ Start Trading'}
+    }catch(e){alert(e.message);b.disabled=false;b.textContent='▶ Start Trading'}
+}
+
+async function stopBot(){
+    document.getElementById('btnStop').disabled=true;
+    await fetch('/api/bot/stop',{method:'POST'});
+    document.getElementById('btnStart').disabled=false;
+    document.getElementById('btnStart').textContent='▶ Start Trading';
+    document.getElementById('btnStop').textContent='■ Stop';
+    if(sse){sse.close();sse=null}
+    setStatus('idle');
+}
+
+// ── SSE: Real-time data stream ──
+function connectSSE(){
+    if(sse)sse.close();
+    sse=new EventSource('/api/stream');
+
+    sse.addEventListener('tick',e=>{
+        const d=JSON.parse(e.data);
+        setText('tkLTP',d.ltp?.toFixed(2));
+        setText('tkO',d.dayO?.toFixed(2));setText('tkH',d.dayH?.toFixed(2));
+        setText('tkL',d.dayL?.toFixed(2));setText('tkC',d.dayC?.toFixed(2));
+        setText('tkV',d.volume?.toLocaleString());
+        setText('stLTP',d.ltp?.toFixed(2));
+        setText('stTicks',d.tickCount);
+        setText('stPnL',d.totalPnL?.toFixed(2));
+        const pnlEl=document.getElementById('stPnL');
+        pnlEl.className='vl '+(d.totalPnL>=0?'grn':'red');
+
+        if(d.direction){
+            setText('stDir',d.direction);
+            document.getElementById('stDir').className='vl '+(d.direction==='LONG'?'grn':'red');
+            setText('stOpt',d.optSymbol||'—');
+            setText('stEntry',d.entryPrice?.toFixed(2));
+        }else{
+            setText('stDir','FLAT');document.getElementById('stDir').className='vl flat';
+            setText('stOpt','—');setText('stEntry','—');
+        }
+
+        if(d.liveHA){
+            setText('haO',d.liveHA.o?.toFixed(2));setText('haH',d.liveHA.h?.toFixed(2));
+            setText('haL',d.liveHA.l?.toFixed(2));setText('haC',d.liveHA.c?.toFixed(2));
+            const cls=d.liveHA.c>=d.liveHA.o?'grn':'red';
+            ['haO','haH','haL','haC'].forEach(id=>document.getElementById(id).className='vl '+cls);
+        }
+        renderCandles();
+    });
+
+    sse.addEventListener('candle',e=>{
+        candles.push(JSON.parse(e.data));
+        if(candles.length>maxCandles*2)candles=candles.slice(-maxCandles);
+        renderCandles();
+    });
+
+    sse.addEventListener('signal',e=>{
+        const d=JSON.parse(e.data);
+        const box=document.getElementById('sigBox');
+        const cls=d.type==='ENTRY'?'sig-entry':'sig-exit';
+        const t=d.time?new Date(d.time).toLocaleTimeString('en-IN',{hour12:false}):'';
+        let txt=`[${t}] ${d.type} ${d.dir||''} @ ${d.spot}`;
+        if(d.symbol)txt+=` | ${d.symbol}`;
+        if(d.strike)txt+=` Strike:${d.strike}`;
+        if(d.pnl!==undefined)txt+=` | P&L: ${d.pnl}`;
+        if(d.totalPnL!==undefined)txt+=` | Total: ${d.totalPnL}`;
+        box.innerHTML+=`<div class="sig ${cls}">${esc(txt)}</div>`;
+        box.scrollTop=box.scrollHeight;
+        loadPos();loadOrd();
+    });
+
+    sse.addEventListener('log',e=>{
+        const d=JSON.parse(e.data);
+        const box=document.getElementById('logBox');
+        let cls='l-i';
+        if(d.level==='error')cls='l-e';
+        else if(d.msg.includes('***'))cls='l-s';
+        else if(d.msg.includes('BUY')||d.msg.includes('SELL'))cls='l-t';
+        box.innerHTML+=`<div class="${cls}">[${d.ts?.substring(11,23)||''}] ${esc(d.msg)}</div>`;
+        if(box.children.length>500)box.removeChild(box.firstChild);
+        box.scrollTop=box.scrollHeight;
+    });
+
+    sse.addEventListener('status',e=>{
+        const d=JSON.parse(e.data);
+        setStatus(d.status);
+        if(d.completedCandles)candles=d.completedCandles;
+        if(d.signals){
+            const box=document.getElementById('sigBox');box.innerHTML='';
+            d.signals.forEach(s=>{
+                const cls=s.type==='ENTRY'?'sig-entry':'sig-exit';
+                const t=s.time?new Date(s.time).toLocaleTimeString('en-IN',{hour12:false}):'';
+                let txt=`[${t}] ${s.type} ${s.dir||''} @ ${s.spot}`;
+                if(s.symbol)txt+=` | ${s.symbol}`;
+                if(s.pnl!==undefined)txt+=` | P&L: ${s.pnl}`;
+                box.innerHTML+=`<div class="sig ${cls}">${esc(txt)}</div>`;
+            });
+        }
+        renderCandles();
+    });
+
+    sse.onerror=()=>{setTimeout(()=>{if(sse)connectSSE()},3000)};
+}
+
+function setStatus(s){
+    const el=document.getElementById('stStatus');
+    if(s==='running')el.innerHTML='<span class="dot dot-g"></span>Running';
+    else if(s==='initializing'||s==='initialized')el.innerHTML='<span class="dot dot-y"></span>Initializing';
+    else if(s==='stopped')el.innerHTML='<span class="dot dot-r"></span>Stopped';
+    else el.innerHTML='<span class="dot dot-r"></span>Idle';
+}
+
+function renderCandles(){
+    const tb=document.getElementById('candleBody');
+    const show=candles.slice(-maxCandles);
+    if(!show.length){tb.innerHTML='<tr><td colspan="8" class="flat">Waiting for candles...</td></tr>';return}
+    tb.innerHTML=show.map((c,i)=>{
+        const isLast=i===show.length-1;
+        const trend=c.close>=c.open?'UP':'DN';
+        const cls=isLast?'act':(trend==='UP'?'up':'dn');
+        const t=c.bucket?.substring(11)||'';
+        return`<tr class="${cls}"><td>${t}</td><td>${c.open?.toFixed(2)}</td><td>${c.high?.toFixed(2)}</td><td>${c.low?.toFixed(2)}</td><td>${c.close?.toFixed(2)}</td><td>${(c.volume||0).toLocaleString()}</td><td>${c.ticks||''}</td><td>${trend}</td></tr>`;
+    }).join('');
+}
+
+function setText(id,v){document.getElementById(id).textContent=v??'—'}
+function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
+
+// Check if bot already running
+(async()=>{
+    try{
+        const d=await(await fetch('/api/bot/state')).json();
+        if(d.status==='running'){
+            document.getElementById('btnStart').disabled=true;
+            document.getElementById('btnStart').textContent='Running...';
+            document.getElementById('btnStop').disabled=false;
+            if(d.completedCandles)candles=d.completedCandles;
+            maxCandles=d.config?.candlesToShow||15;
+            connectSSE();
+        }
+    }catch{}
+})();
+</script>
+</body>
+</html>

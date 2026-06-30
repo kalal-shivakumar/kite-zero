@@ -1,0 +1,12 @@
+node_modules/
+.env
+accesstoken.json
+PlacedOrders/
+DayLowDetectedFiles/
+BACK-Test/Results-csv/
+*.csv
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/tfplan
+terraform/*.tfstate*
+webapp/node_modules/

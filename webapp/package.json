@@ -1,0 +1,22 @@
+{
+  "name": "trading-bot-kite",
+  "version": "1.0.0",
+  "description": "Zerodha Kite Heikin-Ashi Trading Bot Web Dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "express-session": "^1.18.0",
+    "axios": "^1.7.0",
+    "dotenv": "^16.4.0",
+    "ws": "^8.18.0",
+    "@azure/keyvault-secrets": "^4.9.0",
+    "@azure/identity": "^4.5.0"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
