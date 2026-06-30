@@ -62,6 +62,42 @@ variable "kite_api_secret" {
 
 data "azurerm_client_config" "current" {}
 
+# ── Import existing resources (created via az CLI before Terraform) ──
+import {
+  to = azurerm_resource_group.rg
+  id = "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group_name}"
+}
+
+import {
+  to = azurerm_service_plan.plan
+  id = "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group_name}/providers/Microsoft.Web/serverfarms/trading-bot-plan"
+}
+
+import {
+  to = azurerm_key_vault.kv
+  id = "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group_name}/providers/Microsoft.KeyVault/vaults/trading-bot-kv-sk"
+}
+
+import {
+  to = azurerm_container_registry.acr
+  id = "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group_name}/providers/Microsoft.ContainerRegistry/registries/tradingbotkiteacr"
+}
+
+import {
+  to = azurerm_linux_web_app.webapp
+  id = "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group_name}/providers/Microsoft.Web/sites/trading-bot-kite"
+}
+
+import {
+  to = azurerm_role_assignment.webapp_kv
+  id = "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group_name}/providers/Microsoft.KeyVault/vaults/trading-bot-kv-sk/providers/Microsoft.Authorization/roleAssignments/df977fb6-e7fc-4b5f-9389-5f86e3bbf295"
+}
+
+import {
+  to = azurerm_role_assignment.webapp_contributor
+  id = "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group_name}/providers/Microsoft.Authorization/roleAssignments/9a1af53f-39ea-4cfd-ab93-44d1d687f6ef"
+}
+
 # ── Resource Group ──
 resource "azurerm_resource_group" "rg" {
   name     = var.resource_group_name
