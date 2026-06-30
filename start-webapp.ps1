@@ -11,16 +11,16 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot   = $PSScriptRoot
 $WebappDir  = Join-Path $RepoRoot 'webapp'
 
-Write-Host "`n╔══════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║   Starting Webapp locally on :5000       ║" -ForegroundColor Cyan
-Write-Host "╚══════════════════════════════════════════╝`n" -ForegroundColor Cyan
+Write-Host "`n+==========================================+" -ForegroundColor Cyan
+Write-Host "|   Starting Webapp locally on :5000       |" -ForegroundColor Cyan
+Write-Host "+==========================================+`n" -ForegroundColor Cyan
 
 # 1. npm install
 Write-Host "[1/2] Installing dependencies..." -ForegroundColor Yellow
 Push-Location $WebappDir
 try {
     npm install --silent 2>&1 | Out-Null
-    Write-Host "      npm install ✓" -ForegroundColor Green
+    Write-Host "      npm install done" -ForegroundColor Green
 } finally {
     Pop-Location
 }
@@ -33,6 +33,8 @@ $env:NODE_ENV         = 'development'
 $env:SESSION_SECRET   = 'local-dev-secret-change-me'
 
 Write-Host "      Press Ctrl+C to stop.`n" -ForegroundColor DarkGray
+
+Start-Process "http://localhost:5000"
 
 Push-Location $WebappDir
 try {
