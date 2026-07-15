@@ -1,14 +1,25 @@
 <#
 .SYNOPSIS
-  Combined HA Long+Short Signal with CE+PE Option Auto-Trade (zero-latency).
+  Liquidity Sweep Strategy with CE+PE Option Auto-Trade (zero-latency).
 .DESCRIPTION
-  Streams live HA candles via Kite WebSocket. Trades both directions:
-  - Long entry (HA Close > prev High) -> BUY CE, exit when HA Close < prev Low -> SELL CE
-  - Short entry (HA Close < prev Low) -> BUY PE, exit when HA Close > prev High -> SELL PE
+  Streams live HA candles via Kite WebSocket. Detects liquidity sweeps using pivot highs/lows
+  over last 5, 10, 20 candles. After a sweep, waits for the sweep candle to confirm direction:
+  
+  FLOW:
+  1. Identify pivot highs (swing highs) and pivot lows (swing lows) over lookback windows (5, 10, 20 candles)
+  2. Detect liquidity sweep: price takes out a pivot high or pivot low then reverses
+  3. Note the sweep candle (the candle that performed the sweep)
+  4. Wait for confirmation: sweep candle's high/low must be crossed by a subsequent candle
+  5. Entry:
+     - Upside sweep (took out pivot high) + sweep candle LOW broken -> SHORT entry -> BUY PE
+     - Downside sweep (took out pivot low) + sweep candle HIGH broken -> LONG entry -> BUY CE
+  6. Exit:
+     - Long exit: HA Close < prev Low -> SELL CE
+     - Short exit: HA Close > prev High -> SELL PE
   Only one direction is active at a time.
 .EXAMPLE
-  .\Long-Short-Combined.ps1
-  .\Long-Short-Combined.ps1 -TradingSymbol BANKNIFTY -TimeFrame 5minute
+  .\Liquidity-Sweep-Combined.ps1
+  .\Liquidity-Sweep-Combined.ps1 -TradingSymbol BANKNIFTY -TimeFrame 5minute
 #>
 
 param(
@@ -51,8 +62,8 @@ $ErrorActionPreference = 'Stop'
 $scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Definition }
 Import-Module "$scriptDir\KiteData.psm1" -Force -warningaction SilentlyContinue
 
-$inputFile = Join-Path $scriptDir 'input.json'
-if (-not (Test-Path $inputFile)) { Write-Host '  ERROR: input.json not found.' -ForegroundColor Red; exit 1 }
+$inputFile = Join-Path $scriptDir 'Liquidity-sweep-input.json'
+if (-not (Test-Path $inputFile)) { Write-Host '  ERROR: Liquidity-sweep-input.json not found.' -ForegroundColor Red; exit 1 }
 $cfg = Get-Content $inputFile -Raw | ConvertFrom-Json
 
 # Load params from input.json; command-line overrides take priority
@@ -183,6 +194,25 @@ $script:OptEntryLTP    = 0
 $script:OptQty         = 0
 $script:OptLots        = 0
 $script:OptType        = ''  # 'CE' or 'PE'
+$script:TargetPrice    = 0.0  # Nearest swing high (LONG) or swing low (SHORT)
+$script:StopLoss       = 0.0  # Sweep candle HIGH (SHORT) or LOW (LONG)
+
+# ================================================================
+# Liquidity Sweep state
+# ================================================================
+# Sweep detection state machine:
+#   Phase '' = scanning for sweeps
+#   Phase 'SWEEP_UP' = upside liquidity taken, waiting for sweep candle LOW to break -> SHORT
+#   Phase 'SWEEP_DOWN' = downside liquidity taken, waiting for sweep candle HIGH to break -> LONG
+$script:SweepPhase        = ''       # '' | 'SWEEP_UP' | 'SWEEP_DOWN'
+$script:SweepCandle       = $null    # The HA candle that performed the sweep
+$script:SweepPivotLevel   = 0       # The pivot level that was swept
+$script:SweepLookback     = 0       # Which lookback window triggered the sweep
+$script:SweepTime         = ''       # When the sweep was detected
+$script:SweepCandleCount  = 0       # Completed candle count at sweep detection (for timeout)
+
+# Lookback windows for pivot detection
+$script:PivotLookbacks = @(5, 10, 20)
 
 # Restore position
 $PositionFile = Join-Path $PlacedOrdersDir 'Position.json'
@@ -215,7 +245,9 @@ if (Test-Path $PositionFile) {
         $script:OptLots     = if ($saved.Lots) { [int]$saved.Lots } else { $NoOfLotsPurchaseAtaTime }
         $script:OptType     = $saved.OptType
         $script:TotalPnL    = if ($saved.TotalPnL) { $saved.TotalPnL } else { 0 }
-        Write-Host "  Resuming: $($script:Direction) | $($script:OptSymbol) | Qty: $($script:OptQty)" -ForegroundColor Yellow
+        $script:TargetPrice = if ($saved.TargetPrice) { $saved.TargetPrice } else { 0 }
+        $script:StopLoss    = if ($saved.StopLoss) { $saved.StopLoss } else { 0 }
+        Write-Host "  Resuming: $($script:Direction) | $($script:OptSymbol) | Qty: $($script:OptQty) | TGT: $($script:TargetPrice) | SL: $($script:StopLoss)" -ForegroundColor Yellow
     }
 }
 
@@ -239,6 +271,66 @@ function script:Convert-ToHA([hashtable]$rawCandle, [hashtable]$previousHA) {
 }
 
 # ================================================================
+# Pivot detection helpers
+# ================================================================
+function script:Find-PivotHighs([System.Collections.Generic.List[PSCustomObject]]$candles, [int]$lookback) {
+    # Find pivot highs: a candle whose High is the highest in the lookback window around it
+    $pivots = @()
+    $count = $candles.Count
+    if ($count -lt 3) { return $pivots }
+    
+    $halfLook = [int][Math]::Floor($lookback / 2)
+    if ($halfLook -lt 1) { $halfLook = 1 }
+    
+    # Only scan completed candles, leave room for left+right context
+    $startIdx = [Math]::Max($halfLook, 0)
+    $endIdx = $count - 1  # Don't require right context for the latest candles
+    
+    for ($i = $startIdx; $i -lt $endIdx; $i++) {
+        $isHighest = $true
+        $leftStart = [Math]::Max(0, $i - $halfLook)
+        $rightEnd = [Math]::Min($count - 1, $i + $halfLook)
+        
+        for ($j = $leftStart; $j -le $rightEnd; $j++) {
+            if ($j -eq $i) { continue }
+            if ($candles[$j].High -ge $candles[$i].High) { $isHighest = $false; break }
+        }
+        if ($isHighest) {
+            $pivots += @{ Index=$i; Level=$candles[$i].High; TimeBucket=$candles[$i].TimeBucket; Lookback=$lookback }
+        }
+    }
+    return $pivots
+}
+
+function script:Find-PivotLows([System.Collections.Generic.List[PSCustomObject]]$candles, [int]$lookback) {
+    # Find pivot lows: a candle whose Low is the lowest in the lookback window around it
+    $pivots = @()
+    $count = $candles.Count
+    if ($count -lt 3) { return $pivots }
+    
+    $halfLook = [int][Math]::Floor($lookback / 2)
+    if ($halfLook -lt 1) { $halfLook = 1 }
+    
+    $startIdx = [Math]::Max($halfLook, 0)
+    $endIdx = $count - 1
+    
+    for ($i = $startIdx; $i -lt $endIdx; $i++) {
+        $isLowest = $true
+        $leftStart = [Math]::Max(0, $i - $halfLook)
+        $rightEnd = [Math]::Min($count - 1, $i + $halfLook)
+        
+        for ($j = $leftStart; $j -le $rightEnd; $j++) {
+            if ($j -eq $i) { continue }
+            if ($candles[$j].Low -le $candles[$i].Low) { $isLowest = $false; break }
+        }
+        if ($isLowest) {
+            $pivots += @{ Index=$i; Level=$candles[$i].Low; TimeBucket=$candles[$i].TimeBucket; Lookback=$lookback }
+        }
+    }
+    return $pivots
+}
+
+# ================================================================
 # Helper: Enter position
 # ================================================================
 function script:Enter-Position([string]$dir, [double]$spotPrice, [string]$timeStamp) {
@@ -248,7 +340,6 @@ function script:Enter-Position([string]$dir, [double]$spotPrice, [string]$timeSt
     $offset  = if ($dir -eq 'LONG') { -$ATMOffset } else { $ATMOffset }
     $tag     = "$optType-ENTRY"
 
-    # Always use the index spot price for ATM strike selection (not the tick price, which may be an option premium)
     $idxSpot = Get-KiteSpotPrice -SpotQuoteKey $IndexConfig.SpotQuoteKey -Headers $headers
     if ($idxSpot -le 0) {
         Write-Host "  [$(Get-Date -Format 'HH:mm:ss.fff')] Could not fetch index spot price for ATM selection. Using tick price." -ForegroundColor Yellow
@@ -291,7 +382,7 @@ function script:Enter-Position([string]$dir, [double]$spotPrice, [string]$timeSt
         $script:OptQty      = $entryQty
         $script:OptLots     = $entryLots
         $script:OptType     = $optType
-        @{ Direction=$dir; Symbol=$script:OptSymbol; Token=$script:OptToken; Strike=$script:OptStrike; Price=$spotPrice; Time=$timeStamp; OptionLTP=$optLTP; TotalPnL=$script:TotalPnL; Qty=$entryQty; Lots=$entryLots; OptType=$optType } | ConvertTo-Json | Set-Content $PositionFile -Force
+        @{ Direction=$dir; Symbol=$script:OptSymbol; Token=$script:OptToken; Strike=$script:OptStrike; Price=$spotPrice; Time=$timeStamp; OptionLTP=$optLTP; TotalPnL=$script:TotalPnL; Qty=$entryQty; Lots=$entryLots; OptType=$optType; TargetPrice=$script:TargetPrice; StopLoss=$script:StopLoss } | ConvertTo-Json | Set-Content $PositionFile -Force
         $latency = ((Get-Date) - $now).TotalMilliseconds
         Write-Host "  [$(Get-Date -Format 'HH:mm:ss.fff')] POSITION OPENED in ${latency}ms | $dir $($script:OptSymbol) | Strike: $($script:OptStrike) | Qty: $entryQty | LTP: $optLTP" -ForegroundColor Green
         return $true
@@ -338,54 +429,215 @@ function script:Exit-Position([double]$lastPrice, [string]$timeStamp) {
     $script:Direction = ''; $script:EntryPrice = 0; $script:EntryTime = ''
     $script:OptSymbol = ''; $script:OptToken = 0; $script:OptStrike = 0
     $script:OptEntryLTP = 0; $script:OptQty = 0; $script:OptLots = 0; $script:OptType = ''
+    $script:TargetPrice = 0; $script:StopLoss = 0
     Remove-Item $PositionFile -Force -ErrorAction SilentlyContinue
 }
 
 # ================================================================
-# CORE: Check signals + trade
+# CORE: Liquidity Sweep Signal Detection + Trade
 # ================================================================
 function script:Check-SignalAndTrade([int]$instrumentToken, [double]$lastPrice) {
     $completedList = $script:STR_CompletedCandles[$instrumentToken]
-    if (-not $completedList -or $completedList.Count -lt 1) { return }
+    if (-not $completedList -or $completedList.Count -lt 3) { return }
 
-    $prev = $completedList[$completedList.Count - 1]
     $currentRaw = $script:STR_ActiveCandle[$instrumentToken]
     if ($null -eq $currentRaw) { return }
 
     $liveHA = script:Convert-ToHA $currentRaw ($script:STR_PreviousHA[$instrumentToken])
+    $prev = $completedList[$completedList.Count - 1]
 
     $now = [datetime]::Now
     if ($now.TimeOfDay -lt $StartTime.TimeOfDay -or $now.TimeOfDay -gt $StopTime.TimeOfDay) { return }
     $timeStamp = $now.ToString('yyyy-MM-dd_HH-mm-ss')
 
-    # -- LONG ENTRY: HA Close > prev High (only if flat) --
-    if ($script:Direction -eq '' -and $liveHA.Close -gt $prev.High) {
-        Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** LONG ENTRY *** LTP: $lastPrice | HA Close: $([Math]::Round($liveHA.Close,2)) > Prev High: $($prev.High)" -ForegroundColor Yellow
-        $ok = script:Enter-Position 'LONG' $lastPrice $timeStamp
-        if ($ok) { $script:StrategySignals.Add("ENTRY LONG @ $lastPrice  CE: $($script:OptSymbol) ($timeStamp)") }
-        return
-    }
+    # ── EXIT CHECKS (always check first, regardless of sweep phase) ──
 
-    # -- SHORT ENTRY: HA Close < prev Low (only if flat) --
-    if ($script:Direction -eq '' -and $liveHA.Close -lt $prev.Low) {
-        Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** SHORT ENTRY *** LTP: $lastPrice | HA Close: $([Math]::Round($liveHA.Close,2)) < Prev Low: $($prev.Low)" -ForegroundColor Yellow
-        $ok = script:Enter-Position 'SHORT' $lastPrice $timeStamp
-        if ($ok) { $script:StrategySignals.Add("ENTRY SHORT @ $lastPrice  PE: $($script:OptSymbol) ($timeStamp)") }
-        return
-    }
-
-    # -- LONG EXIT: HA Close < prev Low --
-    if ($script:Direction -eq 'LONG' -and $liveHA.Close -lt $prev.Low) {
-        Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** LONG EXIT *** LTP: $lastPrice | HA Close: $([Math]::Round($liveHA.Close,2)) < Prev Low: $($prev.Low)" -ForegroundColor Yellow
+    # -- LONG TARGET: LTP reaches target (nearest swing high) --
+    if ($script:Direction -eq 'LONG' -and $script:TargetPrice -gt 0 -and $lastPrice -ge $script:TargetPrice) {
+        Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** LONG TARGET HIT *** LTP: $lastPrice >= Target: $($script:TargetPrice)" -ForegroundColor Green
+        $script:StrategySignals.Add("TARGET HIT LONG @ $lastPrice  Target: $($script:TargetPrice) ($timeStamp)")
         script:Exit-Position $lastPrice $timeStamp
+        $script:SweepPhase = ''; $script:SweepCandle = $null
+        $script:TargetPrice = 0; $script:StopLoss = 0
         return
     }
 
-    # -- SHORT EXIT: HA Close > prev High --
-    if ($script:Direction -eq 'SHORT' -and $liveHA.Close -gt $prev.High) {
-        Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** SHORT EXIT *** LTP: $lastPrice | HA Close: $([Math]::Round($liveHA.Close,2)) > Prev High: $($prev.High)" -ForegroundColor Yellow
+    # -- LONG STOPLOSS: LTP drops below stoploss (sweep candle LOW) --
+    if ($script:Direction -eq 'LONG' -and $script:StopLoss -gt 0 -and $lastPrice -le $script:StopLoss) {
+        Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** LONG STOPLOSS HIT *** LTP: $lastPrice <= SL: $($script:StopLoss)" -ForegroundColor Red
+        $script:StrategySignals.Add("STOPLOSS LONG @ $lastPrice  SL: $($script:StopLoss) ($timeStamp)")
         script:Exit-Position $lastPrice $timeStamp
+        $script:SweepPhase = ''; $script:SweepCandle = $null
+        $script:TargetPrice = 0; $script:StopLoss = 0
         return
+    }
+
+    # -- SHORT TARGET: LTP drops to target (nearest swing low) --
+    if ($script:Direction -eq 'SHORT' -and $script:TargetPrice -gt 0 -and $lastPrice -le $script:TargetPrice) {
+        Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** SHORT TARGET HIT *** LTP: $lastPrice <= Target: $($script:TargetPrice)" -ForegroundColor Green
+        $script:StrategySignals.Add("TARGET HIT SHORT @ $lastPrice  Target: $($script:TargetPrice) ($timeStamp)")
+        script:Exit-Position $lastPrice $timeStamp
+        $script:SweepPhase = ''; $script:SweepCandle = $null
+        $script:TargetPrice = 0; $script:StopLoss = 0
+        return
+    }
+
+    # -- SHORT STOPLOSS: LTP rises above stoploss (sweep candle HIGH) --
+    if ($script:Direction -eq 'SHORT' -and $script:StopLoss -gt 0 -and $lastPrice -ge $script:StopLoss) {
+        Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** SHORT STOPLOSS HIT *** LTP: $lastPrice >= SL: $($script:StopLoss)" -ForegroundColor Red
+        $script:StrategySignals.Add("STOPLOSS SHORT @ $lastPrice  SL: $($script:StopLoss) ($timeStamp)")
+        script:Exit-Position $lastPrice $timeStamp
+        $script:SweepPhase = ''; $script:SweepCandle = $null
+        $script:TargetPrice = 0; $script:StopLoss = 0
+        return
+    }
+
+    # ── Only look for new entries when flat ──
+    if ($script:Direction -ne '') { return }
+
+    # ── PHASE 2: Waiting for sweep candle confirmation ──
+    $sweepConfirmed = $false
+    if ($script:SweepPhase -eq 'SWEEP_UP' -and $null -ne $script:SweepCandle) {
+        # Upside liquidity was swept. Wait for sweep candle's LOW to break -> SHORT
+        if ($liveHA.Close -lt $script:SweepCandle.Low) {
+            Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** SWEEP SHORT CONFIRMED *** Sweep candle LOW broken: $([Math]::Round($liveHA.Close,2)) < $($script:SweepCandle.Low) | Pivot: $($script:SweepPivotLevel) (LB:$($script:SweepLookback))" -ForegroundColor Magenta
+            $ok = script:Enter-Position 'SHORT' $lastPrice $timeStamp
+            if ($ok) {
+                # Stoploss = sweep candle HIGH; Target = nearest swing low below entry
+                $script:StopLoss = $script:SweepCandle.High
+                $nearestSwingLow = 0
+                foreach ($lb in $script:PivotLookbacks) {
+                    $pls = script:Find-PivotLows $completedList $lb
+                    foreach ($pl in $pls) {
+                        if ($pl.Level -lt $lastPrice -and ($nearestSwingLow -eq 0 -or $pl.Level -gt $nearestSwingLow)) {
+                            $nearestSwingLow = $pl.Level
+                        }
+                    }
+                }
+                $script:TargetPrice = $nearestSwingLow
+                Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] TARGET: $($script:TargetPrice) (nearest swing low) | SL: $($script:StopLoss) (sweep candle HIGH)" -ForegroundColor Cyan
+                $script:StrategySignals.Add("ENTRY SHORT (SWEEP_UP confirm) @ $lastPrice  PE: $($script:OptSymbol) Pivot:$($script:SweepPivotLevel) TGT:$($script:TargetPrice) SL:$($script:StopLoss) ($timeStamp)")
+            }
+            $script:SweepPhase = ''
+            $script:SweepCandle = $null
+            return
+        }
+        $sweepConfirmed = $false  # not confirmed yet, but allow Phase 1 to scan opposite direction
+    }
+
+    if ($script:SweepPhase -eq 'SWEEP_DOWN' -and $null -ne $script:SweepCandle) {
+        # Downside liquidity was swept. Wait for sweep candle's HIGH to break -> LONG
+        if ($liveHA.Close -gt $script:SweepCandle.High) {
+            Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** SWEEP LONG CONFIRMED *** Sweep candle HIGH broken: $([Math]::Round($liveHA.Close,2)) > $($script:SweepCandle.High) | Pivot: $($script:SweepPivotLevel) (LB:$($script:SweepLookback))" -ForegroundColor Magenta
+            $ok = script:Enter-Position 'LONG' $lastPrice $timeStamp
+            if ($ok) {
+                # Stoploss = sweep candle LOW; Target = nearest swing high above entry
+                $script:StopLoss = $script:SweepCandle.Low
+                $nearestSwingHigh = 0
+                foreach ($lb in $script:PivotLookbacks) {
+                    $phs = script:Find-PivotHighs $completedList $lb
+                    foreach ($ph in $phs) {
+                        if ($ph.Level -gt $lastPrice -and ($nearestSwingHigh -eq 0 -or $ph.Level -lt $nearestSwingHigh)) {
+                            $nearestSwingHigh = $ph.Level
+                        }
+                    }
+                }
+                $script:TargetPrice = $nearestSwingHigh
+                Write-Host "  [$($now.ToString('HH:mm:ss.fff'))] TARGET: $($script:TargetPrice) (nearest swing high) | SL: $($script:StopLoss) (sweep candle LOW)" -ForegroundColor Cyan
+                $script:StrategySignals.Add("ENTRY LONG (SWEEP_DOWN confirm) @ $lastPrice  CE: $($script:OptSymbol) Pivot:$($script:SweepPivotLevel) TGT:$($script:TargetPrice) SL:$($script:StopLoss) ($timeStamp)")
+            }
+            $script:SweepPhase = ''
+            $script:SweepCandle = $null
+            return
+        }
+        $sweepConfirmed = $false
+    }
+
+    # ── Sweep timeout: invalidate if not confirmed within 5 candles ──
+    if ($script:SweepPhase -ne '' -and $script:SweepCandleCount -gt 0) {
+        $candlesSinceSweep = $completedList.Count - $script:SweepCandleCount
+        if ($candlesSinceSweep -ge 5) {
+            Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] ** SWEEP EXPIRED ** $($script:SweepPhase) not confirmed within 5 candles ($candlesSinceSweep), resetting" -ForegroundColor DarkYellow
+            $script:StrategySignals.Add("SWEEP EXPIRED: $($script:SweepPhase) @ Pivot:$($script:SweepPivotLevel) ($timeStamp)")
+            $script:SweepPhase = ''
+            $script:SweepCandle = $null
+        }
+    }
+
+    # ── PHASE 1: Scan for liquidity sweeps (both directions always) ──
+    # Only allow new sweep detection if no current sweep, or at least 1 candle completed since current sweep
+    # This prevents ping-pong between UP/DOWN when both sweep conditions are simultaneously valid
+    if ($script:SweepPhase -ne '' -and $script:SweepCandleCount -gt 0 -and ($completedList.Count - $script:SweepCandleCount) -lt 1) {
+        return
+    }
+    $candleCount = $completedList.Count
+    
+    foreach ($lookback in $script:PivotLookbacks) {
+        if ($candleCount -lt ($lookback + 2)) { continue }
+
+        # Get the relevant window of candles for this lookback
+        $windowStart = [Math]::Max(0, $candleCount - $lookback - 5)
+        # Work with the full completed candle list for pivot detection
+        
+        # Find pivot highs
+        $pivotHighs = script:Find-PivotHighs $completedList $lookback
+        # Find pivot lows
+        $pivotLows = script:Find-PivotLows $completedList $lookback
+
+        # Check if current live HA candle sweeps above any recent pivot high
+        # Skip if we're already tracking an upside sweep in Phase 2
+        if ($script:SweepPhase -ne 'SWEEP_UP') {
+        foreach ($ph in $pivotHighs) {
+            # Only consider pivots from the last N candles
+            if ($ph.Index -lt ($candleCount - $lookback - 2)) { continue }
+            
+            # Upside sweep: live HA high goes above pivot high, but close comes back below or near it
+            if ($liveHA.High -gt $ph.Level -and $liveHA.Close -le $ph.Level) {
+                # This is an upside liquidity sweep! 
+                $script:SweepPhase = 'SWEEP_UP'
+                $script:SweepCandle = @{
+                    High = [Math]::Round($liveHA.High, 2)
+                    Low  = [Math]::Round($liveHA.Low, 2)
+                    Open = [Math]::Round($liveHA.Open, 2)
+                    Close = [Math]::Round($liveHA.Close, 2)
+                }
+                $script:SweepPivotLevel = $ph.Level
+                $script:SweepLookback = $lookback
+                $script:SweepTime = $timeStamp
+                $script:SweepCandleCount = $completedList.Count
+                Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] ** UPSIDE SWEEP DETECTED ** HA High: $([Math]::Round($liveHA.High,2)) > Pivot High: $($ph.Level) | Close back: $([Math]::Round($liveHA.Close,2)) | LB: $lookback" -ForegroundColor DarkCyan
+                $script:StrategySignals.Add("SWEEP UP detected @ Pivot:$($ph.Level) LB:$lookback ($timeStamp)")
+                return
+            }
+        }
+        }
+
+        # Check if current live HA candle sweeps below any recent pivot low
+        # Skip if we're already tracking a downside sweep in Phase 2
+        if ($script:SweepPhase -ne 'SWEEP_DOWN') {
+        foreach ($pl in $pivotLows) {
+            if ($pl.Index -lt ($candleCount - $lookback - 2)) { continue }
+            
+            # Downside sweep: live HA low goes below pivot low, but close comes back above or near it
+            if ($liveHA.Low -lt $pl.Level -and $liveHA.Close -ge $pl.Level) {
+                # This is a downside liquidity sweep!
+                $script:SweepPhase = 'SWEEP_DOWN'
+                $script:SweepCandle = @{
+                    High = [Math]::Round($liveHA.High, 2)
+                    Low  = [Math]::Round($liveHA.Low, 2)
+                    Open = [Math]::Round($liveHA.Open, 2)
+                    Close = [Math]::Round($liveHA.Close, 2)
+                }
+                $script:SweepPivotLevel = $pl.Level
+                $script:SweepLookback = $lookback
+                $script:SweepTime = $timeStamp
+                $script:SweepCandleCount = $completedList.Count
+                Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] ** DOWNSIDE SWEEP DETECTED ** HA Low: $([Math]::Round($liveHA.Low,2)) < Pivot Low: $($pl.Level) | Close back: $([Math]::Round($liveHA.Close,2)) | LB: $lookback" -ForegroundColor DarkCyan
+                $script:StrategySignals.Add("SWEEP DOWN detected @ Pivot:$($pl.Level) LB:$lookback ($timeStamp)")
+                return
+            }
+        }
+        }
     }
 }
 
@@ -414,6 +666,26 @@ function script:Update-StrategyFromTick([int]$instrumentToken, [double]$lastPric
                 Volume=$currentCandle.Volume; OpenInterest=$currentCandle.OpenInterest
                 TicksInCandle=$currentCandle.TicksInCandle
             })
+            
+            # When a candle completes and we're in a sweep phase, update sweep candle
+            # to the just-completed candle's FINAL HA values (only the actual sweep candle)
+            if ($script:SweepPhase -ne '' -and $null -ne $script:SweepCandle -and $script:SweepTime -ne '') {
+                # SweepTime format: yyyy-MM-dd_HH-mm-ss, TimeBucket format: yyyy-MM-dd HH:mm:ss
+                # Convert SweepTime to TimeBucket prefix for matching (just date + hour:minute)
+                $sweepTB = $script:SweepTime.Substring(0,16) -replace '_',' ' -replace '-',':'
+                # Fix: only first dash after date should remain, rest become colons
+                $sweepTBPrefix = $script:SweepTime.Substring(0,10) + ' ' + $script:SweepTime.Substring(11,2) + ':' + $script:SweepTime.Substring(14,2)
+                if ($currentCandle.TimeBucket.StartsWith($sweepTBPrefix)) {
+                    $completedHA = $script:STR_CompletedCandles[$instrumentToken]
+                    $lastCompleted = $completedHA[$completedHA.Count - 1]
+                    $script:SweepCandle = @{
+                        High = $lastCompleted.High
+                        Low  = $lastCompleted.Low
+                        Open = $lastCompleted.Open
+                        Close = $lastCompleted.Close
+                    }
+                }
+            }
         }
         $script:STR_ActiveCandle[$instrumentToken] = @{
             TimeBucket=$timeBucket; Open=$lastPrice; High=$lastPrice; Low=$lastPrice; Close=$lastPrice
@@ -470,7 +742,7 @@ function script:Render-StrategyDisplay([int]$instrumentToken) {
     $sb = [System.Text.StringBuilder]::new(2048)
     $null = $sb.AppendLine('')
     $null = $sb.AppendLine("  ================================================")
-    $null = $sb.AppendLine("  $($config.SymbolLabel) - HA Long+Short | CE+PE Auto-Trade")
+    $null = $sb.AppendLine("  $($config.SymbolLabel) - Liquidity Sweep | CE+PE Auto-Trade")
     $null = $sb.AppendLine("  ================================================")
     $null = $sb.AppendLine("  Symbol  : $($config.SymbolName)  |  Token: $($config.InstrumentToken)  |  TF: $($config.TimeFrame)")
     if ($AmountToTrade -gt 0) {
@@ -482,14 +754,28 @@ function script:Render-StrategyDisplay([int]$instrumentToken) {
     $null = $sb.AppendLine("  Candles : $($allCandles.Count) total | Showing $($visibleCandles.Count)")
     $null = $sb.AppendLine("  Time    : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff')")
 
+    # Sweep state display
+    if ($script:SweepPhase -ne '') {
+        $sweepDir = if ($script:SweepPhase -eq 'SWEEP_UP') { 'UPSIDE SWEPT' } else { 'DOWNSIDE SWEPT' }
+        $waitFor = if ($script:SweepPhase -eq 'SWEEP_UP') { "Wait: Close < SweepLow $($script:SweepCandle.Low)" } else { "Wait: Close > SweepHigh $($script:SweepCandle.High)" }
+        $null = $sb.AppendLine("  SWEEP   : $sweepDir | Pivot: $($script:SweepPivotLevel) | LB: $($script:SweepLookback) | $waitFor")
+    } else {
+        $null = $sb.AppendLine("  SWEEP   : Scanning for pivot sweeps (LB: $($script:PivotLookbacks -join ', '))")
+    }
+
     if ($script:Direction -ne '') {
         $null = $sb.AppendLine("  POSITION: $($script:Direction) ACTIVE  $($script:OptType): $($script:OptSymbol)  Strike: $($script:OptStrike)  Lots: $($script:OptLots)  Qty: $($script:OptQty)  Entry: $($script:EntryPrice.ToString('N2')) @ $($script:EntryTime)  OptLTP: $($script:OptEntryLTP)")
         if ($null -ne $currentCandle) {
             $unrealized = if ($script:Direction -eq 'LONG') { $currentCandle.Close - $script:EntryPrice } else { $script:EntryPrice - $currentCandle.Close }
             $null = $sb.AppendLine("  LTP     : $($currentCandle.Close.ToString('N2'))  |  Unrealized Spot P&L: $($unrealized.ToString('N2'))")
         }
+        if ($script:TargetPrice -gt 0 -or $script:StopLoss -gt 0) {
+            $tgtStr = if ($script:TargetPrice -gt 0) { $script:TargetPrice.ToString('N2') } else { 'N/A' }
+            $slStr  = if ($script:StopLoss -gt 0)    { $script:StopLoss.ToString('N2') }    else { 'N/A' }
+            $null = $sb.AppendLine("  TGT/SL  : Target: $tgtStr (nearest swing $( if ($script:Direction -eq 'LONG') {'high'} else {'low'} )) | StopLoss: $slStr (sweep candle $( if ($script:Direction -eq 'LONG') {'LOW'} else {'HIGH'} ))")
+        }
     } else {
-        $null = $sb.AppendLine("  POSITION: FLAT  (Waiting for signal)")
+        $null = $sb.AppendLine("  POSITION: FLAT  (Waiting for sweep confirmation)")
         if ($null -ne $currentCandle) {
             $null = $sb.AppendLine("  LTP     : $($currentCandle.Close.ToString('N2'))  |  Day O/H/L/C: $($currentCandle.DayOpen.ToString('N2'))/$($currentCandle.DayHigh.ToString('N2'))/$($currentCandle.DayLow.ToString('N2'))/$($currentCandle.DayClose.ToString('N2'))")
         }
@@ -513,10 +799,10 @@ function script:Render-StrategyDisplay([int]$instrumentToken) {
     }
 
     if ($script:StrategySignals.Count -gt 0) {
-        Write-Host ''; Write-Host '  --- Trade Signals ---' -ForegroundColor Cyan
-        $show = [Math]::Min(8, $script:StrategySignals.Count)
+        Write-Host ''; Write-Host '  --- Sweep Signals ---' -ForegroundColor Cyan
+        $show = [Math]::Min(10, $script:StrategySignals.Count)
         for ($si = $script:StrategySignals.Count - $show; $si -lt $script:StrategySignals.Count; $si++) {
-            $sigColor = if ($script:StrategySignals[$si] -match 'ENTRY') { 'Green' } else { 'Red' }
+            $sigColor = if ($script:StrategySignals[$si] -match 'ENTRY') { 'Green' } elseif ($script:StrategySignals[$si] -match 'SWEEP') { 'DarkCyan' } else { 'Red' }
             Write-Host "    $($script:StrategySignals[$si])" -ForegroundColor $sigColor
         }
     }
@@ -542,15 +828,77 @@ function script:Force-ExitAtStopTime {
 # ================================================================
 # WebSocket
 # ================================================================
+# Set global header for Get-HeikinAshiCandlesData (uses $Global:common_header)
+$Global:common_header = $headers
+
+# ================================================================
+# Seed historical HA candles via REST API (so pivots work immediately)
+# ================================================================
+# Convert TimeFrame (minute, 3minute, 5minute, etc.) to numeric format for Get-HeikinAshiCandlesData
+$histTF = if ($TimeFrame -eq 'minute') { '1' } elseif ($TimeFrame -match '^(\d+)minute$') { $Matches[1] } else { '5' }
+
+# Fetch enough candles to cover the largest lookback window + buffer
+$histCount = ($script:PivotLookbacks | Measure-Object -Maximum).Maximum + 10
+Write-Host "  Fetching $histCount historical HA candles ($TimeFrame)..." -ForegroundColor Yellow
+
+$histCandles = Get-HeikinAshiCandlesData -instrument_token $instToken -TimeFrame $histTF -LastNCandles $histCount
+
+if ($histCandles -and $histCandles.Count -gt 0) {
+    # Seed completed candles list
+    if (-not $script:STR_CompletedCandles.ContainsKey($instToken)) {
+        $script:STR_CompletedCandles[$instToken] = [System.Collections.Generic.List[PSCustomObject]]::new()
+    }
+
+    # Drop the last candle (it may still be forming in the current time bucket)
+    $seedCandles = if ($histCandles.Count -gt 1) { $histCandles[0..($histCandles.Count - 2)] } else { $histCandles }
+
+    foreach ($hc in $seedCandles) {
+        $ts = if ($hc.TimeStamp -is [datetime]) { $hc.TimeStamp.ToString('yyyy-MM-dd HH:mm:ss') } else { [string]$hc.TimeStamp }
+        $script:STR_CompletedCandles[$instToken].Add([PSCustomObject]@{
+            TimeBucket  = $ts
+            Open        = [Math]::Round($hc.Open, 2)
+            High        = [Math]::Round($hc.High, 2)
+            Low         = [Math]::Round($hc.Low, 2)
+            Close       = [Math]::Round($hc.Close, 2)
+            Volume      = 0
+            OpenInterest = 0
+            TicksInCandle = 0
+        })
+    }
+
+    # Set PreviousHA from the last seeded candle so live HA continues smoothly
+    $lastSeeded = $seedCandles[-1]
+    $script:STR_PreviousHA[$instToken] = @{
+        Open  = [double]$lastSeeded.Open
+        High  = [double]$lastSeeded.High
+        Low   = [double]$lastSeeded.Low
+        Close = [double]$lastSeeded.Close
+    }
+
+    Write-Host "  Seeded $($script:STR_CompletedCandles[$instToken].Count) historical HA candles (pivots ready)" -ForegroundColor Green
+
+    # Show last few seeded candles
+    $showCount = [Math]::Min(5, $script:STR_CompletedCandles[$instToken].Count)
+    $startIdx = $script:STR_CompletedCandles[$instToken].Count - $showCount
+    for ($si = $startIdx; $si -lt $script:STR_CompletedCandles[$instToken].Count; $si++) {
+        $sc = $script:STR_CompletedCandles[$instToken][$si]
+        $trend = if ($sc.Close -ge $sc.Open) { 'UP' } else { 'DN' }
+        Write-Host "    $($sc.TimeBucket) | O:$($sc.Open) H:$($sc.High) L:$($sc.Low) C:$($sc.Close) [$trend]" -ForegroundColor DarkGray
+    }
+} else {
+    Write-Host "  Could not fetch historical candles - will build from live ticks (pivots need $histCount candles)" -ForegroundColor DarkYellow
+}
+
 $wsUri = "wss://ws.kite.trade?api_key=$API_Key&access_token=$AccessToken"
 $modeStr = if ($FullMode) { 'full' } else { 'quote' }
 
 Write-Host ''
 Write-Host '  ============================================================' -ForegroundColor Cyan
-Write-Host '  COMBINED: HA Long+Short | CE+PE Auto-Trade (Zero Latency)' -ForegroundColor Cyan
+Write-Host '  LIQUIDITY SWEEP | CE+PE Auto-Trade (Zero Latency)' -ForegroundColor Cyan
 Write-Host '  ============================================================' -ForegroundColor Cyan
 Write-Host "  Symbol   : $label ($sym) | Token: $instToken"
 Write-Host "  TimeFrame: $TimeFrame ($intLabel) | Expiry: $nearestExpiry"
+Write-Host "  Pivots   : Lookback windows: $($script:PivotLookbacks -join ', ') candles | Seeded: $($script:STR_CompletedCandles[$instToken].Count) HA candles"
 if ($AmountToTrade -gt 0) { Write-Host "  Trade    : Amount: $AmountToTrade | LotSize: $LotSize" }
 else { Write-Host "  Trade    : Lots: $NoOfLotsPurchaseAtaTime | Qty: $Quantity" }
 Write-Host "  Product  : $Product | Order: $Order_type | Mode: $modeStr"

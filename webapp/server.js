@@ -792,7 +792,7 @@ app.get('/api/positions', async (req, res) => {
 app.get('/api/orders', async (req, res) => {
     if (!req.session.accessToken) return res.status(401).json({ error: 'Not logged in' });
     try {
-        const r = await axios.get(`${KITE_BASE_URL}/orders`, { headers: kiteHeaders(req.session.apiKey, req.session.accessToken) });
+        const r = await axios.get(`${KITE_BASE_URL}/orders`, { headers: kiteHeaders(req.session.apiKey, req.session.accessToken), timeout: 5000 });
         res.json(r.data.data);
     } catch (e) { res.status(500).json({ error: e.response?.data?.message || e.message }); }
 });
@@ -878,6 +878,40 @@ app.post('/api/config', (req, res) => {
 // ── Per-user PS1 process tracking ──
 const activeProcesses = new Map(); // userId → { proc, status }
 
+// ── Check if saved position exists ──
+app.get('/api/bot/position', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    const posFile = path.join(__dirname, '..', 'PlacedOrders', 'Position.json');
+    try {
+        if (fs.existsSync(posFile)) {
+            const data = JSON.parse(fs.readFileSync(posFile, 'utf8'));
+            const position = {
+                direction: data.Direction, symbol: data.Symbol, strike: data.Strike,
+                qty: data.Qty, time: data.Time, price: data.Price,
+                optType: data.OptType, totalPnL: data.TotalPnL || 0,
+                optionLTP: data.OptionLTP || 0, lots: data.Lots || 1, token: data.Token || 0
+            };
+            // Try to fetch live LTP for the option
+            if (req.session.accessToken && data.Symbol) {
+                try {
+                    const exchange = data.Symbol.startsWith('SENSEX') ? 'BFO' : 'NFO';
+                    const r = await axios.get(`${KITE_BASE_URL}/quote/ltp?i=${encodeURIComponent(exchange + ':' + data.Symbol)}`, {
+                        headers: kiteHeaders(req.session.apiKey, req.session.accessToken)
+                    });
+                    if (r.data && r.data.data) {
+                        for (const key of Object.keys(r.data.data)) {
+                            position.liveLTP = r.data.data[key].last_price;
+                            break;
+                        }
+                    }
+                } catch {}
+            }
+            return res.json({ exists: true, position });
+        }
+    } catch {}
+    res.json({ exists: false });
+});
+
 app.post('/api/bot/start', async (req, res) => {
     if (!req.session.accessToken || !req.session.userId) return res.status(401).json({ error: 'Not logged in' });
     const uid = req.session.userId;
@@ -931,7 +965,8 @@ app.post('/api/bot/start', async (req, res) => {
 
     // Spawn Long-Short-Combined.ps1
     const scriptPath = path.join(__dirname, '..', 'Long-Short-Combined.ps1');
-    const proc = spawn('pwsh', ['-NoProfile', '-File', scriptPath, '-AccessToken', req.session.accessToken], {
+    const cleanupFlag = config.cleanupPosition === true ? 'yes' : 'no';
+    const proc = spawn('pwsh', ['-NoProfile', '-File', scriptPath, '-AccessToken', req.session.accessToken, '-CleanupPosition', cleanupFlag], {
         cwd: path.join(__dirname, '..'),
         env: { ...process.env },
         stdio: ['ignore', 'pipe', 'pipe']
@@ -1024,6 +1059,270 @@ app.get('/api/logout', (req, res) => {
 
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', users: activeBots.size, uptime: process.uptime() });
+});
+
+// ── Live market indices (NIFTY + SENSEX) ──
+app.get('/api/market/indices', async (req, res) => {
+    if (!req.session.accessToken) return res.status(401).json({ error: 'Not logged in' });
+    try {
+        const hdrs = kiteHeaders(req.session.apiKey, req.session.accessToken);
+        const symbols = 'i=NSE%3ANIFTY%2050&i=BSE%3ASENSEX';
+        const r = await axios.get(`${KITE_BASE_URL}/quote?${symbols}`, { headers: hdrs, timeout: 5000 });
+        const result = {};
+        for (const [key, val] of Object.entries(r.data.data || {})) {
+            result[key] = {
+                ltp: val.last_price,
+                change: val.net_change,
+                changePct: val.ohlc?.close > 0 ? ((val.last_price - val.ohlc.close) / val.ohlc.close * 100) : 0,
+                open: val.ohlc?.open,
+                high: val.ohlc?.high,
+                low: val.ohlc?.low,
+                close: val.ohlc?.close
+            };
+        }
+        res.json(result);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Live position with refreshed option LTP ──
+app.get('/api/bot/liveposition', async (req, res) => {
+    if (!req.session.accessToken) return res.status(401).json({ error: 'Not logged in' });
+    const posFile = path.join(__dirname, '..', 'PlacedOrders', 'Position.json');
+    try {
+        if (!fs.existsSync(posFile)) return res.json({ exists: false });
+        const data = JSON.parse(fs.readFileSync(posFile, 'utf8'));
+        const position = {
+            direction: data.Direction, symbol: data.Symbol, strike: data.Strike,
+            qty: data.Qty, time: data.Time, price: data.Price,
+            optType: data.OptType, totalPnL: data.TotalPnL || 0,
+            optionLTP: data.OptionLTP || 0, lots: data.Lots || 1, token: data.Token || 0
+        };
+        // Fetch live option LTP
+        if (data.Symbol) {
+            try {
+                const exchange = data.Symbol.startsWith('SENSEX') ? 'BFO' : 'NFO';
+                const r = await axios.get(`${KITE_BASE_URL}/quote/ltp?i=${encodeURIComponent(exchange + ':' + data.Symbol)}`, {
+                    headers: kiteHeaders(req.session.apiKey, req.session.accessToken), timeout: 5000
+                });
+                if (r.data?.data) {
+                    for (const v of Object.values(r.data.data)) { position.liveLTP = v.last_price; break; }
+                }
+            } catch {}
+        }
+        // Fetch live spot price for the underlying
+        if (data.Direction) {
+            try {
+                const spotKey = data.Symbol?.startsWith('SENSEX') ? 'BSE:SENSEX' : 'NSE:NIFTY 50';
+                const r = await axios.get(`${KITE_BASE_URL}/quote/ltp?i=${encodeURIComponent(spotKey)}`, {
+                    headers: kiteHeaders(req.session.apiKey, req.session.accessToken), timeout: 5000
+                });
+                if (r.data?.data) {
+                    for (const v of Object.values(r.data.data)) { position.spotLTP = v.last_price; break; }
+                }
+            } catch {}
+        }
+        return res.json({ exists: true, position });
+    } catch { res.json({ exists: false }); }
+});
+
+// ══════════════════════════════════════════════════════════════
+// LIQUIDITY SWEEP BOT — Spawns Liquidity-Sweep-Combined.ps1
+// ══════════════════════════════════════════════════════════════
+const sweepProcesses = new Map(); // userId → { proc, status, logs }
+const sweepSSEClients = new Map(); // userId → Set<res>
+
+function broadcastSweepSSE(userId, event, data) {
+    const clients = sweepSSEClients.get(userId);
+    if (!clients) return;
+    const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+    for (const res of clients) {
+        try { res.write(payload); } catch { clients.delete(res); }
+    }
+}
+
+app.post('/api/sweepbot/start', async (req, res) => {
+    if (!req.session.accessToken || !req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    const uid = req.session.userId;
+
+    // Stop existing sweep process
+    if (sweepProcesses.has(uid)) {
+        const prev = sweepProcesses.get(uid);
+        if (prev.proc && !prev.proc.killed) {
+            try {
+                process.platform === 'win32'
+                    ? require('child_process').execSync(`taskkill /pid ${prev.proc.pid} /T /F`, { stdio: 'ignore' })
+                    : prev.proc.kill('SIGTERM');
+            } catch {}
+        }
+        sweepProcesses.delete(uid);
+    }
+
+    const config = req.body;
+
+    // Resolve trading symbol: use the index name (e.g. SENSEX, NIFTY) not a specific option contract
+    const idxMap = { Nifty: 'NIFTY', BANKNIFTY: 'BANKNIFTY', FinNifty: 'FINNIFTY', MIDCPNIFTY: 'MIDCPNIFTY', SENSEX: 'SENSEX' };
+    const resolvedSymbol = idxMap[config.indexChoosen] || config.tradingSymbol || 'Nifty';
+
+    // Write config to separate file so it doesn't conflict with main bot
+    const inputJsonPath = path.join(__dirname, '..', 'Liquidity-sweep-input.json');
+    const inputData = {
+        API_Key: req.session.apiKey,
+        API_Secret: '',
+        TradingSymbol: resolvedSymbol,
+        InstrumentToken: config.instrumentToken || 0,
+        TimeFrame: config.timeFrame || '5minute',
+        CandlesToShow: config.candlesToShow || 25,
+        FullMode: config.fullMode === true || config.fullMode === 'true',
+        IndexChoosen: config.indexChoosen || 'Nifty',
+        NoOfLotsPurchaseAtaTime: config.noOfLots || 1,
+        AmountToTrade: config.amountToTrade || 0,
+        Product: config.product || 'NRML',
+        StartTime: config.startTime || '09:16:01',
+        StopTime: config.stopTime || '15:30:00',
+        Order_type: config.orderType || 'MARKET',
+        ModeOfTrading: 'Option_Buyer',
+        ATMOffset: config.atmOffset || 1,
+        Variety: config.variety || 'regular',
+        MarketProtection: config.marketProtection || 2,
+        ExitTrade: config.exitTrade || 'yes'
+    };
+
+    // Preserve API_Secret from existing sweep config or main input.json
+    try {
+        const existing = JSON.parse(fs.readFileSync(inputJsonPath, 'utf8'));
+        if (existing.API_Secret) inputData.API_Secret = existing.API_Secret;
+    } catch {}
+    if (!inputData.API_Secret) {
+        try {
+            const main = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'input.json'), 'utf8'));
+            if (main.API_Secret) inputData.API_Secret = main.API_Secret;
+        } catch {}
+    }
+
+    fs.writeFileSync(inputJsonPath, JSON.stringify(inputData, null, 4));
+
+    const scriptPath = path.join(__dirname, '..', 'Liquidity-Sweep-Combined.ps1');
+    const proc = spawn('pwsh', ['-NoProfile', '-File', scriptPath, '-AccessToken', req.session.accessToken, '-CleanupPosition', 'yes'], {
+        cwd: path.join(__dirname, '..'),
+        env: { ...process.env },
+        stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    const entry = { proc, status: 'running', startTime: new Date().toISOString(), logs: [] };
+    sweepProcesses.set(uid, entry);
+
+    const logLine = (msg, level = 'info') => {
+        const ts = new Date().toISOString().replace('T', ' ').substring(0, 23);
+        const logEntry = { ts, level, msg: msg.trim() };
+        entry.logs.push(logEntry);
+        if (entry.logs.length > 500) entry.logs = entry.logs.slice(-300);
+        broadcastSweepSSE(uid, 'log', logEntry);
+
+        // Parse signals from stdout for SSE broadcast
+        if (msg.includes('SWEEP') && (msg.includes('DETECTED') || msg.includes('CONFIRMED'))) {
+            broadcastSweepSSE(uid, 'signal', { type: msg.includes('CONFIRMED') ? 'ENTRY' : 'SWEEP', detail: msg.trim(), time: new Date().toISOString() });
+        }
+        if (msg.includes('POSITION OPENED') || msg.includes('CLOSED')) {
+            broadcastSweepSSE(uid, 'signal', { type: msg.includes('OPENED') ? 'ENTRY' : 'EXIT', detail: msg.trim(), time: new Date().toISOString() });
+        }
+        if (msg.includes('TARGET') && msg.includes('HIT')) {
+            broadcastSweepSSE(uid, 'signal', { type: 'TARGET', detail: msg.trim(), time: new Date().toISOString() });
+        }
+        if (msg.includes('STOPLOSS') && msg.includes('HIT')) {
+            broadcastSweepSSE(uid, 'signal', { type: 'STOPLOSS', detail: msg.trim(), time: new Date().toISOString() });
+        }
+        // Parse TARGET/SL line: "TARGET: 77243.05 (nearest swing low) | SL: 77351.34 (sweep candle HIGH)"
+        const tgtSlMatch = msg.match(/TARGET:\s*([\d.]+).*SL:\s*([\d.]+)/);
+        if (tgtSlMatch) {
+            entry.target = parseFloat(tgtSlMatch[1]);
+            entry.stoploss = parseFloat(tgtSlMatch[2]);
+            broadcastSweepSSE(uid, 'tgtsl', { target: entry.target, stoploss: entry.stoploss });
+        }
+        // Parse EXIT to clear TGT/SL
+        if (msg.includes('EXIT') && (msg.includes('TARGET') || msg.includes('STOPLOSS') || msg.includes('CLOSED'))) {
+            entry.target = 0; entry.stoploss = 0;
+            broadcastSweepSSE(uid, 'tgtsl', { target: 0, stoploss: 0 });
+        }
+    };
+
+    proc.stdout.on('data', (data) => {
+        const raw = data.toString().replace(/\x1b\[[0-9;]*[A-Za-z]/g, '').replace(/\x1b\[\?[0-9;]*[A-Za-z]/g, '');
+        const lines = raw.split('\n').filter(l => l.trim());
+        for (const line of lines) logLine(line);
+    });
+
+    proc.stderr.on('data', (data) => {
+        const raw = data.toString().replace(/\x1b\[[0-9;]*[A-Za-z]/g, '').replace(/\x1b\[\?[0-9;]*[A-Za-z]/g, '');
+        const lines = raw.split('\n').filter(l => l.trim());
+        for (const line of lines) logLine(line, 'error');
+    });
+
+    proc.on('close', (code) => {
+        entry.status = 'stopped';
+        logLine(`Sweep bot exited with code ${code}`, code === 0 ? 'info' : 'error');
+        broadcastSweepSSE(uid, 'status', { status: 'stopped' });
+    });
+
+    broadcastSweepSSE(uid, 'status', { status: 'running' });
+    broadcastSweepSSE(uid, 'log', { ts: new Date().toISOString().replace('T', ' ').substring(0, 23), level: 'info', msg: 'Liquidity-Sweep-Combined.ps1 started' });
+
+    res.json({ success: true, message: 'Sweep bot started' });
+});
+
+app.post('/api/sweepbot/stop', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    const uid = req.session.userId;
+    const entry = sweepProcesses.get(uid);
+    if (entry && entry.proc && !entry.proc.killed) {
+        try {
+            process.platform === 'win32'
+                ? require('child_process').execSync(`taskkill /pid ${entry.proc.pid} /T /F`, { stdio: 'ignore' })
+                : entry.proc.kill('SIGTERM');
+        } catch {}
+        entry.status = 'stopped';
+    }
+    sweepProcesses.delete(uid);
+    res.json({ success: true });
+});
+
+app.get('/api/sweepbot/state', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    const entry = sweepProcesses.get(req.session.userId);
+    if (entry && entry.status === 'running') {
+        return res.json({ status: 'running', logs: entry.logs.slice(-100) });
+    }
+    res.json({ status: 'idle' });
+});
+
+app.get('/api/sweepbot/stream', (req, res) => {
+    if (!req.session.userId) return res.status(401).end();
+    const uid = req.session.userId;
+
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no'
+    });
+    res.write(':ok\n\n');
+
+    if (!sweepSSEClients.has(uid)) sweepSSEClients.set(uid, new Set());
+    sweepSSEClients.get(uid).add(res);
+
+    // Send current state
+    const entry = sweepProcesses.get(uid);
+    if (entry) {
+        res.write(`event: status\ndata: ${JSON.stringify({ status: entry.status })}\n\n`);
+        // Send recent logs
+        for (const log of entry.logs.slice(-50)) {
+            res.write(`event: log\ndata: ${JSON.stringify(log)}\n\n`);
+        }
+    }
+
+    req.on('close', () => {
+        const set = sweepSSEClients.get(uid);
+        if (set) { set.delete(res); if (set.size === 0) sweepSSEClients.delete(uid); }
+    });
 });
 
 app.listen(PORT, () => {

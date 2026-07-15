@@ -1,0 +1,21 @@
+{
+    "API_Key": "obcc6y4xpm3efcz9",
+    "API_Secret": "czm3l9uyvnkmuohcil40pa8f4ymc9pio",
+    "TradingSymbol": "SENSEX",
+    "InstrumentToken": 0,
+    "TimeFrame": "minute",
+    "CandlesToShow": 25,
+    "FullMode": false,
+    "IndexChoosen": "SENSEX",
+    "NoOfLotsPurchaseAtaTime": 1,
+    "AmountToTrade": 0,
+    "Product": "NRML",
+    "StartTime": "09:15:00",
+    "StopTime": "15:30:00",
+    "Order_type": "MARKET",
+    "ModeOfTrading": "Option_Buyer",
+    "ATMOffset": 1,
+    "Variety": "regular",
+    "MarketProtection": 2,
+    "ExitTrade": "yes"
+}

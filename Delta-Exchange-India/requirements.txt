@@ -1,2 +1,0 @@
-delta-rest-client>=1.0.14
-websocket-client>=1.6.0
