@@ -667,6 +667,18 @@ app.get('/', async (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Default credentials from input.json (called by login page to pre-fill fields)
+app.get('/api/defaults', (req, res) => {
+    try {
+        const inputFile = path.join(__dirname, '..', 'input.json');
+        if (!fs.existsSync(inputFile)) return res.json({ apiKey: '', apiSecret: '' });
+        const cfg = JSON.parse(fs.readFileSync(inputFile, 'utf8'));
+        res.json({ apiKey: cfg.API_Key || '', apiSecret: cfg.API_Secret || '' });
+    } catch {
+        res.json({ apiKey: '', apiSecret: '' });
+    }
+});
+
 // Token status check (called by login page)
 app.get('/api/token-status', async (req, res) => {
     const saved = loadTokenFromFile();

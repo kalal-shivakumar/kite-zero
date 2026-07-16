@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kite Trading Bot — Login</title>
+    <title>AlphaSense AI · Nifty &amp; Sensex — Login</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -60,15 +60,16 @@
         .step.done .step-num{background:var(--green-light);border-color:var(--green);color:var(--green)}
         .step-line{width:20px;height:1.5px;background:var(--border);flex-shrink:0}
 
-        .logo{display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem}
+        .logo{display:flex;align-items:center;gap:.8rem;margin-bottom:1.2rem}
         .logo-icon{
-            width:46px;height:46px;border-radius:13px;
+            width:48px;height:48px;border-radius:13px;
             background:linear-gradient(135deg,var(--accent),var(--accent2));
             display:flex;align-items:center;justify-content:center;
-            font-size:1.3rem;font-weight:800;color:#fff;
-            box-shadow:0 4px 14px rgba(79,70,229,.25);
+            font-size:1.15rem;font-weight:800;color:#fff;letter-spacing:.02em;
+            box-shadow:0 4px 16px rgba(79,70,229,.3);flex-shrink:0;
         }
-        h1{color:var(--text);font-size:1.5rem;font-weight:700;letter-spacing:-.025em}
+        h1{color:var(--text);font-size:1.45rem;font-weight:800;letter-spacing:-.025em;line-height:1.1}
+        .brand-tag{color:var(--text-muted);font-size:.76rem;font-weight:500;margin-top:.2rem;letter-spacing:.01em}
         .sub{color:var(--text-secondary);margin-bottom:1.5rem;font-size:.88rem;font-weight:400;line-height:1.55}
 
         .fg{margin-bottom:1.1rem;position:relative}
@@ -151,19 +152,63 @@
         /* Powered by footer */
         .powered{display:flex;align-items:center;justify-content:center;gap:.4rem;margin-top:.6rem;font-size:.7rem;color:var(--text-muted)}
         .powered svg{width:12px;height:12px;opacity:.4}
+
+        /* Login hero image with scan effect */
+        .login-hero{
+            position:relative;height:180px;margin:-2.5rem -2.5rem 1.4rem;
+            width:calc(100% + 5rem);border-radius:16px 16px 0 0;overflow:hidden;
+            background:#0a1120;
+        }
+        .login-hero img{width:100%;height:100%;object-fit:cover;object-position:center 30%;display:block;animation:heroFloat 6s ease-in-out infinite;filter:saturate(1.12) contrast(1.06)}
+        @keyframes heroFloat{0%,100%{transform:scale(1.05) translateY(0)}50%{transform:scale(1.05) translateY(-6px)}}
+        .login-hero::before{
+            content:'';position:absolute;inset:0;z-index:2;pointer-events:none;
+            background:linear-gradient(180deg,transparent 55%,rgba(15,18,25,.35) 80%,rgba(255,255,255,.9) 100%);
+        }
+        .login-hero::after{
+            content:'';position:absolute;left:0;right:0;height:38%;pointer-events:none;
+            background:linear-gradient(180deg,transparent,rgba(52,211,153,.12) 45%,rgba(52,211,153,.35) 50%,rgba(52,211,153,.12) 55%,transparent);
+            border-top:1px solid rgba(52,211,153,.6);border-bottom:1px solid rgba(52,211,153,.6);
+            box-shadow:0 0 18px rgba(52,211,153,.4);
+            animation:heroScan 3s linear infinite;
+        }
+        @keyframes heroScan{0%{top:-38%}100%{top:100%}}
+        .login-hero .hero-grid{
+            position:absolute;inset:0;pointer-events:none;
+            background-image:linear-gradient(rgba(79,70,229,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(79,70,229,.12) 1px,transparent 1px);
+            background-size:24px 24px;mix-blend-mode:screen;opacity:.5;
+        }
+        .login-hero .hero-label{
+            position:absolute;left:12px;bottom:10px;font-family:'JetBrains Mono',monospace;
+            font-size:.62rem;font-weight:700;letter-spacing:.08em;color:#4fd6b0;
+            text-shadow:0 0 8px rgba(52,211,153,.6);padding:.15rem .5rem;
+            background:rgba(6,12,28,.7);border:1px solid rgba(52,211,153,.4);border-radius:5px;
+        }
+        .login-hero .hero-badge{
+            position:absolute;right:12px;top:10px;display:inline-flex;align-items:center;gap:.35rem;
+            font-size:.62rem;font-weight:700;letter-spacing:.05em;color:#fff;padding:.2rem .6rem;
+            background:rgba(5,150,105,.85);border-radius:20px;
+        }
+        .login-hero .hero-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:#fff;animation:blink 1.6s infinite}
     </style>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
 <div class="container">
     <div class="card">
+        <div class="login-hero">
+            <img src="/AI-agent-robot-image.png" alt="AI Agent scanning markets">
+            <div class="hero-grid"></div>
+            <span class="hero-badge">AI ONLINE</span>
+            <span class="hero-label">SCANNING MARKETS</span>
+        </div>
         <div class="logo">
-            <div class="logo-icon">K</div>
+            <div class="logo-icon">AI</div>
             <div>
-                <h1>Kite Trading Bot <span class="live-badge">LIVE</span></h1>
+                <h1>AlphaSense AI <span class="live-badge">LIVE</span></h1>
+                <p class="brand-tag">Nifty &amp; Sensex · Autonomous Trading Agent</p>
             </div>
         </div>
-        <p class="sub">Heikin-Ashi automated options trading — CE + PE signals with zero latency execution</p>
 
         <div class="market-clock">
             <span>IST</span>
@@ -202,23 +247,9 @@
             <input type="text" id="requestToken" placeholder="Paste full URL or request_token here" autocomplete="off">
             <button class="btn btn-emerald" id="tokenBtn" onclick="submitToken()">Authenticate & Connect</button>
         </div>
-
-        <div class="divider feat">
-            <h3>Strategy Features</h3>
-            <ul class="feat-grid">
-                <li>HA Long + Short signals</li>
-                <li>Auto CE/PE at ATM</li>
-                <li>WebSocket tick stream</li>
-                <li>Configurable timeframes</li>
-                <li>Real-time dashboard</li>
-                <li>9:15 AM – 3:30 PM IST</li>
-                <li>Stop-loss monitor</li>
-                <li>Multi-user support</li>
-            </ul>
-        </div>
     </div>
     <p class="info"><svg viewBox="0 0 16 16" fill="currentColor" width="13" height="13" style="opacity:.5"><path d="M8 1a2.5 2.5 0 00-2.5 2.5v3h-1A1.5 1.5 0 003 8v5.5A1.5 1.5 0 004.5 15h7a1.5 1.5 0 001.5-1.5V8a1.5 1.5 0 00-1.5-1.5h-1v-3A2.5 2.5 0 008 1zm1 5.5v-3a1 1 0 10-2 0v3h2z"/></svg> Credentials stored locally — never sent to third parties</p>
-    <div class="powered"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 3.5A1.5 1.5 0 017 2h2a1.5 1.5 0 011.5 1.5v.5h3A.5.5 0 0114 4.5v.5H2v-.5A.5.5 0 012.5 4h3v-.5zM3 6h10v7.5a1.5 1.5 0 01-1.5 1.5h-7A1.5 1.5 0 013 13.5V6z"/></svg> Powered by Kite Connect API + Heikin-Ashi Engine</div>
+    <div class="powered"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 3.5A1.5 1.5 0 017 2h2a1.5 1.5 0 011.5 1.5v.5h3A.5.5 0 0114 4.5v.5H2v-.5A.5.5 0 012.5 4h3v-.5zM3 6h10v7.5a1.5 1.5 0 01-1.5 1.5h-7A1.5 1.5 0 013 13.5V6z"/></svg> Powered by AI Agent + Kite Connect API</div>
 </div>
 <script>
 // Live IST clock + market status
@@ -236,6 +267,16 @@ function updateClock(){
     else{ms.textContent='MARKET CLOSED';ms.className='market-status market-closed'}
 }
 updateClock();setInterval(updateClock,1000);
+
+// Auto-fill API Key + Secret from input.json defaults
+(async()=>{
+    try{
+        const r=await fetch('/api/defaults');
+        const d=await r.json();
+        if(d.apiKey&&!document.getElementById('apiKey').value)document.getElementById('apiKey').value=d.apiKey;
+        if(d.apiSecret&&!document.getElementById('apiSecret').value)document.getElementById('apiSecret').value=d.apiSecret;
+    }catch{}
+})();
 
 (async()=>{
     try{
