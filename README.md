@@ -27,20 +27,23 @@ git --version
 
 ```
 Powershell-kite/
-├── Long-Short-Combined.ps1    # Main trading strategy (HA Long+Short) — auth, WS loop, $State
-├── KiteData.psm1              # PowerShell module (Kite API helpers + HA strategy engine)
-├── input.json                 # Trading configuration (symbol, timeframe, lots, etc.)
-├── accesstoken.json           # Persisted Kite access token (auto-managed)
-├── start-webapp.ps1           # Launcher script for the web dashboard
+├── Long-Short-Combined.ps1        # Main trading strategy (HA Long+Short) — auth, WS loop, $State
+├── Liquidity-Sweep-Combined.ps1   # Liquidity-sweep strategy (pivot sweep + reversal)
+├── KiteData.psm1                  # PowerShell module (Kite API helpers + HA strategy engine)
+├── input.json                     # Main bot config (symbol, timeframe, lots, etc.)
+├── Liquidity-sweep-input.json     # Liquidity-sweep bot config (separate to avoid conflicts)
+├── accesstoken.json               # Persisted Kite access token (auto-managed)
+├── start-webapp.ps1               # Launcher script for the web dashboard
 ├── webapp/
-│   ├── server.js              # Express server (auth, API proxy, bot management)
-│   ├── package.json           # Node.js dependencies
+│   ├── server.js                  # Express server (auth, API proxy, SSE, bot management, JS engine)
+│   ├── package.json               # Node.js dependencies
+│   ├── data/                      # Persisted trade history (trades-<userId>.json)
 │   └── public/
-│       ├── index.html         # Login page
-│       └── dashboard.html     # Trading dashboard UI
-├── PlacedOrders/              # Active position state (Position.json)
-├── BACK-Test/                 # Backtesting scripts
-└── Delta-Exchange-India/      # Delta Exchange integration (Python)
+│       ├── index.html             # Login page (AlphaSense AI branded, 3-step OAuth)
+│       └── dashboard.html         # Trading dashboard UI (Dashboard / Sweep / Trades tabs)
+├── PlacedOrders/                  # Active position state (Position.json)
+├── BACK-Test/                     # Backtesting scripts
+└── Archive/                       # Older/experimental strategy scripts
 ```
 
 ## Setup
@@ -126,35 +129,85 @@ HA_Low   = min(Low,  HA_Open, HA_Close)
 
 ## Web Dashboard
 
-### Login Flow
-1. User enters Kite API key + secret on the login page
-2. Redirects to Kite for OAuth login → returns a `request_token`
-3. Server exchanges `request_token` for `access_token` (SHA-256 checksum)
-4. Token is saved to `accesstoken.json` for persistence across restarts
-5. On next visit, saved token is validated against Kite profile API — auto-redirects to dashboard if valid
+The `webapp/` folder is a **local, single-process Node.js/Express dashboard** that wraps the trading bots. It handles Kite OAuth login, streams live market data to the browser via Server-Sent Events (SSE), and runs two trading strategies.
 
-### Dashboard Features
-- **Start/Stop Trading** — Spawns/kills `Long-Short-Combined.ps1` as a child process
-- **Bot Logs** — Real-time stdout from the PowerShell script (streamed via SSE)
-- **Trade Records** — Live order book from Kite API (BUY/SELL paired with P&L), polled every 1 second
-- **Strategy Config** — Edit `input.json` values from the UI; locked while trading is active
-- **Profile** — Shows authenticated user info from Kite
-- **Trade History tab** — Summary stats (win rate, best/worst trade, total P&L)
+### Architecture
+
+```
+Browser UI  ──HTTP + SSE──▶  server.js (Express)  ──REST/WebSocket──▶  Kite Connect API
+                                     │
+                                     ├─ spawn pwsh ─▶ Long-Short-Combined.ps1 / Liquidity-Sweep-Combined.ps1
+                                     └─ read/write ─▶ input.json · accesstoken.json · webapp/data/*.json
+```
+
+**Tech stack:** `express`, `express-session`, `axios`, `ws` (Kite WebSocket client), `dotenv`. Requires Node ≥ 22.
+
+**Dual execution model** — the server supports two ways to run a strategy:
+1. **PowerShell spawn (primary)** — `/api/bot/start` spawns `Long-Short-Combined.ps1` via `pwsh` and pipes its stdout/stderr into the log stream. Tracked in the `activeProcesses` map.
+2. **In-process JS engine** — a `TradingBot` class in `server.js` re-implements the HA strategy in JavaScript (binary tick parser, HA candle builder, signal check, order placement). Tracked in the `activeBots` map. Mostly a self-contained alternative engine.
+
+### Login Flow
+1. User enters Kite API key + secret on the login page (`index.html`)
+2. `/api/login` returns the Kite OAuth URL → opens Kite login → returns a `request_token`
+3. User pastes the `request_token` (or full redirect URL); `/api/set-token` (or the `/callback` OAuth route) exchanges it for an `access_token` using a SHA-256 checksum
+4. Token is saved to `accesstoken.json` for persistence across restarts
+5. On next visit, the saved token is validated against the Kite profile API — auto-redirects to the dashboard if valid
+
+### Dashboard UI (`dashboard.html`)
+
+Three tabs, plus a top market ticker (live NIFTY + SENSEX) and an IST clock / market-status indicator:
+
+- **Dashboard tab** — cumulative P&L banner, Start/Stop controls, live stat cards (direction, symbol, entry, LTP, ticks, total P&L), the full `input.json` config form (locked while running), live logs, and a completed-orders table.
+- **Sweep tab** — Liquidity-Sweep bot controls, a sweep-phase panel (pivot level, sweep candle, target, stop-loss, risk:reward), its own config form, and a signal table.
+- **Trades tab** — trade summary stats (total, winners, losers, win rate, total P&L, best/worst) and the full persisted trade-history table.
+
+All live updates arrive over SSE (`EventSource`) with event types: `tick`, `candle`, `signal`, `trade`, `log`, `status`.
+
+### Bots
+
+| Bot | Script | Config file | Default TF | Endpoints |
+|-----|--------|-------------|-----------|-----------|
+| **HA Long/Short** | `Long-Short-Combined.ps1` | `input.json` | 30second | `/api/bot/*` |
+| **Liquidity Sweep** | `Liquidity-Sweep-Combined.ps1` | `Liquidity-sweep-input.json` | 5minute | `/api/sweepbot/*` |
 
 ### API Endpoints
 
+**Auth & profile**
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/profile` | User profile from Kite |
+| POST | `/api/login` | Accept API key/secret → return Kite OAuth login URL |
+| POST | `/api/set-token` | Exchange pasted `request_token` for an access token |
+| GET | `/callback` | OAuth redirect handler (exchanges `request_token`) |
+| GET | `/api/token-status` | Check if the saved token is still valid |
+| GET | `/api/defaults` | Pre-fill API key/secret from `input.json` |
+| GET | `/api/profile` | Authenticated user profile from Kite |
+| GET | `/api/logout` | Clear session and stop any running bot |
+| GET | `/api/health` | Server health / active-user count |
+
+**Market & positions**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/market/indices` | Live NIFTY + SENSEX quotes for the ticker |
+| GET | `/api/positions` | Portfolio positions from Kite |
 | GET | `/api/orders` | Today's orders from Kite |
-| GET | `/api/config` | Read `input.json` config |
+| GET | `/api/bot/position` | Saved position from `PlacedOrders/Position.json` |
+| GET | `/api/bot/liveposition` | Saved position + live option LTP and spot price |
+
+**Config, streaming & bot control**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/config` | Read `input.json` config (secrets stripped) |
 | POST | `/api/config` | Save config (blocked while bot is running) |
-| POST | `/api/bot/start` | Start trading (spawns PS1 script) |
-| POST | `/api/bot/stop` | Stop trading (kills PS1 process tree) |
-| GET | `/api/bot/state` | Current bot status and logs |
-| GET | `/api/stream` | SSE stream (logs, ticks, trades, status) |
-| GET | `/api/token-status` | Check if saved token is still valid |
-| POST | `/api/logout` | Clear session |
+| GET | `/api/stream` | Per-user SSE stream (logs, ticks, candles, signals, trades, status) |
+| POST | `/api/bot/start` | Start HA bot (spawns `Long-Short-Combined.ps1`) |
+| POST | `/api/bot/stop` | Stop HA bot (kills PS1 process tree) |
+| GET | `/api/bot/state` | Current bot status and recent logs (poll fallback) |
+| GET | `/api/bot/trades` | Persisted trade history (`webapp/data/*.json`) |
+| POST | `/api/sweepbot/start` | Start Liquidity-Sweep bot (spawns sweep PS1) |
+| POST | `/api/sweepbot/stop` | Stop Liquidity-Sweep bot |
 
 ## Running the Script Standalone
 
