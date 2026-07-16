@@ -262,7 +262,30 @@ select option{background:#fff;color:var(--text)}
 }
 .ptbl td{padding:.55rem .65rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--text);font-weight:500}
 .ptbl tr:hover{background:var(--surface2)}
+.ptbl tr.row-profit{background:var(--green-light)}
+.ptbl tr.row-profit:hover{background:#d4f2e8}
+.ptbl tr.row-loss{background:var(--red-light)}
+.ptbl tr.row-loss:hover{background:#fbdde1}
 .grn{color:var(--green)} .red{color:var(--red)} .flat{color:var(--text-muted)}
+
+/* P&L Pivot donut */
+.pivot-wrap{display:flex;align-items:center;gap:1.2rem;flex-wrap:wrap;justify-content:center}
+.pivot-chart{position:relative;width:150px;height:150px;flex:0 0 auto}
+.pivot-chart svg{width:100%;height:100%;transform:rotate(-90deg)}
+.piv-track{fill:none;stroke:var(--surface3);stroke-width:14}
+.piv-arc{fill:none;stroke-width:14;stroke-linecap:round;transition:stroke-dasharray .6s ease,stroke-dashoffset .6s ease}
+#pivProfitArc{stroke:var(--green)}
+#pivLossArc{stroke:var(--red)}
+.pivot-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;pointer-events:none}
+.piv-net-label{font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;font-weight:700;color:var(--text-muted)}
+.piv-net-value{font-size:1.05rem;font-weight:800;font-family:'JetBrains Mono',monospace;margin-top:.15rem}
+.piv-net-value.grn{color:var(--green)} .piv-net-value.red{color:var(--red)} .piv-net-value.neutral{color:var(--text-secondary)}
+.pivot-legend{display:flex;flex-direction:column;gap:.55rem;min-width:150px}
+.piv-leg{display:flex;align-items:center;gap:.5rem;font-size:.78rem}
+.piv-dot{width:11px;height:11px;border-radius:3px;flex:0 0 auto}
+.piv-dot-g{background:var(--green)} .piv-dot-r{background:var(--red)} .piv-dot-n{background:var(--text-muted)}
+.piv-leg-lb{color:var(--text-secondary);font-weight:600;flex:1}
+.piv-leg-vl{font-family:'JetBrains Mono',monospace;font-weight:700}
 
 /* Profile */
 .profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
@@ -563,6 +586,27 @@ select option{background:#fff;color:var(--text)}
                 <div class="tbl-wrap">
                 <table class="ptbl"><thead><tr><th>#</th><th>Time</th><th>Symbol</th><th>Entry</th><th>Exit</th><th>Qty</th><th>P&L</th><th>P&L %</th><th>Cumulative</th></tr></thead>
                 <tbody id="ordBody"><tr><td colspan="9" class="flat"><div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg><p>No completed trades yet</p></div></td></tr></tbody></table>
+                </div>
+            </div>
+            <div class="card card-blue">
+                <div class="card-header"><h2>P&amp;L Pivot</h2><span class="card-badge" id="pivWinRate">0% win</span></div>
+                <div class="pivot-wrap">
+                    <div class="pivot-chart">
+                        <svg viewBox="0 0 150 150">
+                            <circle class="piv-track" cx="75" cy="75" r="60"/>
+                            <circle id="pivProfitArc" class="piv-arc" cx="75" cy="75" r="60" stroke-dasharray="0 999" stroke-dashoffset="0"/>
+                            <circle id="pivLossArc" class="piv-arc" cx="75" cy="75" r="60" stroke-dasharray="0 999" stroke-dashoffset="0"/>
+                        </svg>
+                        <div class="pivot-center">
+                            <div class="piv-net-label">Net P&amp;L</div>
+                            <div class="piv-net-value neutral" id="pivNet">₹0.00</div>
+                        </div>
+                    </div>
+                    <div class="pivot-legend">
+                        <div class="piv-leg"><span class="piv-dot piv-dot-g"></span><span class="piv-leg-lb">Profit</span><span class="piv-leg-vl grn" id="pivProfit">₹0.00</span></div>
+                        <div class="piv-leg"><span class="piv-dot piv-dot-r"></span><span class="piv-leg-lb">Loss</span><span class="piv-leg-vl red" id="pivLoss">₹0.00</span></div>
+                        <div class="piv-leg"><span class="piv-dot piv-dot-n"></span><span class="piv-leg-lb">Trades</span><span class="piv-leg-vl" id="pivTrades">0</span></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -887,6 +931,31 @@ function updateTradeSummary(){
     }catch{}
 })();
 
+function renderPnlPivot(records){
+    const R=60,C=2*Math.PI*R;
+    const gp=records.filter(r=>r.pnl>0).reduce((s,r)=>s+r.pnl,0);
+    const gl=Math.abs(records.filter(r=>r.pnl<0).reduce((s,r)=>s+r.pnl,0));
+    const net=gp-gl,total=gp+gl;
+    const wins=records.filter(r=>r.pnl>0).length;
+    const winRate=records.length?Math.round((wins/records.length)*100):0;
+    const profitLen=total>0?(gp/total)*C:0;
+    const lossLen=total>0?(gl/total)*C:0;
+    const gap=(gp>0&&gl>0)?4:0;
+    const pa=document.getElementById('pivProfitArc');
+    const la=document.getElementById('pivLossArc');
+    pa.setAttribute('stroke-dasharray',`${Math.max(profitLen-gap,0)} ${C}`);
+    pa.setAttribute('stroke-dashoffset','0');
+    la.setAttribute('stroke-dasharray',`${Math.max(lossLen-gap,0)} ${C}`);
+    la.setAttribute('stroke-dashoffset',`${-profitLen}`);
+    const netEl=document.getElementById('pivNet');
+    netEl.textContent=`${net>=0?'+':'-'}₹${Math.abs(net).toFixed(2)}`;
+    netEl.className='piv-net-value '+(net>0?'grn':net<0?'red':'neutral');
+    document.getElementById('pivProfit').textContent=`+₹${gp.toFixed(2)}`;
+    document.getElementById('pivLoss').textContent=`-₹${gl.toFixed(2)}`;
+    document.getElementById('pivTrades').textContent=records.length;
+    document.getElementById('pivWinRate').textContent=`${winRate}% win`;
+}
+
 async function loadOrd(){
     if(_loadOrdBusy)return;
     _loadOrdBusy=true;
@@ -894,7 +963,7 @@ async function loadOrd(){
         const d=await(await fetch('/api/orders')).json();
         const tb=document.getElementById('ordBody');
         const completed=(d||[]).filter(o=>o.status==='COMPLETE');
-        if(!completed.length){tb.innerHTML='<tr><td colspan="9" class="flat">No completed trades</td></tr>';return}
+        if(!completed.length){tb.innerHTML='<tr><td colspan="9" class="flat">No completed trades</td></tr>';renderPnlPivot([]);return}
         const buys=completed.filter(o=>o.transaction_type==='BUY').sort((a,b)=>new Date(a.order_timestamp)-new Date(b.order_timestamp));
         const sells=completed.filter(o=>o.transaction_type==='SELL').sort((a,b)=>new Date(a.order_timestamp)-new Date(b.order_timestamp));
         const records=[];
@@ -910,13 +979,14 @@ async function loadOrd(){
                 records.push({time:buy.order_timestamp,symbol:buy.tradingsymbol,entry:+buy.average_price,exit:null,qty:+buy.quantity,pnl:null,pct:null});
             }
         }
-        if(!records.length){tb.innerHTML='<tr><td colspan="9" class="flat">No trades</td></tr>';updateCumulativePnl(0,0,0);return}
+        if(!records.length){tb.innerHTML='<tr><td colspan="9" class="flat">No trades</td></tr>';updateCumulativePnl(0,0,0);renderPnlPivot([]);return}
         let cumPnL=0;
         for(const r of records){if(r.pnl!==null)r.cum=(cumPnL+=r.pnl);}
         // Update cumulative banner from order records
         const closedRecords=records.filter(r=>r.pnl!==null);
         const ordWinners=closedRecords.filter(r=>r.pnl>0).length;
         if(!trades.length) updateCumulativePnl(cumPnL, closedRecords.length, ordWinners);
+        renderPnlPivot(closedRecords);
         const totalRecords=records.length;
         tb.innerHTML=records.slice().reverse().map((r,i)=>{
             const num=totalRecords-i;
@@ -925,7 +995,8 @@ async function loadOrd(){
                 return`<tr><td>${num}</td><td>${t}</td><td>${r.symbol}</td><td>₹${r.entry.toFixed(2)}</td><td class="flat">OPEN</td><td>${r.qty}</td><td class="flat">—</td><td class="flat">—</td><td class="flat">—</td></tr>`;
             }
             const cls=r.pnl>=0?'grn':'red';const cumCls=r.cum>=0?'grn':'red';
-            return`<tr><td>${num}</td><td>${t}</td><td>${r.symbol}</td><td>₹${r.entry.toFixed(2)}</td><td>₹${r.exit.toFixed(2)}</td><td>${r.qty}</td><td class="${cls}">${r.pnl>=0?'+':''}₹${r.pnl.toFixed(2)}</td><td class="${cls}">${r.pct>=0?'+':''}${r.pct.toFixed(2)}%</td><td class="${cumCls}">${r.cum>=0?'+':''}₹${r.cum.toFixed(2)}</td></tr>`;
+            const rowCls=r.pnl>0?'row-profit':(r.pnl<0?'row-loss':'');
+            return`<tr class="${rowCls}"><td>${num}</td><td>${t}</td><td>${r.symbol}</td><td>₹${r.entry.toFixed(2)}</td><td>₹${r.exit.toFixed(2)}</td><td>${r.qty}</td><td class="${cls}">${r.pnl>=0?'+':''}₹${r.pnl.toFixed(2)}</td><td class="${cls}">${r.pct>=0?'+':''}${r.pct.toFixed(2)}%</td><td class="${cumCls}">${r.cum>=0?'+':''}₹${r.cum.toFixed(2)}</td></tr>`;
         }).join('');
     }catch{}finally{_loadOrdBusy=false}
 }
