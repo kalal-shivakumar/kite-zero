@@ -1096,6 +1096,46 @@ app.get('/api/market/indices', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ── Resolve ITM/ATM option symbol + token for a chosen index (config auto-fill) ──
+// GET /api/atm-option?index=SENSEX&offset=1&type=CE
+//   offset = number of strikes in-the-money (ATMOffset). CE ITM = strikes below spot, PE ITM = strikes above.
+app.get('/api/atm-option', async (req, res) => {
+    if (!req.session.accessToken) return res.status(401).json({ error: 'Not logged in' });
+
+    const idxName = (req.query.index || 'NIFTY').toString();
+    const offset = Math.abs(parseInt(req.query.offset, 10) || 0);
+    const optType = (req.query.type || 'CE').toString().toUpperCase() === 'PE' ? 'PE' : 'CE';
+
+    // Map the UI dropdown value → INDEX_CONFIGS key
+    const idxMap = { NIFTY: 'NIFTY', BANKNIFTY: 'BANKNIFTY', FINNIFTY: 'FINNIFTY', MIDCPNIFTY: 'MIDCPNIFTY', SENSEX: 'SENSEX' };
+    const key = idxMap[idxName.toUpperCase()] || 'NIFTY';
+    const cfg = INDEX_CONFIGS[key];
+    if (!cfg) return res.status(400).json({ error: `Unknown index: ${idxName}` });
+
+    try {
+        const headers = kiteHeaders(req.session.apiKey, req.session.accessToken);
+
+        // 1. Live spot price of the underlying index
+        const sq = await axios.get(`${KITE_BASE_URL}/quote/ltp?i=${encodeURIComponent(cfg.spotKey)}`, { headers, timeout: 5000 });
+        let spot = 0;
+        for (const v of Object.values(sq.data.data || {})) { if (v.last_price > 0) spot = v.last_price; }
+        if (!spot) return res.status(502).json({ error: 'Could not fetch spot price' });
+
+        // 2. Option chain (nearest expiry) for the requested type
+        const chain = await fetchOptions(cfg.optExchange, cfg.kw, optType, headers);
+        if (!chain) return res.status(502).json({ error: 'Could not fetch option chain' });
+
+        // 3. Apply ITM offset — CE goes to lower strikes, PE goes to higher strikes
+        const signedOffset = optType === 'CE' ? -offset : offset;
+        const opt = getATMOption(spot, chain.options, chain.strikes, signedOffset);
+        if (!opt) return res.status(502).json({ error: 'Could not resolve option' });
+
+        res.json({ symbol: opt.symbol, token: opt.token, strike: opt.strike, type: optType, expiry: chain.expiry, spot });
+    } catch (e) {
+        res.status(500).json({ error: e.response?.data?.message || e.message });
+    }
+});
+
 // ── Live position with refreshed option LTP ──
 app.get('/api/bot/liveposition', async (req, res) => {
     if (!req.session.accessToken) return res.status(401).json({ error: 'Not logged in' });

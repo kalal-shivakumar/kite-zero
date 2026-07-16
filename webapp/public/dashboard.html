@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
+html{font-size:13px}
 :root{
     --bg:#eef1f8;--surface:#ffffff;--surface2:#f4f6fb;--surface3:#eaedf5;
     --border:#cdd4e3;--border-hover:#a9b3c9;
@@ -26,13 +27,13 @@
 }
 body{
     font-family:'Inter',system-ui,sans-serif;
-    background:var(--bg);color:var(--text);font-size:15px;min-height:100vh;
+    background:var(--bg);color:var(--text);font-size:1rem;min-height:100vh;
 }
 
 /* Header */
 .hdr{
     background:var(--accent);
-    padding:.65rem 1.5rem;display:flex;justify-content:space-between;align-items:center;
+    padding:.45rem 1.1rem;display:flex;justify-content:space-between;align-items:center;
     position:sticky;top:0;z-index:100;
     box-shadow:0 2px 8px rgba(26,34,51,.15);border-bottom:1px solid #4a3cc0;
 }
@@ -66,11 +67,11 @@ body{
     padding:.35rem .85rem;border:1px solid rgba(255,255,255,.35);border-radius:8px;transition:all .2s;
 }
 .logout-btn:hover{color:#fff;background:rgba(214,52,71,.85);border-color:rgba(214,52,71,.9)}
-.wrap{max-width:1520px;margin:0 auto;padding:1.3rem 1.5rem}
+.wrap{max-width:1520px;margin:0 auto;padding:.8rem 1.1rem}
 
 /* Market Ticker */
 .mkt-ticker{
-    display:flex;gap:1rem;padding:.6rem 1.5rem;
+    display:flex;gap:.7rem;padding:.4rem 1.1rem;
     background:var(--surface);
     border-bottom:2px solid var(--border);
     justify-content:flex-start;align-items:center;
@@ -91,14 +92,14 @@ body{
 
 /* Tabs */
 .tabs{
-    display:flex;gap:.3rem;margin-bottom:1.3rem;
+    display:flex;gap:.3rem;margin-bottom:.8rem;
     border-bottom:3px solid var(--accent);
     background:var(--surface);border-radius:var(--radius-lg) var(--radius-lg) 0 0;
     padding:.3rem .5rem 0;border:2px solid var(--border);border-bottom:3px solid var(--accent);
 }
 .tab-btn{
-    padding:.7rem 1.8rem;background:none;border:none;color:var(--text-secondary);
-    font-size:.92rem;cursor:pointer;border-bottom:3px solid transparent;
+    padding:.5rem 1.3rem;background:none;border:none;color:var(--text-secondary);
+    font-size:.85rem;cursor:pointer;border-bottom:3px solid transparent;
     margin-bottom:-3px;font-weight:600;transition:all .2s;font-family:inherit;
     border-radius:8px 8px 0 0;
 }
@@ -109,15 +110,15 @@ body{
 
 /* Control Bar */
 .control-bar{
-    display:flex;gap:.8rem;margin-bottom:1.3rem;align-items:center;
-    padding:.8rem 1.3rem;
+    display:flex;gap:.6rem;margin-bottom:.8rem;align-items:center;
+    padding:.55rem .9rem;
     background:var(--surface);
     border:2px solid var(--blue-border);border-left:5px solid var(--blue);
     border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);
 }
 .ctrl-btn{
-    padding:.6rem 1.6rem;border:none;border-radius:var(--radius);
-    font-size:.9rem;cursor:pointer;font-weight:600;font-family:inherit;
+    padding:.45rem 1.1rem;border:none;border-radius:var(--radius);
+    font-size:.85rem;cursor:pointer;font-weight:600;font-family:inherit;
     transition:all .2s;display:flex;align-items:center;gap:.45rem;
     letter-spacing:.01em;
 }
@@ -139,17 +140,17 @@ body{
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
 /* Stats */
-.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:.8rem;margin-bottom:1.3rem}
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:.6rem;margin-bottom:.8rem}
 @media(max-width:1100px){.stats{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}}
 .stat-card{
     background:var(--surface);border:2px solid var(--border);border-radius:var(--radius);
-    padding:.9rem 1rem;text-align:center;transition:all .25s;
+    padding:.55rem .7rem;text-align:center;transition:all .25s;
     position:relative;overflow:hidden;box-shadow:var(--shadow-sm);
 }
 .stat-card:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(--border-hover)}
 .stat-card .lb{color:var(--text-secondary);font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;font-weight:700;margin-bottom:.4rem}
-.stat-card .vl{font-size:1.3rem;font-weight:700;font-family:'JetBrains Mono','Inter',monospace;color:var(--text)}
+.stat-card .vl{font-size:1.05rem;font-weight:700;font-family:'JetBrains Mono','Inter',monospace;color:var(--text)}
 .stat-card.highlight{
     background:var(--accent-light);
     border-color:#a89af0;
@@ -165,13 +166,13 @@ body{
 .stat-card.stat-red::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--red)}
 
 /* Grid */
-.grid{display:grid;grid-template-columns:370px 1fr;gap:1.3rem}
+.grid{display:grid;grid-template-columns:330px 1fr;gap:.9rem}
 @media(max-width:1000px){.grid{grid-template-columns:1fr}}
 
 /* Cards */
 .card{
     background:var(--surface);border:2px solid var(--border);
-    border-radius:var(--radius-lg);padding:1.3rem;
+    border-radius:var(--radius-lg);padding:.85rem;
     transition:all .2s;position:relative;box-shadow:var(--shadow-sm);
 }
 .card:hover{box-shadow:var(--shadow);border-color:var(--border-hover)}
@@ -184,7 +185,7 @@ body{
 .card.card-red{border-color:var(--red-border);border-left:5px solid var(--red)}
 .card.card-red:hover{border-color:var(--red)}
 .card.card-red .card-header h2::before{background:var(--red)}
-.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;padding-bottom:.7rem;border-bottom:2px solid var(--border)}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;padding-bottom:.45rem;border-bottom:2px solid var(--border)}
 .card-header h2{color:var(--text);font-size:1rem;font-weight:700;display:flex;align-items:center;gap:.5rem}
 .card-header h2::before{content:'';width:5px;height:18px;border-radius:2px;background:var(--accent)}
 .card-header .card-badge{font-size:.7rem;padding:.24rem .6rem;background:var(--accent-light);color:var(--accent);border-radius:6px;font-weight:700;border:1px solid #a89af0}
@@ -214,15 +215,22 @@ select option{background:#fff;color:var(--text)}
 .btn-save:hover{box-shadow:0 4px 14px rgba(91,75,214,.35);transform:translateY(-1px)}
 .btn-save:disabled{opacity:.35;cursor:not-allowed;transform:none;box-shadow:none}
 
+/* Mini inline buttons (Symbol auto-fill / reset) */
+.sym-btns{float:right;display:inline-flex;gap:.3rem}
+.btn-mini{padding:.14rem .5rem;font-size:.6rem;font-weight:700;border:none;border-radius:5px;cursor:pointer;background:var(--accent);color:#fff;font-family:inherit;letter-spacing:.03em;transition:all .15s;text-transform:none}
+.btn-mini:hover{filter:brightness(1.1)}
+.btn-mini:disabled{opacity:.4;cursor:not-allowed;filter:none}
+.btn-mini-ghost{background:var(--input-border);color:var(--text-secondary)}
+
 /* Right col */
-.right{display:flex;flex-direction:column;gap:1.3rem}
+.right{display:flex;flex-direction:column;gap:.9rem}
 
 /* Logs */
 .logbox{
     background:#12172a;
     border:1px solid #2a3252;
-    border-radius:var(--radius);padding:.8rem 1rem;
-    max-height:320px;overflow-y:auto;
+    border-radius:var(--radius);padding:.6rem .8rem;
+    max-height:240px;overflow-y:auto;
     font-family:'JetBrains Mono',monospace;font-size:.74rem;line-height:1.85;
     color:#c4cbe0;
 }
@@ -264,7 +272,7 @@ select option{background:#fff;color:var(--text)}
 .profile-item .p-value{font-size:.9rem;color:var(--text);font-weight:600}
 
 /* Trade History */
-.trade-summary{display:grid;grid-template-columns:repeat(7,1fr);gap:.8rem;margin-bottom:1.3rem}
+.trade-summary{display:grid;grid-template-columns:repeat(7,1fr);gap:.6rem;margin-bottom:.85rem}
 @media(max-width:1100px){.trade-summary{grid-template-columns:repeat(4,1fr)}}
 @media(max-width:600px){.trade-summary{grid-template-columns:repeat(2,1fr)}}
 .ts-card{
@@ -292,12 +300,12 @@ select option{background:#fff;color:var(--text)}
 
 /* Cumulative PNL Banner */
 .pnl-banner{
-    display:grid;grid-template-columns:1fr auto auto auto auto;gap:1.5rem;
-    align-items:center;padding:1.2rem 1.6rem;
+    display:grid;grid-template-columns:1fr auto auto auto auto;gap:1rem;
+    align-items:center;padding:.7rem 1.1rem;
     background:var(--surface);
     border:2px solid var(--green-border);border-left:5px solid var(--green);
     border-radius:var(--radius-lg);
-    margin-bottom:1.1rem;position:relative;overflow:hidden;
+    margin-bottom:.8rem;position:relative;overflow:hidden;
     transition:all .25s;box-shadow:var(--shadow-sm);
 }
 .pnl-banner::before{
@@ -308,7 +316,7 @@ select option{background:#fff;color:var(--text)}
 .pnl-main{display:flex;flex-direction:column;gap:.15rem;position:relative;z-index:1}
 .pnl-main .pnl-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:var(--text-secondary)}
 .pnl-main .pnl-value{
-    font-size:2.1rem;font-weight:800;font-family:'JetBrains Mono',monospace;
+    font-size:1.45rem;font-weight:800;font-family:'JetBrains Mono',monospace;
     letter-spacing:-.02em;transition:color .3s;
 }
 .pnl-main .pnl-value.positive{color:var(--green)}
@@ -510,7 +518,11 @@ select option{background:#fff;color:var(--text)}
             <div class="card card-green">
                 <div class="card-header"><h2>Strategy Config</h2><span class="card-badge">v2.0</span></div>
                 <div class="form-grid">
-                    <div class="fg"><label>Symbol</label>
+                    <div class="fg"><label>Symbol
+                        <span class="sym-btns">
+                            <button type="button" class="btn-mini" id="btnFillSym" onclick="autoFillSymbol()" title="Fetch ITM1 (ATM Offset) option for the chosen index">ITM1</button>
+                            <button type="button" class="btn-mini btn-mini-ghost" id="btnResetSym" onclick="resetSymbol()" title="Reset symbol to the index name and token to 0 (auto)">Reset</button>
+                        </span></label>
                         <input type="text" id="cSym" value="SENSEX" placeholder="e.g. SENSEX, SENSEX2670277100CE">
                     </div>
                     <div class="fg"><label>Index</label>
@@ -765,6 +777,46 @@ async function saveConfig(){
 function lockConfig(lock){
     cfgFields.forEach(id=>{document.getElementById(id).disabled=lock});
     document.getElementById('btnSaveCfg').disabled=lock;
+    ['btnFillSym','btnResetSym'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=lock});
+}
+
+// ── Show a transient message in the config status line ──
+function showCfgMsg(text,ok){
+    const msg=document.getElementById('cfgMsg');
+    msg.style.display='block';
+    msg.style.color=ok?'var(--green)':'var(--red)';
+    msg.style.background=ok?'var(--green-light)':'var(--red-light)';
+    msg.textContent=text;
+    setTimeout(()=>{msg.style.display='none'},3500);
+}
+
+// ── Auto-fill Symbol + Token with the ITM1 option of the chosen index ──
+async function autoFillSymbol(){
+    const btn=document.getElementById('btnFillSym');
+    const index=document.getElementById('cIdx').value;
+    const offset=Math.abs(parseInt(document.getElementById('cATM').value,10)||1);
+    const orig=btn.textContent;
+    btn.disabled=true;btn.textContent='…';
+    try{
+        const r=await fetch(`/api/atm-option?index=${encodeURIComponent(index)}&offset=${offset}&type=CE`);
+        const d=await r.json();
+        if(r.ok&&d.symbol){
+            document.getElementById('cSym').value=d.symbol;
+            document.getElementById('cToken').value=d.token;
+            showCfgMsg(`✓ ${d.symbol} · strike ${d.strike} · spot ₹${Number(d.spot).toFixed(2)}`,true);
+        }else{
+            showCfgMsg(d.error||'Failed to fetch ITM1 option',false);
+        }
+    }catch(e){showCfgMsg(e.message,false);}
+    finally{btn.disabled=false;btn.textContent=orig;}
+}
+
+// ── Reset Symbol to the index name and Token to 0 (default) ──
+function resetSymbol(){
+    const index=document.getElementById('cIdx').value;
+    document.getElementById('cSym').value=index;
+    document.getElementById('cToken').value=0;
+    showCfgMsg(`↺ Reset to ${index} · token 0 (auto)`,true);
 }
 
 function switchTab(tab){
