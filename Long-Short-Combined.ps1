@@ -302,13 +302,19 @@ while ($retryCount -le $maxRetries) {
         $seg = [System.ArraySegment[byte]]::new($buf)
         $stopTOD = $StopTime.TimeOfDay
         $lastStopCheck = [datetime]::MinValue
+        $stopNoticeShown = $false
 
         while ($ws.State -eq [System.Net.WebSockets.WebSocketState]::Open) {
             $now = [datetime]::Now
             if (($now - $lastStopCheck).TotalSeconds -ge 1) {
                 $lastStopCheck = $now
                 if ($now.TimeOfDay -gt $stopTOD) {
-                    Invoke-HAStrategyForceExit $State; Write-Host "  Stop time reached." -ForegroundColor Yellow; break
+                    if ($State.Direction -eq '') {
+                        Write-Host "  Stop time reached - no open position. Stopping." -ForegroundColor Yellow; break
+                    } elseif (-not $stopNoticeShown) {
+                        $stopNoticeShown = $true
+                        Write-Host "  Stop time reached - new entries disabled. Holding open $($State.Direction) position until its exit signal." -ForegroundColor Yellow
+                    }
                 }
             }
 
@@ -331,7 +337,7 @@ while ($retryCount -le $maxRetries) {
             }
         }
 
-        if ((Get-Date).TimeOfDay -gt $StopTime.TimeOfDay) { break }
+        if ((Get-Date).TimeOfDay -gt $StopTime.TimeOfDay -and $State.Direction -eq '') { break }
         $retryCount++
         if ($retryCount -le $maxRetries) { $w = $retryCount * 5; Write-Host "  Reconnecting in ${w}s..." -ForegroundColor Yellow; Start-Sleep $w }
     }

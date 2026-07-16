@@ -27,8 +27,8 @@ git --version
 
 ```
 Powershell-kite/
-├── Long-Short-Combined.ps1    # Main trading strategy (HA Long+Short)
-├── KiteData.psm1              # PowerShell module (Kite API helpers)
+├── Long-Short-Combined.ps1    # Main trading strategy (HA Long+Short) — auth, WS loop, $State
+├── KiteData.psm1              # PowerShell module (Kite API helpers + HA strategy engine)
 ├── input.json                 # Trading configuration (symbol, timeframe, lots, etc.)
 ├── accesstoken.json           # Persisted Kite access token (auto-managed)
 ├── start-webapp.ps1           # Launcher script for the web dashboard
@@ -74,20 +74,55 @@ Powershell-kite/
 
 ## Trading Logic
 
-The strategy (`Long-Short-Combined.ps1`) uses **Heikin-Ashi candles** computed from live Kite WebSocket ticks:
+The strategy (`Long-Short-Combined.ps1`) is a **Heikin-Ashi (HA) breakout system** that trades an index direction by **buying ATM options** (LONG view → buy CE, SHORT view → buy PE; both are buy-to-open, sell-to-close). HA candles are built live from the Kite WebSocket tick stream, and signals are evaluated on every tick against the **live/forming** candle for zero-latency entries.
+
+### Entry / Exit Rules
 
 | Signal | Condition | Action |
 |--------|-----------|--------|
-| **Long Entry** | HA Close > Previous Candle High | BUY CE (Call Option) |
-| **Long Exit** | HA Close < Previous Candle Low | SELL CE |
-| **Short Entry** | HA Close < Previous Candle Low | BUY PE (Put Option) |
-| **Short Exit** | HA Close > Previous Candle High | SELL PE |
+| **Long Entry** | live HA Close > Previous Candle High | BUY CE (Call Option) |
+| **Long Exit** | live HA Close < Previous Candle Low | SELL CE |
+| **Short Entry** | live HA Close < Previous Candle Low | BUY PE (Put Option) |
+| **Short Exit** | live HA Close > Previous Candle High | SELL PE |
 
-- Only **one direction** is active at a time (Long OR Short, never both)
-- ATM strike selection with configurable offset
-- Supports both lot-based and amount-based position sizing
-- Auto force-exit at configured stop time
-- Position state persisted to `PlacedOrders/Position.json` for crash recovery
+Only **one direction** is active at a time — the position state (`Direction`) is `''`, `LONG`, or `SHORT`. A fresh HA candle breaking beyond the prior candle's range signals momentum; the opposite break closes it.
+
+### Heikin-Ashi Formula
+
+HA smooths raw OHLC to filter noise (`Convert-ToHACandle` in `KiteData.psm1`):
+
+```
+HA_Close = (Open + High + Low + Close) / 4
+HA_Open  = (prev HA_Open + prev HA_Close) / 2   (raw Open for first candle)
+HA_High  = max(High, HA_Open, HA_Close)
+HA_Low   = min(Low,  HA_Open, HA_Close)
+```
+
+### Execution Flow
+
+1. **Config & auth** — loads `input.json`, applies command-line overrides, validates (and if stale re-fetches) the Kite access token.
+2. **Option setup** — resolves the index config (lot size, exchange) and fetches the full CE + PE option chains for the **nearest expiry**.
+3. **State object** — builds one `$State` hashtable holding config + mutable position/candle state, then restores any open position from `PlacedOrders/Position.json` (`-CleanupPosition` controls resume vs. fresh start).
+4. **WebSocket loop** — connects to `wss://ws.kite.trade`, subscribes to the index token, and processes each binary tick.
+
+### Per-Tick Pipeline (in `KiteData.psm1`)
+
+- `Update-HAStrategyFromTick` — buckets ticks into time-based candles; on bucket rollover it closes the active candle, converts it to HA, and stores it as "previous".
+- `Invoke-HAStrategySignalCheck` — computes the **live HA** of the in-progress candle and compares its Close to the **previous completed** candle's High/Low to trigger the rules above.
+- `Enter-HAStrategyPosition` — fetches the real **index spot price** (not the tick price, which for options is a premium) to pick the ATM strike, applies `ATMOffset`, optionally sizes lots from `AmountToTrade ÷ (optionLTP × LotSize)`, places a MARKET BUY, and persists the position.
+- `Exit-HAStrategyPosition` — cancels pending stop-losses, SELLs the option, computes trade P&L = `(exitLTP − entryLTP) × qty`, adds to `TotalPnL`, and clears state.
+- `Invoke-HAStrategyForceExit` — liquidates any open position at `StopTime`.
+- `Show-HAStrategyDisplay` — renders the live candle table, position, and P&L to the console (captured by the webapp via stdout).
+
+### Key Behaviours
+
+- Trades only within the `StartTime`–`StopTime` window; force-exits at stop time.
+- ATM strike selection with configurable offset (`ATMOffset`).
+- Supports both lot-based and amount-based position sizing.
+- Auto-reconnect (up to 3 retries with backoff) if the socket drops.
+- Position state persisted to `PlacedOrders/Position.json` for crash/restart recovery.
+
+> **Architecture note:** the strategy engine functions live in `KiteData.psm1` and operate on a shared `$State` hashtable (a reference type, so mutations propagate back to the script). `Long-Short-Combined.ps1` builds `$State`, runs the WebSocket loop, and calls `Update-HAStrategyFromTick`, `Show-HAStrategyDisplay`, and `Invoke-HAStrategyForceExit`.
 
 ## Web Dashboard
 

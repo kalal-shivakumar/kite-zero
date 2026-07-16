@@ -2660,19 +2660,22 @@ function Invoke-HAStrategySignalCheck {
     $liveHA = Convert-ToHACandle $currentRaw ($State.STR_PreviousHA[$instrumentToken])
 
     $now = [datetime]::Now
-    if ($now.TimeOfDay -lt $State.StartTime.TimeOfDay -or $now.TimeOfDay -gt $State.StopTime.TimeOfDay) { return }
+    # Trading window gates NEW ENTRIES only. Exits are ALWAYS allowed so an
+    # existing position is never force-closed just because stop time passed —
+    # it stays open until its normal opposite-HA exit signal fires.
+    $withinWindow = ($now.TimeOfDay -ge $State.StartTime.TimeOfDay -and $now.TimeOfDay -le $State.StopTime.TimeOfDay)
     $timeStamp = $now.ToString('yyyy-MM-dd_HH-mm-ss')
 
-    # -- LONG ENTRY: HA Close > prev High (only if flat) --
-    if ($State.Direction -eq '' -and $liveHA.Close -gt $prev.High) {
+    # -- LONG ENTRY: HA Close > prev High (only if flat and within window) --
+    if ($withinWindow -and $State.Direction -eq '' -and $liveHA.Close -gt $prev.High) {
         Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** LONG ENTRY *** LTP: $lastPrice | HA Close: $([Math]::Round($liveHA.Close,2)) > Prev High: $($prev.High)" -ForegroundColor Yellow
         $ok = Enter-HAStrategyPosition $State 'LONG' $lastPrice $timeStamp
         if ($ok) { $State.StrategySignals.Add("ENTRY LONG @ $lastPrice  CE: $($State.OptSymbol) ($timeStamp)") }
         return
     }
 
-    # -- SHORT ENTRY: HA Close < prev Low (only if flat) --
-    if ($State.Direction -eq '' -and $liveHA.Close -lt $prev.Low) {
+    # -- SHORT ENTRY: HA Close < prev Low (only if flat and within window) --
+    if ($withinWindow -and $State.Direction -eq '' -and $liveHA.Close -lt $prev.Low) {
         Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** SHORT ENTRY *** LTP: $lastPrice | HA Close: $([Math]::Round($liveHA.Close,2)) < Prev Low: $($prev.Low)" -ForegroundColor Yellow
         $ok = Enter-HAStrategyPosition $State 'SHORT' $lastPrice $timeStamp
         if ($ok) { $State.StrategySignals.Add("ENTRY SHORT @ $lastPrice  PE: $($State.OptSymbol) ($timeStamp)") }
