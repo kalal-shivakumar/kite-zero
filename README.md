@@ -26,7 +26,7 @@ git --version
 ## Project Structure
 
 ```
-Powershell-kite/
+kite-zero/
 ├── Long-Short-Combined.ps1        # Main trading strategy (HA Long+Short) — auth, WS loop, $State
 ├── Liquidity-Sweep-Combined.ps1   # Liquidity-sweep strategy (pivot sweep + reversal)
 ├── KiteData.psm1                  # PowerShell module (Kite API helpers + HA strategy engine)
@@ -73,7 +73,17 @@ Powershell-kite/
    ```powershell
    .\start-webapp.ps1
    ```
-   Opens at **http://localhost:5000**
+   Opens at **http://127.0.0.1:5000**
+
+   > Use `127.0.0.1` (not `localhost`) so it matches the Kite app's Redirect URL and the session cookie carries through the OAuth callback.
+
+4. **Configure the Kite app Redirect URL:**
+
+   In the [Kite developer portal](https://developers.kite.trade/apps), set the app's **Redirect URL** to:
+   ```
+   http://127.0.0.1:5000/callback
+   ```
+   This lets the dashboard receive the `request_token` automatically after login (no manual paste).
 
 ## Trading Logic
 
@@ -148,10 +158,11 @@ Browser UI  ──HTTP + SSE──▶  server.js (Express)  ──REST/WebSocket
 
 ### Login Flow
 1. User enters Kite API key + secret on the login page (`index.html`)
-2. `/api/login` returns the Kite OAuth URL → opens Kite login → returns a `request_token`
-3. User pastes the `request_token` (or full redirect URL); `/api/set-token` (or the `/callback` OAuth route) exchanges it for an `access_token` using a SHA-256 checksum
-4. Token is saved to `accesstoken.json` for persistence across restarts
-5. On next visit, the saved token is validated against the Kite profile API — auto-redirects to the dashboard if valid
+2. `/api/login` stores the credentials in the session and returns the Kite OAuth URL → opens Kite login
+3. After authenticating, Kite redirects to the app's configured Redirect URL (`http://127.0.0.1:5000/callback`) with a `request_token`; the `/callback` route exchanges it for an `access_token` using a SHA-256 checksum — **fully automatic, no paste required**
+4. *(Fallback)* If the redirect URL isn't configured, the user can paste the `request_token` (or full redirect URL) and `/api/set-token` performs the same exchange
+5. Token is saved to `accesstoken.json` for persistence across restarts
+6. On next visit, the saved token is validated against the Kite profile API — auto-redirects to the dashboard if valid
 
 ### Dashboard UI (`dashboard.html`)
 
@@ -248,7 +259,7 @@ You can also run the trading script directly without the webapp:
 
 ## Notes
 
-- The webapp runs **locally only** (localhost:5000) — no cloud deployment
+- The webapp runs **locally only** (http://127.0.0.1:5000) — no cloud deployment
 - Token expires daily at ~6 AM IST; re-login required each trading day
 - The PS1 script uses raw .NET WebSocket for zero-latency tick processing
 - All orders go through Zerodha's official Kite Connect API

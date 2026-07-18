@@ -121,6 +121,59 @@ function saveTradeToFile(userId, trade) {
     } catch (e) { console.error('Failed to save trade:', e.message); }
 }
 
+// ── Daily P&L history persistence (date → { pnl, trades, wins, losses }) ──
+// Kite Connect has NO historical/calendar P&L API (/orders & /trades are today-only),
+// so we snapshot each day's realized P&L from /orders and accumulate it locally.
+function dailyPnlFilePath(userId) {
+    return path.join(TRADES_DIR, `daily-pnl-${sanitizeId(userId)}.json`);
+}
+function loadDailyPnl(userId) {
+    try {
+        const fp = dailyPnlFilePath(userId);
+        if (fs.existsSync(fp)) return JSON.parse(fs.readFileSync(fp, 'utf8'));
+    } catch {}
+    return {};
+}
+function saveDailyPnl(userId, map) {
+    try {
+        if (!fs.existsSync(TRADES_DIR)) fs.mkdirSync(TRADES_DIR, { recursive: true });
+        fs.writeFileSync(dailyPnlFilePath(userId), JSON.stringify(map, null, 2));
+    } catch (e) { console.error('Failed to save daily P&L:', e.message); }
+}
+
+// Pair COMPLETE BUY/SELL orders (same logic as the dashboard) → realized P&L summary.
+// Restricted to F&O only (NFO = NSE F&O, BFO = BSE F&O); equity/currency/commodity are excluded.
+// Also returns the individual paired trades (entry/exit/qty/pnl/times).
+function computeRealizedFromOrders(orders) {
+    const FNO = new Set(['NFO', 'BFO']);
+    const completed = (orders || []).filter(o => o.status === 'COMPLETE' && FNO.has(o.exchange));
+    const buys  = completed.filter(o => o.transaction_type === 'BUY').sort((a, b) => new Date(a.order_timestamp) - new Date(b.order_timestamp));
+    const sells = completed.filter(o => o.transaction_type === 'SELL').sort((a, b) => new Date(a.order_timestamp) - new Date(b.order_timestamp));
+    const used = new Set();
+    const entries = [];
+    let pnl = 0, trades = 0, wins = 0, losses = 0;
+    for (const buy of buys) {
+        const sell = sells.find(s => s.tradingsymbol === buy.tradingsymbol && !used.has(s.order_id) && new Date(s.order_timestamp) >= new Date(buy.order_timestamp));
+        if (!sell) continue;
+        used.add(sell.order_id);
+        const entry = +buy.average_price, exit = +sell.average_price, qty = +buy.quantity;
+        const p = (exit - entry) * qty;
+        pnl += p; trades++;
+        if (p > 0) wins++; else if (p < 0) losses++;
+        entries.push({
+            symbol: buy.tradingsymbol,
+            exchange: buy.exchange,
+            qty,
+            entry: +entry.toFixed(2),
+            exit: +exit.toFixed(2),
+            pnl: +p.toFixed(2),
+            entryTime: buy.order_timestamp,
+            exitTime: sell.order_timestamp
+        });
+    }
+    return { pnl: +pnl.toFixed(2), trades, wins, losses, entries };
+}
+
 // ══════════════════════════════════════════════════════════════
 // KITE BINARY TICK PARSER (mirrors KiteData.psm1)
 // ══════════════════════════════════════════════════════════════
@@ -1059,6 +1112,32 @@ app.get('/api/bot/trades', (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
     const trades = loadTradesFromFile(req.session.userId);
     res.json(trades);
+});
+
+// ── Daily P&L history (last N days) ──
+// Snapshots today's realized P&L from Kite /orders into a local history file,
+// then returns the last N days. This is the only way to get multi-day P&L,
+// since Kite Connect exposes no historical/calendar P&L endpoint.
+app.get('/api/pnl/daily', async (req, res) => {
+    if (!req.session.accessToken || !req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    const uid = req.session.userId;
+    const days = Math.min(Math.max(parseInt(req.query.days, 10) || 10, 1), 90);
+    const history = loadDailyPnl(uid);
+
+    // Snapshot today's realized P&L from Kite orders (best-effort).
+    try {
+        const r = await axios.get(`${KITE_BASE_URL}/orders`, { headers: kiteHeaders(req.session.apiKey, req.session.accessToken), timeout: 5000 });
+        const today = nowIST().toISOString().substring(0, 10);
+        const snap = computeRealizedFromOrders(r.data.data);
+        if (snap.trades > 0 || history[today]) {
+            history[today] = { ...snap, updated: new Date().toISOString() };
+            saveDailyPnl(uid, history);
+        }
+    } catch (e) { /* keep existing history if the orders fetch fails */ }
+
+    const keys = Object.keys(history).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k)).sort();
+    const shown = keys.slice(-days).map(k => ({ date: k, ...history[k] }));
+    res.json(shown);
 });
 
 // ── Logout ──

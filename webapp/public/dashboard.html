@@ -287,6 +287,44 @@ select option{background:#fff;color:var(--text)}
 .piv-leg-lb{color:var(--text-secondary);font-weight:600;flex:1}
 .piv-leg-vl{font-family:'JetBrains Mono',monospace;font-weight:700}
 
+/* Daily P&L combo chart (bars + cumulative line) */
+.dpnl-filter{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:.25rem .5rem;font-size:.72rem;font-weight:600;font-family:inherit;cursor:pointer}
+.dpnl-chart{display:flex;flex-direction:column;gap:.5rem;min-height:210px;position:relative}
+.dpnl-empty{margin:auto;padding:3rem 0;color:var(--text-muted);font-size:.82rem}
+.dpnl-summary{display:flex;gap:.5rem;flex-wrap:wrap}
+.dpnl-stat{flex:1;min-width:88px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:.45rem .65rem;position:relative;overflow:hidden}
+.dpnl-stat::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+.dpnl-stat.g::before{background:var(--green)} .dpnl-stat.r::before{background:var(--red)}
+.dpnl-stat .k{font-size:.58rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);font-weight:700}
+.dpnl-stat .val{font-size:1.02rem;font-weight:800;font-family:'JetBrains Mono',monospace;margin-top:.12rem;line-height:1}
+.dpnl-stat .sub{font-size:.56rem;color:var(--text-muted);font-weight:600;margin-top:.15rem}
+.dpnl-svgwrap{position:relative;width:100%}
+.dpnl-svgwrap svg{display:block;width:100%;height:auto;overflow:visible}
+.dpnl-bar-rect{transition:opacity .15s;cursor:pointer}
+.dpnl-col-hit{fill:transparent;cursor:pointer}
+.dpnl-col-hit:hover+.dpnl-bar-rect,.dpnl-bar-rect:hover{opacity:.82}
+.dpnl-xlabel{font-size:9px;fill:var(--text-secondary);font-weight:600}
+.dpnl-vlabel{font-size:8.5px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.dpnl-legend{display:flex;gap:1rem;align-items:center;font-size:.62rem;color:var(--text-secondary);font-weight:600;padding-top:.1rem}
+.dpnl-legend .lg{display:flex;align-items:center;gap:.35rem}
+.dpnl-legend .sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+.dpnl-legend .sw.ln{height:3px;width:18px;border-radius:2px}
+.dpnl-tip{position:absolute;pointer-events:none;z-index:20;background:var(--text);color:#fff;border-radius:8px;padding:.45rem .6rem;font-size:.68rem;line-height:1.4;box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s;white-space:nowrap}
+.dpnl-tip.show{opacity:1;transform:translateY(0)}
+.dpnl-tip b{font-family:'JetBrains Mono',monospace}
+.dpnl-hint{font-size:.58rem;color:var(--text-muted);text-align:center;margin-top:.15rem}
+.dpnl-details{margin-top:.3rem;border-top:1px solid var(--border);padding-top:.5rem;animation:dpnlFade .18s ease}
+@keyframes dpnlFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.dpnl-details-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;font-size:.74rem;font-weight:700;color:var(--text-secondary)}
+.dpnl-details-hd .cl{cursor:pointer;color:var(--text-muted);font-weight:600;font-size:.66rem;padding:.1rem .4rem;border-radius:5px;border:1px solid var(--border)}
+.dpnl-details-hd .cl:hover{background:var(--surface2);color:var(--text)}
+.dpnl-tbl{width:100%;border-collapse:collapse;font-size:.68rem}
+.dpnl-tbl th{text-align:right;padding:.3rem .45rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;font-size:.56rem;letter-spacing:.04em;border-bottom:1px solid var(--border)}
+.dpnl-tbl th:first-child,.dpnl-tbl td:first-child,.dpnl-tbl th:nth-child(2),.dpnl-tbl td:nth-child(2){text-align:left}
+.dpnl-tbl td{padding:.3rem .45rem;border-bottom:1px solid var(--surface3);font-family:'JetBrains Mono',monospace}
+.dpnl-tbl tr:hover td{background:var(--surface2)}
+.dpnl-tbl .ex{font-size:.54rem;color:var(--text-muted);font-family:inherit}
+
 /* Profile */
 .profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
 .profile-item{padding:.6rem .8rem;background:var(--surface2);border-radius:8px;border:2px solid var(--border);transition:all .2s}
@@ -609,6 +647,18 @@ select option{background:#fff;color:var(--text)}
                     </div>
                 </div>
             </div>
+            <div class="card card-blue">
+                <div class="card-header">
+                    <h2>Daily P&amp;L</h2>
+                    <select id="dpnlDays" class="dpnl-filter" onchange="renderDailyPnl()">
+                        <option value="5">Last 5 days</option>
+                        <option value="10" selected>Last 10 days</option>
+                        <option value="15">Last 15 days</option>
+                        <option value="30">Last 30 days</option>
+                    </select>
+                </div>
+                <div class="dpnl-chart" id="dpnlChart"><div class="dpnl-empty">No trade data yet</div></div>
+            </div>
         </div>
     </div>
 </div>
@@ -923,6 +973,7 @@ function updateTradeSummary(){
     setText('tsWorst',worst<0?'₹'+worst.toFixed(2):'—');
     // Update cumulative banner from bot trades
     updateCumulativePnl(totalPnL, total, winners);
+    renderDailyPnl();
 }
 
 (async()=>{
@@ -955,6 +1006,156 @@ function renderPnlPivot(records){
     document.getElementById('pivTrades').textContent=records.length;
     document.getElementById('pivWinRate').textContent=`${winRate}% win`;
 }
+
+function dpnlLabel(key){
+    const [y,m,d]=key.split('-').map(Number);
+    const mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1];
+    return `${d} ${mon}`;
+}
+function dpnlCompact(n){
+    const a=Math.abs(n);
+    if(a>=1e5)return (n<0?'-':'')+(a/1e5).toFixed(a>=1e6?0:1)+'L';
+    if(a>=1e3)return (n<0?'-':'')+(a/1e3).toFixed(1)+'k';
+    return n.toFixed(0);
+}
+function dpnlINR(n){return (n>=0?'+':'\u2212')+'\u20b9'+Math.abs(n).toLocaleString('en-IN',{maximumFractionDigits:0});}
+
+let _dpnlCache=null, _dpnlPts=null;
+async function renderDailyPnl(){
+    const host=document.getElementById('dpnlChart');
+    if(!host)return;
+    const days=+(document.getElementById('dpnlDays')?.value||10);
+    // Multi-day P&L comes from the server's daily history (snapshotted from Kite /orders),
+    // since Kite Connect has no historical/calendar P&L endpoint.
+    let data=[];
+    try{data=await(await fetch('/api/pnl/daily?days='+days)).json();}catch{}
+    _dpnlCache=Array.isArray(data)?data:[];
+    drawDailyPnl();
+}
+function drawDailyPnl(){
+    const host=document.getElementById('dpnlChart');
+    if(!host)return;
+    const data=_dpnlCache||[];
+    if(!data.length){host.innerHTML='<div class="dpnl-empty">No trade data yet</div>';return}
+
+    // Running cumulative + aggregates
+    let run=0; const pts=data.map(d=>{const v=d.pnl||0;run+=v;return{date:d.date,pnl:v,cum:run,trades:d.trades||0,entries:d.entries||[]};});
+    _dpnlPts=pts;
+    const total=run;
+    const n=pts.length;
+    const winDays=pts.filter(p=>p.pnl>0).length;
+    const avg=total/n;
+    const best=pts.reduce((a,b)=>b.pnl>a.pnl?b:a,pts[0]);
+    const winRate=Math.round(winDays/n*100);
+    const cls=v=>v>0?'g':v<0?'r':'';
+    const col=v=>v>0?'var(--green)':v<0?'var(--red)':'var(--text-secondary)';
+
+    // Layout
+    const W=Math.max(host.clientWidth||600,320), H=196;
+    const padT=20,padB=22,padL=6,padR=6;
+    const innerW=W-padL-padR, innerH=H-padT-padB;
+    const step=innerW/n, barW=Math.min(step*0.5,26);
+    const zeroY=padT+innerH/2;
+    const maxAbs=Math.max(...pts.map(p=>Math.abs(p.pnl)),1);
+    const barScale=(innerH/2-6)/maxAbs;
+    const cx=i=>padL+step*(i+0.5);
+
+    // Cumulative scale (own min/max, using full height)
+    const cmin=Math.min(0,...pts.map(p=>p.cum)), cmax=Math.max(0,...pts.map(p=>p.cum));
+    const cRange=(cmax-cmin)||1;
+    const cY=v=>padT+innerH-((v-cmin)/cRange)*innerH;
+    const cPts=pts.map((p,i)=>({x:cx(i),y:cY(p.cum)}));
+    const linePath='M'+cPts.map((p,i)=>`${i?'L':''}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+    const areaPath=`M${cPts[0].x.toFixed(1)} ${(padT+innerH).toFixed(1)} `+cPts.map(p=>`L${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')+` L${cPts[n-1].x.toFixed(1)} ${(padT+innerH).toFixed(1)} Z`;
+
+    // Bars
+    const bars=pts.map((p,i)=>{
+        const x=cx(i)-barW/2;
+        const h=Math.max(Math.abs(p.pnl)*barScale,p.pnl?2:0);
+        const pos=p.pnl>=0;
+        const bx=x.toFixed(1), bw=barW.toFixed(1);
+        let rect='';
+        if(p.pnl!==0){
+            if(pos){const y=(zeroY-h);const r=Math.min(4,barW/2,h);
+                rect=`<path class="dpnl-bar-rect" d="M${bx} ${(y+r).toFixed(1)} Q${bx} ${y.toFixed(1)} ${(x+r).toFixed(1)} ${y.toFixed(1)} H${(x+barW-r).toFixed(1)} Q${(x+barW).toFixed(1)} ${y.toFixed(1)} ${(x+barW).toFixed(1)} ${(y+r).toFixed(1)} V${zeroY.toFixed(1)} H${bx} Z" fill="url(#dpnlG)"/>`;
+            }else{const y=zeroY;const bh=h;const r=Math.min(4,barW/2,bh);
+                rect=`<path class="dpnl-bar-rect" d="M${bx} ${y.toFixed(1)} H${(x+barW).toFixed(1)} V${(y+bh-r).toFixed(1)} Q${(x+barW).toFixed(1)} ${(y+bh).toFixed(1)} ${(x+barW-r).toFixed(1)} ${(y+bh).toFixed(1)} H${(x+r).toFixed(1)} Q${bx} ${(y+bh).toFixed(1)} ${bx} ${(y+bh-r).toFixed(1)} Z" fill="url(#dpnlR)"/>`;
+            }
+        }
+        // value label
+        const ly=pos?(zeroY-h-4):(zeroY+h+9);
+        const lbl=p.pnl!==0?`<text class="dpnl-vlabel" x="${cx(i).toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" fill="${pos?'var(--green)':'var(--red)'}">${dpnlCompact(p.pnl)}</text>`:'';
+        // x label
+        const xl=`<text class="dpnl-xlabel" x="${cx(i).toFixed(1)}" y="${(H-6).toFixed(1)}" text-anchor="middle">${dpnlLabel(p.date)}</text>`;
+        // hover hit area
+        const hit=`<rect class="dpnl-col-hit" style="cursor:pointer" x="${(cx(i)-step/2).toFixed(1)}" y="${padT}" width="${step.toFixed(1)}" height="${innerH}" onmousemove="dpnlShowTip(event,${i})" onmouseleave="dpnlHideTip()" onclick="dpnlShowDay(${i})"/>`;
+        return hit+rect+lbl+xl;
+    }).join('');
+
+    // Cumulative dots + end label
+    const dots=cPts.map((p,i)=>`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${i===n-1?3.6:2.4}" fill="var(--accent)" stroke="#fff" stroke-width="1.3"/>`).join('');
+    const endLy=Math.max(cY(pts[n-1].cum)-9,10);
+    const endLbl=`<text x="${cPts[n-1].x.toFixed(1)}" y="${endLy.toFixed(1)}" text-anchor="end" font-size="10" font-weight="800" font-family="'JetBrains Mono',monospace" fill="var(--accent)">${dpnlINR(total)}</text>`;
+
+    const svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Daily and cumulative P&amp;L">
+        <defs>
+            <linearGradient id="dpnlG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#12b48c"/><stop offset="1" stop-color="var(--green)"/></linearGradient>
+            <linearGradient id="dpnlR" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--red)"/><stop offset="1" stop-color="#f26d7d"/></linearGradient>
+            <linearGradient id="dpnlArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".22"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient>
+        </defs>
+        <line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${(W-padR).toFixed(1)}" y2="${zeroY.toFixed(1)}" stroke="var(--border)" stroke-dasharray="3 3"/>
+        ${bars}
+        <path d="${areaPath}" fill="url(#dpnlArea)"/>
+        <path d="${linePath}" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+        ${dots}${endLbl}
+    </svg>`;
+
+    host.innerHTML=
+        `<div class="dpnl-summary">`
+        +`<div class="dpnl-stat ${cls(total)}"><div class="k">Total P&amp;L</div><div class="val" style="color:${col(total)}">${dpnlINR(total)}</div><div class="sub">over ${n} day${n>1?'s':''}</div></div>`
+        +`<div class="dpnl-stat ${cls(avg)}"><div class="k">Avg / Day</div><div class="val" style="color:${col(avg)}">${dpnlINR(avg)}</div><div class="sub">best ${dpnlINR(best.pnl)}</div></div>`
+        +`<div class="dpnl-stat ${winRate>=50?'g':'r'}"><div class="k">Win Days</div><div class="val">${winDays}/${n}</div><div class="sub">${winRate}% win rate</div></div>`
+        +`</div>`
+        +`<div class="dpnl-svgwrap">${svg}</div>`
+        +`<div class="dpnl-legend"><span class="lg"><span class="sw" style="background:var(--green)"></span>Profit day</span><span class="lg"><span class="sw" style="background:var(--red)"></span>Loss day</span><span class="lg"><span class="sw ln" style="background:var(--accent)"></span>Cumulative</span></div>`
+        +`<div class="dpnl-hint">Click any bar to see that day's trades (entry / exit)</div>`
+        +`<div class="dpnl-details" id="dpnlDetails" style="display:none"></div>`
+        +`<div class="dpnl-tip" id="dpnlTip"></div>`;
+}
+function dpnlShowDay(i){
+    const box=document.getElementById('dpnlDetails');
+    if(!box||!_dpnlPts)return;
+    const d=_dpnlPts[i];if(!d)return;
+    const es=d.entries||[];
+    const hd=`<div class="dpnl-details-hd"><span>${dpnlLabel(d.date)} · ${d.trades} trade${d.trades===1?'':'s'} · <span class="${d.pnl>=0?'grn':'red'}">${dpnlINR(d.pnl)}</span></span><span class="cl" onclick="dpnlCloseDay()">\u2715 close</span></div>`;
+    if(!es.length){
+        box.innerHTML=hd+`<div class="dpnl-hint">No per-trade detail stored for this day.<br>(Kite exposes only today's orders, so past-day breakdowns exist only if captured on that day.)</div>`;
+        box.style.display='block';return;
+    }
+    const rows=es.map(e=>{
+        const t=e.exitTime?String(e.exitTime).substring(11,16):(e.entryTime?String(e.entryTime).substring(11,16):'—');
+        const c=e.pnl>=0?'grn':'red';
+        return`<tr><td>${t}</td><td>${e.symbol}<div class="ex">${e.exchange||''}</div></td><td style="text-align:right">${e.qty}</td><td style="text-align:right">\u20b9${(+e.entry).toFixed(2)}</td><td style="text-align:right">\u20b9${(+e.exit).toFixed(2)}</td><td class="${c}" style="text-align:right">${e.pnl>=0?'+':''}\u20b9${(+e.pnl).toFixed(2)}</td></tr>`;
+    }).join('');
+    box.innerHTML=hd+`<table class="dpnl-tbl"><thead><tr><th>Time</th><th>Symbol</th><th>Qty</th><th>Entry</th><th>Exit</th><th>P&amp;L</th></tr></thead><tbody>${rows}</tbody></table>`;
+    box.style.display='block';
+}
+function dpnlCloseDay(){const b=document.getElementById('dpnlDetails');if(b){b.style.display='none';b.innerHTML='';}}
+function dpnlShowTip(evt,i){
+    const t=document.getElementById('dpnlTip');if(!t||!_dpnlPts)return;
+    const d=_dpnlPts[i];if(!d)return;
+    t.innerHTML=`<div style="font-weight:700;margin-bottom:2px">${dpnlLabel(d.date)}</div>`
+        +`<div>Day: <b style="color:${d.pnl>=0?'#3dd7b0':'#ff8a95'}">${dpnlINR(d.pnl)}</b></div>`
+        +`<div>Cumulative: <b style="color:#b3a8f5">${dpnlINR(d.cum)}</b></div>`
+        +`<div style="opacity:.8">${d.trades} trade${d.trades===1?'':'s'}</div>`;
+    const wrap=t.parentElement.getBoundingClientRect();
+    t.classList.add('show');
+    const tx=evt.clientX-wrap.left, ty=evt.clientY-wrap.top;
+    t.style.left=Math.min(Math.max(tx+12,4),wrap.width-t.offsetWidth-4)+'px';
+    t.style.top=Math.max(ty-t.offsetHeight-12,0)+'px';
+}
+function dpnlHideTip(){const t=document.getElementById('dpnlTip');if(t)t.classList.remove('show');}
+window.addEventListener('resize',()=>{if(_dpnlCache&&_dpnlCache.length)drawDailyPnl();});
 
 async function loadOrd(){
     if(_loadOrdBusy)return;
@@ -1001,6 +1202,7 @@ async function loadOrd(){
     }catch{}finally{_loadOrdBusy=false}
 }
 loadOrd();setInterval(loadOrd,10000);
+renderDailyPnl();setInterval(renderDailyPnl,60000);
 
 function getCfg(){
     return {
