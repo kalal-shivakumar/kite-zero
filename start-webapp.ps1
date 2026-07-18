@@ -26,7 +26,7 @@ try {
 }
 
 # 2. Set env vars and start
-Write-Host "[2/2] Starting server on http://localhost:5000 ...`n" -ForegroundColor Yellow
+Write-Host "[2/2] Starting server on http://127.0.0.1:5000 ...`n" -ForegroundColor Yellow
 
 $env:PORT             = '5000'
 $env:NODE_ENV         = 'development'
@@ -34,7 +34,7 @@ $env:SESSION_SECRET   = 'local-dev-secret-change-me'
 
 Write-Host "      Press Ctrl+C to stop.`n" -ForegroundColor DarkGray
 
-Start-Process "http://localhost:5000"
+Start-Process "http://127.0.0.1:5000"
 
 Push-Location $WebappDir
 try {
