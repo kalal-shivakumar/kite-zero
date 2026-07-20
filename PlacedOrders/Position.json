@@ -1,0 +1,13 @@
+{
+  "OptionLTP": 102,
+  "Price": 102.3,
+  "TotalPnL": -2060.4999999999986,
+  "Direction": "LONG",
+  "Symbol": "NIFTY2672124200CE",
+  "Lots": 1,
+  "Qty": 65,
+  "Time": "2026-07-20_15-22-31",
+  "Strike": 24200.0,
+  "OptType": "CE",
+  "Token": 14681090
+}
