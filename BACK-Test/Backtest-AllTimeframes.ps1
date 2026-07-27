@@ -583,7 +583,7 @@ Write-Host ""
 # ================================================================
 # DAILY COMBINED P&L — LONG + SHORT per day
 # ================================================================
-$combTFs = @('minute','2minute','3minute')
+$combTFs = $TimeFrames
 $cColW = 12
 $cSep = "  " + ("-" * 62)
 $cHdr = "  {0,-12}{1,$cColW}{2,$cColW}{3,$cColW}{4,$cColW}" -f "Date","Long","Short","Combined","Cumulative"

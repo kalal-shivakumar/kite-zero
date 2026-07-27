@@ -1269,9 +1269,9 @@ function Invoke-KiteHALongStrategy {
         }
 
         $null = $sb.AppendLine('')
-        $rowFormat = ' {0,-18} {1,14} {2,14} {3,14} {4,14} {5,10} {6,5} {7,6}'
-        $null = $sb.AppendLine(($rowFormat -f 'Time','HA Open','HA High','HA Low','HA Close','Volume','Ticks','Trend'))
-        $null = $sb.AppendLine(' ' + ('-' * 102))
+        $rowFormat = ' {0,-18} {1,14} {2,14} {3,14} {4,14} {5,5} {6,6}'
+        $null = $sb.AppendLine(($rowFormat -f 'Time','HA Open','HA High','HA Low','HA Close','Ticks','Trend'))
+        $null = $sb.AppendLine(' ' + ('-' * 82))
 
         Clear-Host
         Write-Host $sb.ToString()
@@ -1280,7 +1280,7 @@ function Invoke-KiteHALongStrategy {
             $candle = $visibleCandles[$rowIndex]
             $trend = if ($candle.Close -ge $candle.Open) { '  UP' } else { 'DOWN' }
             $color = if ($candle.Close -ge $candle.Open) { 'Green' } else { 'Red' }
-            $line = $rowFormat -f $candle.TimeBucket, ('{0:N2}' -f $candle.Open), ('{0:N2}' -f $candle.High), ('{0:N2}' -f $candle.Low), ('{0:N2}' -f $candle.Close), ('{0:N0}' -f $candle.Volume), $candle.TicksInCandle, $trend
+            $line = $rowFormat -f $candle.TimeBucket, ('{0:N2}' -f $candle.Open), ('{0:N2}' -f $candle.High), ('{0:N2}' -f $candle.Low), ('{0:N2}' -f $candle.Close), $candle.TicksInCandle, $trend
             if ($rowIndex -eq ($visibleCandles.Count - 1)) {
                 Write-Host $line -ForegroundColor Yellow
             } else {
@@ -1657,9 +1657,9 @@ function Invoke-KiteHAShortStrategy {
         }
 
         $null = $sb.AppendLine('')
-        $rowFormat = ' {0,-18} {1,14} {2,14} {3,14} {4,14} {5,10} {6,5} {7,6}'
-        $null = $sb.AppendLine(($rowFormat -f 'Time','HA Open','HA High','HA Low','HA Close','Volume','Ticks','Trend'))
-        $null = $sb.AppendLine(' ' + ('-' * 102))
+        $rowFormat = ' {0,-18} {1,14} {2,14} {3,14} {4,14} {5,5} {6,6}'
+        $null = $sb.AppendLine(($rowFormat -f 'Time','HA Open','HA High','HA Low','HA Close','Ticks','Trend'))
+        $null = $sb.AppendLine(' ' + ('-' * 82))
 
         Clear-Host
         Write-Host $sb.ToString()
@@ -1668,7 +1668,7 @@ function Invoke-KiteHAShortStrategy {
             $candle = $visibleCandles[$rowIndex]
             $trend = if ($candle.Close -ge $candle.Open) { '  UP' } else { 'DOWN' }
             $color = if ($candle.Close -ge $candle.Open) { 'Green' } else { 'Red' }
-            $line = $rowFormat -f $candle.TimeBucket, ('{0:N2}' -f $candle.Open), ('{0:N2}' -f $candle.High), ('{0:N2}' -f $candle.Low), ('{0:N2}' -f $candle.Close), ('{0:N0}' -f $candle.Volume), $candle.TicksInCandle, $trend
+            $line = $rowFormat -f $candle.TimeBucket, ('{0:N2}' -f $candle.Open), ('{0:N2}' -f $candle.High), ('{0:N2}' -f $candle.Low), ('{0:N2}' -f $candle.Close), $candle.TicksInCandle, $trend
             if ($rowIndex -eq ($visibleCandles.Count - 1)) {
                 Write-Host $line -ForegroundColor Yellow
             } else {
@@ -2645,6 +2645,7 @@ function Exit-HAStrategyPosition {
     $State.Direction = ''; $State.EntryPrice = 0; $State.EntryTime = ''
     $State.OptSymbol = ''; $State.OptToken = 0; $State.OptStrike = 0
     $State.OptEntryLTP = 0; $State.OptQty = 0; $State.OptLots = 0; $State.OptType = ''
+    $State.SwingLow = 0.0; $State.SwingHigh = 0.0  # Reset SL/SH on exit
     Remove-Item $State.PositionFile -Force -ErrorAction SilentlyContinue
 }
 
@@ -2669,6 +2670,7 @@ function Invoke-HAStrategySignalCheck {
     # -- LONG ENTRY: HA Close > prev High (only if flat and within window) --
     if ($withinWindow -and $State.Direction -eq '' -and $liveHA.Close -gt $prev.High) {
         Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** LONG ENTRY *** LTP: $lastPrice | HA Close: $([Math]::Round($liveHA.Close,2)) > Prev High: $($prev.High)" -ForegroundColor Yellow
+        $State.SwingLow = $currentRaw.Low  # Record Swing Low for this LONG entry
         $ok = Enter-HAStrategyPosition $State 'LONG' $lastPrice $timeStamp
         if ($ok) { $State.StrategySignals.Add("ENTRY LONG @ $lastPrice  CE: $($State.OptSymbol) ($timeStamp)") }
         return
@@ -2677,6 +2679,7 @@ function Invoke-HAStrategySignalCheck {
     # -- SHORT ENTRY: HA Close < prev Low (only if flat and within window) --
     if ($withinWindow -and $State.Direction -eq '' -and $liveHA.Close -lt $prev.Low) {
         Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** SHORT ENTRY *** LTP: $lastPrice | HA Close: $([Math]::Round($liveHA.Close,2)) < Prev Low: $($prev.Low)" -ForegroundColor Yellow
+        $State.SwingHigh = $currentRaw.High  # Record Swing High for this SHORT entry
         $ok = Enter-HAStrategyPosition $State 'SHORT' $lastPrice $timeStamp
         if ($ok) { $State.StrategySignals.Add("ENTRY SHORT @ $lastPrice  PE: $($State.OptSymbol) ($timeStamp)") }
         return
@@ -2800,9 +2803,9 @@ function Show-HAStrategyDisplay {
     }
 
     $null = $sb.AppendLine('')
-    $rowFormat = ' {0,-18} {1,14} {2,14} {3,14} {4,14} {5,10} {6,5} {7,6}'
-    $null = $sb.AppendLine(($rowFormat -f 'Time','HA Open','HA High','HA Low','HA Close','Volume','Ticks','Trend'))
-    $null = $sb.AppendLine(' ' + ('-' * 102))
+    $rowFormat = ' {0,-18} {1,14} {2,14} {3,14} {4,8} {5,7} {6,7} {7,5} {8,6}'
+    $null = $sb.AppendLine(($rowFormat -f 'Time','HA High','HA Low','HA Close','Signal','SL','SH','Ticks','Trend'))
+    $null = $sb.AppendLine(' ' + ('-' * 106))
 
     if ($null -eq $State.CanClearHost) { $State.CanClearHost = try { Clear-Host; $true } catch { $false } }
     elseif ($State.CanClearHost) { try { Clear-Host } catch {} }
@@ -2812,7 +2815,10 @@ function Show-HAStrategyDisplay {
         $c = $visibleCandles[$i]
         $trend = if ($c.Close -ge $c.Open) { '  UP' } else { 'DOWN' }
         $color = if ($c.Close -ge $c.Open) { 'Green' } else { 'Red' }
-        $line = $rowFormat -f $c.TimeBucket, ('{0:N2}' -f $c.Open), ('{0:N2}' -f $c.High), ('{0:N2}' -f $c.Low), ('{0:N2}' -f $c.Close), ('{0:N0}' -f $c.Volume), $c.TicksInCandle, $trend
+        $signal = if ($State.Direction -eq '') { 'FLAT' } else { $State.Direction }
+        $sl = if ($State.Direction -eq 'LONG') { $State.SwingLow.ToString('N2') } else { '-' }
+        $sh = if ($State.Direction -eq 'SHORT') { $State.SwingHigh.ToString('N2') } else { '-' }
+        $line = $rowFormat -f $c.TimeBucket, ('{0:N2}' -f $c.High), ('{0:N2}' -f $c.Low), ('{0:N2}' -f $c.Close), $signal, $sl, $sh, $c.TicksInCandle, $trend
         Write-Host $line -ForegroundColor $(if ($i -eq $visibleCandles.Count - 1) { 'Yellow' } else { $color })
     }
 

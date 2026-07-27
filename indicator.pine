@@ -1,0 +1,209 @@
+//@version=6
+
+// ============================================================================
+// Heikin Ashi Trend Ladder — Higher-Low / Lower-High Counter
+//   - Long entry  (HA Close > prev High) -> labels higher lows  L1, L2, L3 ...
+//   - Short entry (HA Close < prev Low)  -> labels lower highs   S1, S2, S3 ...
+// ============================================================================
+indicator("Heikin Ashi Trend Ladder", shorttitle="Kalal - HA Trend Ladder 4 - testing", overlay=true, max_labels_count=500)
+
+// Session timing — entries start at 09:16 (skip the 09:15 candle), square off at 15:20
+startH = input.int(9,  title="Entry Start Hour",   minval=0, maxval=23, group="Session", inline="s1")
+startM = input.int(16, title="Minute",             minval=0, maxval=59, group="Session", inline="s1")
+endH   = input.int(15, title="Square-off Hour",    minval=0, maxval=23, group="Session", inline="s2")
+endM   = input.int(20, title="Minute",             minval=0, maxval=59, group="Session", inline="s2")
+
+// Book profits once the opposite ladder reaches this many swings (e.g. 3 = after L3 / S3)
+bookAfter = input.int(4, title="Book Profit After N Swings", minval=1, group="General")
+
+// Label visibility — tick only the ladder levels you want drawn (levels above 10 always show)
+grpL = "Labels — Long (L)"
+grpS = "Labels — Short (S)"
+showL1  = input.bool(false, "L1",  group=grpL, inline="La")
+showL2  = input.bool(true,  "L2",  group=grpL, inline="La")
+showL3  = input.bool(true,  "L3",  group=grpL, inline="La")
+showL4  = input.bool(false, "L4",  group=grpL, inline="La")
+showL5  = input.bool(false, "L5",  group=grpL, inline="La")
+showL6  = input.bool(false, "L6",  group=grpL, inline="Lb")
+showL7  = input.bool(false, "L7",  group=grpL, inline="Lb")
+showL8  = input.bool(false, "L8",  group=grpL, inline="Lb")
+showL9  = input.bool(false, "L9",  group=grpL, inline="Lb")
+showL10 = input.bool(false, "L10", group=grpL, inline="Lb")
+showS1  = input.bool(false, "S1",  group=grpS, inline="Sa")
+showS2  = input.bool(true,  "S2",  group=grpS, inline="Sa")
+showS3  = input.bool(true,  "S3",  group=grpS, inline="Sa")
+showS4  = input.bool(false, "S4",  group=grpS, inline="Sa")
+showS5  = input.bool(false, "S5",  group=grpS, inline="Sa")
+showS6  = input.bool(false, "S6",  group=grpS, inline="Sb")
+showS7  = input.bool(false, "S7",  group=grpS, inline="Sb")
+showS8  = input.bool(false, "S8",  group=grpS, inline="Sb")
+showS9  = input.bool(false, "S9",  group=grpS, inline="Sb")
+showS10 = input.bool(false, "S10", group=grpS, inline="Sb")
+
+// Returns true if ladder level n should be drawn (levels beyond the toggle list always show)
+levelVisible(int n, array<bool> flags) =>
+    n >= 1 and n <= array.size(flags) ? array.get(flags, n - 1) : true
+
+// Heikin Ashi values (from TradingView's built-in Heikin Ashi series)
+haTicker = ticker.heikinashi(syminfo.tickerid)
+[haOpen, haHigh, haLow, haClose] = request.security(haTicker, timeframe.period, [open, high, low, close])
+
+// Previous Heikin Ashi candle High/Low
+prevHigh = haHigh[1]
+prevLow  = haLow[1]
+
+// Session window — entries only allowed between start and square-off time
+barMin   = hour * 60 + minute
+startBar = startH * 60 + startM
+endBar   = endH * 60 + endM
+canEnter   = barMin >= startBar and barMin < endBar
+sessionEnd = barMin >= endBar
+
+// Position state (remembered across bars): +1 = long (CE), -1 = short (PE), 0 = flat
+var int positionSize = 0
+
+// Raw breakout signals
+longSignal  = canEnter and haClose > prevHigh   // Long entry  (HA Close > prev High)
+shortSignal = canEnter and haClose < prevLow    // Short entry (HA Close < prev Low)
+
+// Signals — stop-and-reverse: a short entry closes the long, a long entry closes the short
+longExit   = positionSize > 0 and (shortSignal or sessionEnd)   // SELL CE (on short entry / session end)
+shortExit  = positionSize < 0 and (longSignal  or sessionEnd)   // SELL PE (on long entry / session end)
+longEntry  = longSignal  and positionSize <= 0                  // BUY CE
+shortEntry = shortSignal and positionSize >= 0                  // BUY PE
+
+// Update remembered state (process exits before entries)
+if longExit or shortExit
+    positionSize := 0
+if longEntry
+    positionSize := 1
+if shortEntry
+    positionSize := -1
+if sessionEnd
+    positionSize := 0
+
+// Entry counters for sequential labels (L1, L2, ... / S1, S2, ...) — reset each new day.
+// A monotonic "ladder" of higher lows (longs) / lower highs (shorts) is kept as a stack.
+// New entry: pop levels that are no longer valid, push this one; its number = stack depth.
+//   Longs  — a higher low advances the count; a lower low pops down to its correct rung
+//            (e.g. below L3 but above L2 -> L3; below L2 but above L1 -> L2; below L1 -> L1).
+//   Shorts — symmetric with highs (lower highs advance; higher highs pop down / reset).
+var int              longNum    = 0
+var int              shortNum   = 0
+var int              lastLNum   = 0   // number of the most recent L label
+var int              lastSNum   = 0   // number of the most recent S label
+var array<float>     longLows   = array.new_float()   // ascending stack of higher lows
+var array<float>     shortHighs = array.new_float()   // descending stack of lower highs
+var int              longEntryBar = 0   // bar index of L2 entry
+var int              shortEntryBar = 0  // bar index of S2 entry
+var float            longEntryPrice = 0  // price at L2 entry
+var float            shortEntryPrice = 0 // price at S2 entry
+var line             longTrendLine = na
+var line             shortTrendLine = na
+var bool             inLongTrade = false
+var bool             inShortTrade = false
+bookOffset = ta.atr(14) * 3   // vertical distance to push the book-profit label away from the candle
+showLong  = array.from(showL1, showL2, showL3, showL4, showL5, showL6, showL7, showL8, showL9, showL10)
+showShort = array.from(showS1, showS2, showS3, showS4, showS5, showS6, showS7, showS8, showS9, showS10)
+// Flags mark the exact bar profits are booked so the trend line covers that bar too
+bool longBookedThisBar  = false
+bool shortBookedThisBar = false
+if ta.change(time("D")) != 0
+    longNum  := 0
+    shortNum := 0
+    lastLNum := 0
+    lastSNum := 0
+    array.clear(longLows)
+    array.clear(shortHighs)
+    if not na(longTrendLine)
+        line.delete(longTrendLine)
+        longTrendLine := na
+    if not na(shortTrendLine)
+        line.delete(shortTrendLine)
+        shortTrendLine := na
+if longEntry
+    while array.size(longLows) > 0 and array.get(longLows, array.size(longLows) - 1) >= low
+        array.pop(longLows)
+    array.push(longLows, low)
+    longNum := array.size(longLows)
+    // First long after an S3+ run (immediate flip) -> book short profits
+    if lastSNum >= bookAfter
+        label.new(bar_index, low - bookOffset, "Book Short Profits", style=label.style_label_up, color=color.blue, textcolor=color.white, size=size.normal)
+        array.clear(shortHighs)   // reset the short counter after booking
+        lastSNum := 0
+        // End the red (short) trend line at the Book Short Profits bar
+        if not na(shortTrendLine)
+            line.delete(shortTrendLine)
+            shortTrendLine := na
+        inShortTrade := false
+        shortBookedThisBar := true
+    lastLNum := longNum
+    if levelVisible(longNum, showLong)
+        label.new(bar_index, low, "L" + str.tostring(longNum), style=label.style_label_up, color=color.green, textcolor=color.white, size=size.small)
+        // Set up uptrend line for L2
+        if longNum == 2
+            longEntryBar := bar_index
+            longEntryPrice := low
+            // Draw initial trend line
+            if not na(longTrendLine)
+                line.delete(longTrendLine)
+            longTrendLine := line.new(longEntryBar, longEntryPrice, bar_index, longEntryPrice, extend=extend.right, color=color.new(color.green, 60), width=2, style=line.style_solid)
+            // Remove the opposite (short) trend line so only the uptrend line shows
+            if not na(shortTrendLine)
+                line.delete(shortTrendLine)
+                shortTrendLine := na
+            inLongTrade := true
+            inShortTrade := false
+if shortEntry
+    while array.size(shortHighs) > 0 and array.get(shortHighs, array.size(shortHighs) - 1) <= high
+        array.pop(shortHighs)
+    array.push(shortHighs, high)
+    shortNum := array.size(shortHighs)
+    // First short after an L3+ run (immediate flip) -> book long profits
+    if lastLNum >= bookAfter
+        label.new(bar_index, high + bookOffset, "Book Long Profits", style=label.style_label_down, color=color.purple, textcolor=color.white, size=size.normal)
+        array.clear(longLows)   // reset the long counter after booking
+        lastLNum := 0
+        // End the green (long) trend line at the Book Long Profits bar
+        if not na(longTrendLine)
+            line.delete(longTrendLine)
+            longTrendLine := na
+        inLongTrade := false
+        longBookedThisBar := true
+    lastSNum := shortNum
+    if levelVisible(shortNum, showShort)
+        label.new(bar_index, high, "S" + str.tostring(shortNum), style=label.style_label_down, color=color.red, textcolor=color.white, size=size.small)
+        // Set up downtrend line for S2
+        if shortNum == 2
+            shortEntryBar := bar_index
+            shortEntryPrice := high
+            // Draw initial trend line
+            if not na(shortTrendLine)
+                line.delete(shortTrendLine)
+            shortTrendLine := line.new(shortEntryBar, shortEntryPrice, bar_index, shortEntryPrice, extend=extend.right, color=color.new(color.red, 60), width=2, style=line.style_solid)
+            // Remove the opposite (long) trend line so only the downtrend line shows
+            if not na(longTrendLine)
+                line.delete(longTrendLine)
+                longTrendLine := na
+            inShortTrade := true
+            inLongTrade := false
+
+// Update trend lines to extend them toward the profit-booking bar
+if not na(longTrendLine)
+    line.set_xy2(longTrendLine, bar_index, longEntryPrice)
+
+if not na(shortTrendLine)
+    line.set_xy2(shortTrendLine, bar_index, shortEntryPrice)
+
+// Plot continuous trend lines — extend from entry (L2/S2) until profits are booked (inclusive of booking bar)
+plot((not na(longTrendLine)) or longBookedThisBar ? low - (ta.atr(14) * 0.5) : na, title="Uptrend Line", 
+      color=color.new(color.green, 20), linewidth=2, style=plot.style_linebr)
+
+plot((not na(shortTrendLine)) or shortBookedThisBar ? high + (ta.atr(14) * 0.5) : na, title="Downtrend Line", 
+      color=color.new(color.red, 20), linewidth=2, style=plot.style_linebr)
+
+// Alerts
+alertcondition(longEntry,  title="BUY CE",  message="BUY CE signal")
+alertcondition(shortEntry, title="BUY PE",  message="BUY PE signal")
+alertcondition(longExit,   title="SELL CE", message="SELL CE signal")
+alertcondition(shortExit,  title="SELL PE", message="SELL PE signal")

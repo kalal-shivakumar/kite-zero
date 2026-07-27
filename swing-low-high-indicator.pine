@@ -1,0 +1,43 @@
+//@version=5
+indicator("Swing High/Low Detector", overlay=true, max_labels_count=500)
+
+// ============================================================================
+// INPUTS
+// ============================================================================
+showSwingLabels = input.bool(true, "Show Swing Labels", group="Visual")
+showSignalLabels = input.bool(true, "Show Signal Labels (LONG/SHORT)", group="Visual")
+
+var string lastSwingShown = ""
+var float prevSwingLowValue = 0.0
+var float prevSwingHighValue = 0.0
+offset = ta.atr(14) * 0.5
+
+// Calculate on every bar for consistency
+currentLow = ta.lowest(low, 3)
+currentHigh = ta.highest(high, 3)
+
+if close > high[1] and lastSwingShown != "swing_Low"
+    if showSwingLabels
+        label.new(bar_index, currentLow - offset, "swing_Low", style=label.style_label_up, color=color.green, textcolor=color.white, size=size.small)
+    
+    // Compare with previous swing_Low
+    if prevSwingLowValue > 0
+        if currentLow > prevSwingLowValue
+            if showSignalLabels
+                label.new(bar_index, currentLow - offset * 2, "⬆ LONG", style=label.style_label_up, color=color.lime, textcolor=color.black, size=size.small)
+    
+    prevSwingLowValue := currentLow
+    lastSwingShown := "swing_Low"
+
+if close < low[1] and lastSwingShown != "swing_High"
+    if showSwingLabels
+        label.new(bar_index, currentHigh + offset, "swing_High", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.small)
+    
+    // Compare with previous swing_High
+    if prevSwingHighValue > 0
+        if currentHigh < prevSwingHighValue
+            if showSignalLabels
+                label.new(bar_index, currentHigh + offset * 2, "⬇ SHORT", style=label.style_label_down, color=color.orange, textcolor=color.black, size=size.small)
+    
+    prevSwingHighValue := currentHigh
+    lastSwingShown := "swing_High"
