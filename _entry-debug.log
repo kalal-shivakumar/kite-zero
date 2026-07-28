@@ -1,0 +1,1006 @@
+13:19:00 LONG-COND close=23980.1 > prevH=23980.05 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:19:01 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:19:02 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:19:02 ENTER-BUY  placing NIFTY26JUL24000CE x195 (ltp=14.2)
+13:19:03 LONG-COND close=23980.4 > prevH=23980.05 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:19:03 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:19:04 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:19:04 ENTER-BUY  placing NIFTY26JUL24000CE x195 (ltp=13.85)
+13:19:04 LONG-COND close=23980.15 > prevH=23980.05 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:19:05 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:19:05 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:19:06 ENTER-BUY  placing NIFTY26JUL24000CE x195 (ltp=13.7)
+13:19:06 LONG-COND close=23980.25 > prevH=23980.05 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:19:07 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:19:07 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:19:08 ENTER-BUY  placing NIFTY26JUL24000CE x195 (ltp=13.95)
+13:19:09 LONG-COND close=23980.3 > prevH=23980.05 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:19:10 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:19:10 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:19:10 ENTER-BUY  placing NIFTY26JUL24000CE x195 (ltp=14.05)
+13:21:29 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:21:29 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:21:29 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=40.1)
+13:21:30 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:21:31 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:21:31 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=39.6)
+13:21:33 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:21:33 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:21:33 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=39.7)
+13:21:34 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:21:35 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:21:35 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=38.9)
+13:21:36 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:21:36 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:21:37 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=38.55)
+13:21:38 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:21:38 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:21:38 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=38.85)
+13:21:39 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:21:39 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:21:40 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=38.75)
+13:21:41 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:21:42 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:21:42 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=38.85)
+13:21:45 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:21:45 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:21:45 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=39)
+13:21:46 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:21:46 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:21:46 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=38.9)
+13:21:47 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:21:48 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:21:48 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=39.4)
+13:21:50 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:21:50 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:21:51 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=39.05)
+13:22:24 LONG-COND close=23979.55 > prevH=23978.35 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:22:25 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:22:25 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:22:25 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=16.3)
+13:22:25 LONG-COND close=23979.2 > prevH=23978.35 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:22:27 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:22:27 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:22:29 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=16.65)
+13:22:29 LONG-COND close=23978.85 > prevH=23978.35 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:22:30 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:22:30 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:22:31 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=16.85)
+13:22:31 LONG-COND close=23979.1 > prevH=23978.35 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:22:32 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:22:32 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:22:32 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17.1)
+13:22:32 LONG-COND close=23978.5 > prevH=23978.35 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:22:33 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:22:34 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:22:34 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17.35)
+13:22:35 LONG-COND close=23978.55 > prevH=23978.35 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:22:35 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:22:35 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:22:36 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17.4)
+13:22:39 LONG-COND close=23978.9 > prevH=23978.35 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:22:40 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:22:40 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:22:40 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17.35)
+13:22:40 LONG-COND close=23979.05 > prevH=23978.35 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:22:41 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:22:41 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:22:42 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17.4)
+13:22:42 LONG-COND close=23978.9 > prevH=23978.35 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:22:43 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:22:44 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:22:44 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17.35)
+13:22:44 LONG-COND close=23978.75 > prevH=23978.35 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:22:45 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:22:45 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:22:45 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17.4)
+13:22:46 LONG-COND close=23978.6 > prevH=23978.35 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:22:46 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:22:47 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:22:47 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17.3)
+13:22:49 LONG-COND close=23978.5 > prevH=23978.35 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:22:50 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:22:50 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:22:51 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17.45)
+13:22:52 LONG-COND close=23978.55 > prevH=23978.35 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:22:52 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:22:52 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:22:53 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17.85)
+13:22:53 LONG-COND close=23978.9 > prevH=23978.35 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:22:54 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:22:54 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:22:54 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17.7)
+13:22:54 LONG-COND close=23978.8 > prevH=23978.35 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:22:55 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:22:56 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:22:56 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17.55)
+13:22:56 LONG-COND close=23978.9 > prevH=23978.35 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:22:57 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:22:57 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:22:58 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17.55)
+13:22:58 LONG-COND close=23978.85 > prevH=23978.35 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:22:59 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:22:59 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:22:59 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17.65)
+13:23:05 LONG-COND close=23980.1 > prevH=23979.55 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:23:06 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:23:06 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:23:06 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17.3)
+13:23:07 LONG-COND close=23980.4 > prevH=23979.55 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:23:08 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:23:08 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:23:08 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=16.9)
+13:23:09 LONG-COND close=23980.45 > prevH=23979.55 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:23:09 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:23:10 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:23:10 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17)
+13:23:11 LONG-COND close=23981.2 > prevH=23979.55 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:23:11 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:23:12 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:23:12 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=16.9)
+13:23:12 LONG-COND close=23980.95 > prevH=23979.55 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:23:13 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:23:13 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:23:13 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17.25)
+13:24:19 LONG-COND close=23993.15 > prevH=23991.7 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:24:19 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:24:19 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:24:20 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17.6)
+13:24:20 ORDER-FAIL BUY NIFTY26JUL24000CE x130 prod=NRML otype=MARKET :: 
+{
+  "status": "error",
+  "message": "IP (106.77.165.110) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+  "data": null,
+  "error_type": "PermissionException"
+} | Response status code does not indicate success: 403 (Forbidden).
+13:24:20 LONG-COND close=23992.25 > prevH=23991.7 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:24:21 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:24:21 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:24:21 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17.85)
+13:24:22 ORDER-FAIL BUY NIFTY26JUL24000CE x130 prod=NRML otype=MARKET :: 
+{
+  "status": "error",
+  "message": "IP (106.77.165.110) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+  "data": null,
+  "error_type": "PermissionException"
+} | Response status code does not indicate success: 403 (Forbidden).
+13:24:22 LONG-COND close=23992.05 > prevH=23991.7 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:24:22 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:24:23 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:24:23 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=18)
+13:24:24 ORDER-FAIL BUY NIFTY26JUL24000CE x130 prod=NRML otype=MARKET :: 
+{
+  "status": "error",
+  "message": "IP (106.77.165.110) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+  "data": null,
+  "error_type": "PermissionException"
+} | Response status code does not indicate success: 403 (Forbidden).
+13:24:54 LONG-COND close=23992 > prevH=23991.7 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:24:55 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:24:56 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:24:56 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17.9)
+13:24:56 ORDER-FAIL BUY NIFTY26JUL24000CE x130 prod=NRML otype=MARKET :: 
+{
+  "status": "error",
+  "message": "IP (106.77.165.110) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+  "data": null,
+  "error_type": "PermissionException"
+} | Response status code does not indicate success: 403 (Forbidden).
+13:24:57 LONG-COND close=23992.15 > prevH=23991.7 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:24:58 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:24:59 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:24:59 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=17.65)
+13:24:59 ORDER-FAIL BUY NIFTY26JUL24000CE x130 prod=NRML otype=MARKET :: 
+{
+  "status": "error",
+  "message": "IP (106.77.165.110) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+  "data": null,
+  "error_type": "PermissionException"
+} | Response status code does not indicate success: 403 (Forbidden).
+13:25:04 LONG-COND close=23993.25 > prevH=23993.15 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:25:05 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:25:05 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:25:06 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=16.95)
+13:25:06 ORDER-FAIL BUY NIFTY26JUL24000CE x130 prod=NRML otype=MARKET :: 
+{
+  "status": "error",
+  "message": "IP (106.77.165.110) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+  "data": null,
+  "error_type": "PermissionException"
+} | Response status code does not indicate success: 403 (Forbidden).
+13:25:11 LONG-COND close=23993.3 > prevH=23993.15 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:25:12 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:25:13 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:25:13 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=16.35)
+13:25:14 ORDER-FAIL BUY NIFTY26JUL24000CE x130 prod=NRML otype=MARKET :: 
+{
+  "status": "error",
+  "message": "IP (106.77.165.110) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+  "data": null,
+  "error_type": "PermissionException"
+} | Response status code does not indicate success: 403 (Forbidden).
+13:25:14 LONG-COND close=23993.25 > prevH=23993.15 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:25:15 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:25:15 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:25:15 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=16.55)
+13:25:15 ORDER-FAIL BUY NIFTY26JUL24000CE x130 prod=NRML otype=MARKET :: 
+{
+  "status": "error",
+  "message": "IP (106.77.165.110) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+  "data": null,
+  "error_type": "PermissionException"
+} | Response status code does not indicate success: 403 (Forbidden).
+13:25:21 LONG-COND close=23993.3 > prevH=23993.15 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:25:22 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:25:22 ENTER-ATM  sym='NIFTY26JUL24000CE'
+13:25:23 ENTER-BUY  placing NIFTY26JUL24000CE x130 (ltp=16.4)
+13:25:23 ORDER-FAIL BUY NIFTY26JUL24000CE x130 prod=NRML otype=MARKET :: 
+{
+  "status": "error",
+  "message": "IP (106.77.165.110) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+  "data": null,
+  "error_type": "PermissionException"
+} | Response status code does not indicate success: 403 (Forbidden).
+13:25:58 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:25:58 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:25:58 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=31.6)
+13:25:59 ORDER-FAIL BUY NIFTY26JUL24000PE x65 prod=NRML otype=MARKET :: 
+{
+  "status": "error",
+  "message": "IP (106.77.165.110) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+  "data": null,
+  "error_type": "PermissionException"
+} | Response status code does not indicate success: 403 (Forbidden).
+13:26:06 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:26:07 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:26:07 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=33.35)
+13:26:08 ORDER-FAIL BUY NIFTY26JUL24000PE x65 prod=NRML otype=MARKET :: 
+{
+  "status": "error",
+  "message": "IP (106.77.165.110) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+  "data": null,
+  "error_type": "PermissionException"
+} | Response status code does not indicate success: 403 (Forbidden).
+13:26:09 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:26:09 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:26:09 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=33.3)
+13:26:10 ORDER-FAIL BUY NIFTY26JUL24000PE x65 prod=NRML otype=MARKET :: 
+{
+  "status": "error",
+  "message": "IP (106.77.165.110) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+  "data": null,
+  "error_type": "PermissionException"
+} | Response status code does not indicate success: 403 (Forbidden).
+13:26:12 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:26:12 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:26:12 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=33.3)
+13:26:14 ORDER-FAIL BUY NIFTY26JUL24000PE x65 prod=NRML otype=MARKET :: 
+{
+  "status": "error",
+  "message": "IP (106.77.165.110) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+  "data": null,
+  "error_type": "PermissionException"
+} | Response status code does not indicate success: 403 (Forbidden).
+13:26:16 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:26:16 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:26:17 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=32.9)
+13:26:17 ORDER-FAIL BUY NIFTY26JUL24000PE x65 prod=NRML otype=MARKET :: 
+{
+  "status": "error",
+  "message": "IP (106.77.165.110) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+  "data": null,
+  "error_type": "PermissionException"
+} | Response status code does not indicate success: 403 (Forbidden).
+13:26:30 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:26:30 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:26:31 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=33.8)
+13:26:31 ORDER-FAIL BUY NIFTY26JUL24000PE x65 prod=NRML otype=MARKET :: 
+{
+  "status": "error",
+  "message": "IP (106.77.165.110) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+  "data": null,
+  "error_type": "PermissionException"
+} | Response status code does not indicate success: 403 (Forbidden).
+13:26:32 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:26:32 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:26:32 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=34.1)
+13:26:32 ORDER-FAIL BUY NIFTY26JUL24000PE x65 prod=NRML otype=MARKET :: 
+{
+  "status": "error",
+  "message": "IP (106.77.165.110) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+  "data": null,
+  "error_type": "PermissionException"
+} | Response status code does not indicate success: 403 (Forbidden).
+13:26:38 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:26:38 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:26:39 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=34.95)
+13:26:39 ORDER-FAIL BUY NIFTY26JUL24000PE x65 prod=NRML otype=MARKET :: 
+{
+  "status": "error",
+  "message": "IP (106.77.165.110) is not allowed to place orders for this app. Update allowed IPs on the Kite developer console. Learn more - https://support.zerodha.com/category/trading-and-markets/general-kite/kite-api/articles/static-ip",
+  "data": null,
+  "error_type": "PermissionException"
+} | Response status code does not indicate success: 403 (Forbidden).
+13:26:46 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:27:08 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:27:08 ENTER-ATM  sym='NIFTY26JUL24000PE'
+13:27:08 ENTER-BUY  placing NIFTY26JUL24000PE x65 (ltp=36.9)
+13:32:05 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:32:05 ENTER-ATM  sym='NIFTY26JUL24050PE'
+13:32:05 ENTER-BUY  placing NIFTY26JUL24050PE x65 (ltp=75.45)
+13:32:41 LONG-COND close=23985.4 > prevH=23985.35 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:32:41 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:32:41 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:32:41 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=45.25)
+13:33:11 LONG-COND close=23985.6 > prevH=23985.4 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:33:11 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:33:11 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:33:12 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=45)
+13:33:42 LONG-COND close=23985.7 > prevH=23985.4 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:33:42 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:33:42 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:33:42 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=46.9)
+13:34:12 LONG-COND close=23985.85 > prevH=23985.7 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:34:12 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:34:13 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:34:13 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=45.55)
+13:34:43 LONG-COND close=23985.95 > prevH=23985.7 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:34:43 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:34:43 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:34:43 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=46.15)
+13:34:44 LONG-COND close=23985.75 > prevH=23985.7 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:34:44 LONG-COND close=23986.15 > prevH=23985.7 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:34:44 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:34:44 ENTER-ATM  sym='NIFTY26JUL24050PE'
+13:34:44 ENTER-BUY  placing NIFTY26JUL24050PE x65 (ltp=68.8)
+13:35:15 LONG-COND close=23986.7 > prevH=23986.15 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:35:15 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:35:15 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:35:15 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=43.2)
+13:35:15 LONG-COND close=23986.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:15 LONG-COND close=23986.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:15 LONG-COND close=23986.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:15 LONG-COND close=23986.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:15 LONG-COND close=23986.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:15 LONG-COND close=23986.6 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:16 LONG-COND close=23986.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:16 LONG-COND close=23986.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:16 LONG-COND close=23986.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:16 LONG-COND close=23987.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:16 LONG-COND close=23987.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:16 LONG-COND close=23986.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:16 LONG-COND close=23986.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:16 LONG-COND close=23986.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:16 LONG-COND close=23986.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:16 LONG-COND close=23987.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:16 LONG-COND close=23986.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:16 LONG-COND close=23986.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:17 LONG-COND close=23986.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:17 LONG-COND close=23986.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:17 LONG-COND close=23986.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:17 LONG-COND close=23986.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:17 LONG-COND close=23986.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:17 LONG-COND close=23986.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:17 LONG-COND close=23986.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:17 LONG-COND close=23986.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:17 LONG-COND close=23986.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:17 LONG-COND close=23987.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:17 LONG-COND close=23986.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:17 LONG-COND close=23986.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:17 LONG-COND close=23986.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:17 LONG-COND close=23986.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:18 LONG-COND close=23986.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:18 LONG-COND close=23986.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:18 LONG-COND close=23986.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:18 LONG-COND close=23986.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:18 LONG-COND close=23987.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:18 LONG-COND close=23986.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:18 LONG-COND close=23986.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:18 LONG-COND close=23986.6 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:18 LONG-COND close=23986.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:18 LONG-COND close=23986.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:18 LONG-COND close=23986.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:18 LONG-COND close=23986.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:18 LONG-COND close=23987.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:19 LONG-COND close=23987.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:19 LONG-COND close=23987.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:19 LONG-COND close=23987.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:19 LONG-COND close=23986.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:19 LONG-COND close=23987.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:19 LONG-COND close=23986.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:19 LONG-COND close=23986.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:19 LONG-COND close=23987.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:19 LONG-COND close=23986.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:19 LONG-COND close=23986.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:20 LONG-COND close=23986.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:20 LONG-COND close=23987.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:20 LONG-COND close=23987.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:20 LONG-COND close=23986.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:20 LONG-COND close=23986.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:20 LONG-COND close=23986.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:20 LONG-COND close=23987 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:20 LONG-COND close=23986.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:20 LONG-COND close=23987.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:20 LONG-COND close=23986.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:20 LONG-COND close=23987.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:20 LONG-COND close=23987.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:20 LONG-COND close=23987.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:21 LONG-COND close=23987.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:21 LONG-COND close=23987.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:21 LONG-COND close=23987.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:21 LONG-COND close=23987.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:21 LONG-COND close=23987.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:21 LONG-COND close=23987.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:21 LONG-COND close=23987.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:21 LONG-COND close=23987.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:21 LONG-COND close=23986.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:21 LONG-COND close=23987.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:21 LONG-COND close=23987.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:21 LONG-COND close=23987.6 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:21 LONG-COND close=23987.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:21 LONG-COND close=23986.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:22 LONG-COND close=23987.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:22 LONG-COND close=23987 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:22 LONG-COND close=23987.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:22 LONG-COND close=23987.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:22 LONG-COND close=23987.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:22 LONG-COND close=23987.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:22 LONG-COND close=23987.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:22 LONG-COND close=23987.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:22 LONG-COND close=23988.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:22 LONG-COND close=23988.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:22 LONG-COND close=23988.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:22 LONG-COND close=23987.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:22 LONG-COND close=23988.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:22 LONG-COND close=23987.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:23 LONG-COND close=23987.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:23 LONG-COND close=23987.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:23 LONG-COND close=23987.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:23 LONG-COND close=23988.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:23 LONG-COND close=23988.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:23 LONG-COND close=23988.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:23 LONG-COND close=23988.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:23 LONG-COND close=23987.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:23 LONG-COND close=23987.6 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:23 LONG-COND close=23987.6 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:23 LONG-COND close=23987.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:24 LONG-COND close=23988 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:24 LONG-COND close=23988.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:24 LONG-COND close=23988.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:24 LONG-COND close=23987.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:24 LONG-COND close=23988.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:24 LONG-COND close=23988.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:24 LONG-COND close=23988.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:24 LONG-COND close=23987.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:24 LONG-COND close=23987.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:24 LONG-COND close=23988.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:24 LONG-COND close=23988.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:24 LONG-COND close=23988.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:24 LONG-COND close=23988.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:25 LONG-COND close=23988.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:25 LONG-COND close=23988.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:25 LONG-COND close=23987.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:25 LONG-COND close=23988.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:25 LONG-COND close=23988.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:25 LONG-COND close=23988.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:25 LONG-COND close=23988.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:25 LONG-COND close=23988.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:25 LONG-COND close=23987.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:25 LONG-COND close=23988.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:25 LONG-COND close=23987.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:25 LONG-COND close=23987.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:25 LONG-COND close=23987.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:26 LONG-COND close=23987.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:26 LONG-COND close=23988 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:26 LONG-COND close=23987.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:26 LONG-COND close=23987.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:26 LONG-COND close=23987.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:26 LONG-COND close=23986.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:26 LONG-COND close=23987.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:26 LONG-COND close=23987.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:26 LONG-COND close=23987.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:26 LONG-COND close=23988.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:26 LONG-COND close=23988.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:26 LONG-COND close=23988.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:26 LONG-COND close=23988.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:26 LONG-COND close=23989.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:27 LONG-COND close=23988.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:27 LONG-COND close=23989.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:27 LONG-COND close=23989.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:27 LONG-COND close=23988.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:27 LONG-COND close=23989.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:27 LONG-COND close=23989.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:27 LONG-COND close=23988.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:27 LONG-COND close=23988 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:27 LONG-COND close=23988.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:27 LONG-COND close=23987.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:27 LONG-COND close=23988.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:28 LONG-COND close=23987.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:28 LONG-COND close=23986.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:28 LONG-COND close=23990.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:28 LONG-COND close=23990.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:28 LONG-COND close=23988.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:28 LONG-COND close=23988.6 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:28 LONG-COND close=23988.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:28 LONG-COND close=23988.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:28 LONG-COND close=23988.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:28 LONG-COND close=23988.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:28 LONG-COND close=23990.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:28 LONG-COND close=23990.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:28 LONG-COND close=23988.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:29 LONG-COND close=23988.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:29 LONG-COND close=23988.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:29 LONG-COND close=23988.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:29 LONG-COND close=23988.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:29 LONG-COND close=23988.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:29 LONG-COND close=23988.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:29 LONG-COND close=23988.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:29 LONG-COND close=23990.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:29 LONG-COND close=23990.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:29 LONG-COND close=23991 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:29 LONG-COND close=23990.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:29 LONG-COND close=23990.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:29 LONG-COND close=23989.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:29 LONG-COND close=23989.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:30 LONG-COND close=23989.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:30 LONG-COND close=23989.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:30 LONG-COND close=23989.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:30 LONG-COND close=23988.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:30 LONG-COND close=23988.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:30 LONG-COND close=23991.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:30 LONG-COND close=23990.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:30 LONG-COND close=23990.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:30 LONG-COND close=23989.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:30 LONG-COND close=23990 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:30 LONG-COND close=23990.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:30 LONG-COND close=23990.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:31 LONG-COND close=23989.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:31 LONG-COND close=23989.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:31 LONG-COND close=23989.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:31 LONG-COND close=23989.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:31 LONG-COND close=23989.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:31 LONG-COND close=23989.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:31 LONG-COND close=23988.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:31 LONG-COND close=23988.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:31 LONG-COND close=23988.6 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:31 LONG-COND close=23992 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:31 LONG-COND close=23990.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:31 LONG-COND close=23990.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:31 LONG-COND close=23990.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:32 LONG-COND close=23990.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:32 LONG-COND close=23990.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:32 LONG-COND close=23990.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:32 LONG-COND close=23989.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:32 LONG-COND close=23988.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:32 LONG-COND close=23992 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:32 LONG-COND close=23991.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:32 LONG-COND close=23991.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:32 LONG-COND close=23990.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:32 LONG-COND close=23990.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:32 LONG-COND close=23989.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:32 LONG-COND close=23989.6 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:32 LONG-COND close=23990.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:32 LONG-COND close=23991.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:33 LONG-COND close=23991.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:33 LONG-COND close=23990.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:33 LONG-COND close=23990.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:33 LONG-COND close=23989.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:33 LONG-COND close=23989.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:33 LONG-COND close=23990.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:33 LONG-COND close=23990.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:33 LONG-COND close=23989.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:33 LONG-COND close=23989.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:33 LONG-COND close=23989.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:33 LONG-COND close=23989.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:33 LONG-COND close=23989.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:33 LONG-COND close=23989.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:33 LONG-COND close=23989.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:34 LONG-COND close=23990.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:34 LONG-COND close=23989.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:34 LONG-COND close=23989.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:34 LONG-COND close=23989 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:34 LONG-COND close=23989.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:34 LONG-COND close=23989.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:34 LONG-COND close=23989.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:34 LONG-COND close=23989.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:34 LONG-COND close=23989 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:34 LONG-COND close=23989.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:35 LONG-COND close=23989 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:35 LONG-COND close=23989 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:35 LONG-COND close=23989 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:35 LONG-COND close=23988.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:35 LONG-COND close=23988.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:35 LONG-COND close=23988.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:35 LONG-COND close=23988.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:35 LONG-COND close=23988.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:35 LONG-COND close=23988.6 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:35 LONG-COND close=23988.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:35 LONG-COND close=23988.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:35 LONG-COND close=23987.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:35 LONG-COND close=23987.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:36 LONG-COND close=23988.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:36 LONG-COND close=23987.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:36 LONG-COND close=23988.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:36 LONG-COND close=23988.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:36 LONG-COND close=23988.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:36 LONG-COND close=23988.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:36 LONG-COND close=23988.6 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:36 LONG-COND close=23989.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:36 LONG-COND close=23988.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:36 LONG-COND close=23989 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:36 LONG-COND close=23988.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:36 LONG-COND close=23988.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:36 LONG-COND close=23987.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:36 LONG-COND close=23988.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:37 LONG-COND close=23988.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:37 LONG-COND close=23989.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:37 LONG-COND close=23988.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:37 LONG-COND close=23989.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:37 LONG-COND close=23988.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:37 LONG-COND close=23989.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:37 LONG-COND close=23988.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:37 LONG-COND close=23988.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:37 LONG-COND close=23988.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:37 LONG-COND close=23988.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:37 LONG-COND close=23988.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:37 LONG-COND close=23989.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:37 LONG-COND close=23989.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:38 LONG-COND close=23989.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:38 LONG-COND close=23988.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:38 LONG-COND close=23988.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:38 LONG-COND close=23988.6 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:38 LONG-COND close=23988.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:38 LONG-COND close=23988.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:38 LONG-COND close=23988.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:38 LONG-COND close=23988.6 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:38 LONG-COND close=23988.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:38 LONG-COND close=23989.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:38 LONG-COND close=23989.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:38 LONG-COND close=23989.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:38 LONG-COND close=23989.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:39 LONG-COND close=23989.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:39 LONG-COND close=23988.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:39 LONG-COND close=23988.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:39 LONG-COND close=23988.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:39 LONG-COND close=23988.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:39 LONG-COND close=23989.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:39 LONG-COND close=23988.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:39 LONG-COND close=23988.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:39 LONG-COND close=23988.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:39 LONG-COND close=23988.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:39 LONG-COND close=23988.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:39 LONG-COND close=23988.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:39 LONG-COND close=23989.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:40 LONG-COND close=23989.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:40 LONG-COND close=23989.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:40 LONG-COND close=23989.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:40 LONG-COND close=23988.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:40 LONG-COND close=23988.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:40 LONG-COND close=23988.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:40 LONG-COND close=23988.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:40 LONG-COND close=23988.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:40 LONG-COND close=23988.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:40 LONG-COND close=23988.6 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:40 LONG-COND close=23988.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:40 LONG-COND close=23989.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:40 LONG-COND close=23989.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:41 LONG-COND close=23988.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:41 LONG-COND close=23989.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:41 LONG-COND close=23989.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:41 LONG-COND close=23988.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:41 LONG-COND close=23988.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:41 LONG-COND close=23988.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:41 LONG-COND close=23988.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:41 LONG-COND close=23988.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:41 LONG-COND close=23988.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:41 LONG-COND close=23988.6 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:41 LONG-COND close=23988.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:41 LONG-COND close=23988.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:41 LONG-COND close=23988.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:42 LONG-COND close=23988.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:42 LONG-COND close=23988.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:42 LONG-COND close=23988.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:42 LONG-COND close=23988.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:42 LONG-COND close=23988.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:42 LONG-COND close=23988.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:42 LONG-COND close=23988.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:42 LONG-COND close=23988.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:42 LONG-COND close=23987.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:42 LONG-COND close=23987.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:42 LONG-COND close=23988.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:42 LONG-COND close=23988.6 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:42 LONG-COND close=23988.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:42 LONG-COND close=23988.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:43 LONG-COND close=23988.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:43 LONG-COND close=23988.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:43 LONG-COND close=23988.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:43 LONG-COND close=23987.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:43 LONG-COND close=23988.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:43 LONG-COND close=23988.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:43 LONG-COND close=23988.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:43 LONG-COND close=23988.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:43 LONG-COND close=23987.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:43 LONG-COND close=23988.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:43 LONG-COND close=23988.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:43 LONG-COND close=23988.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:43 LONG-COND close=23988.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:43 LONG-COND close=23988.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:44 LONG-COND close=23988.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:44 LONG-COND close=23988.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:44 LONG-COND close=23988.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:44 LONG-COND close=23987.6 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:44 LONG-COND close=23988.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:44 LONG-COND close=23988.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:44 LONG-COND close=23987.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:44 LONG-COND close=23988.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:44 LONG-COND close=23987.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:44 LONG-COND close=23987.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:44 LONG-COND close=23987.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:44 LONG-COND close=23986.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:45 LONG-COND close=23987.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:45 LONG-COND close=23987 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:45 LONG-COND close=23987.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:45 LONG-COND close=23987 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:45 LONG-COND close=23986.6 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:45 LONG-COND close=23987.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:45 LONG-COND close=23987.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:45 LONG-COND close=23987.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:45 LONG-COND close=23987.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:45 LONG-COND close=23987.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:45 LONG-COND close=23987.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:45 LONG-COND close=23987.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:45 LONG-COND close=23986.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:46 LONG-COND close=23987.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:46 LONG-COND close=23986.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:46 LONG-COND close=23986.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:46 LONG-COND close=23987.6 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:46 LONG-COND close=23986.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:46 LONG-COND close=23986.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:46 LONG-COND close=23987.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:46 LONG-COND close=23986.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:46 LONG-COND close=23987.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:46 LONG-COND close=23986.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:46 LONG-COND close=23987.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:46 LONG-COND close=23987.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:46 LONG-COND close=23987.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:47 LONG-COND close=23987 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:47 LONG-COND close=23987.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:47 LONG-COND close=23987.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:47 LONG-COND close=23987.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:47 LONG-COND close=23987.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:47 LONG-COND close=23987.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:47 LONG-COND close=23986.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:47 LONG-COND close=23986.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:47 LONG-COND close=23986.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:47 LONG-COND close=23987.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:47 LONG-COND close=23987 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:47 LONG-COND close=23986.6 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:47 LONG-COND close=23986.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:47 LONG-COND close=23987.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:48 LONG-COND close=23987.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:48 LONG-COND close=23986.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:48 LONG-COND close=23986.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:48 LONG-COND close=23986.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:48 LONG-COND close=23986.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:48 LONG-COND close=23986.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:48 LONG-COND close=23986.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:48 LONG-COND close=23986.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:48 LONG-COND close=23986.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:48 LONG-COND close=23986.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:49 LONG-COND close=23987.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:49 LONG-COND close=23987.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:49 LONG-COND close=23987.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:49 LONG-COND close=23986.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:49 LONG-COND close=23986.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:49 LONG-COND close=23986.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:49 LONG-COND close=23986.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:49 LONG-COND close=23986.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:50 LONG-COND close=23986.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:50 LONG-COND close=23986.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:50 LONG-COND close=23986.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:50 LONG-COND close=23987.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:50 LONG-COND close=23987.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:50 LONG-COND close=23987.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:50 LONG-COND close=23986.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:50 LONG-COND close=23986.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:50 LONG-COND close=23987.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:50 LONG-COND close=23987.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:50 LONG-COND close=23987.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:50 LONG-COND close=23986.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:50 LONG-COND close=23986.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:51 LONG-COND close=23988.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:51 LONG-COND close=23987.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:51 LONG-COND close=23987.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:51 LONG-COND close=23987.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:51 LONG-COND close=23987.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:51 LONG-COND close=23989.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:51 LONG-COND close=23990.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:51 LONG-COND close=23988.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:51 LONG-COND close=23989.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:51 LONG-COND close=23991.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:51 LONG-COND close=23990.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:51 LONG-COND close=23989.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:51 LONG-COND close=23989.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:52 LONG-COND close=23989.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:52 LONG-COND close=23989.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:52 LONG-COND close=23990.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:52 LONG-COND close=23990.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:52 LONG-COND close=23992.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:52 LONG-COND close=23991.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:52 LONG-COND close=23990.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:52 LONG-COND close=23988.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:52 LONG-COND close=23989.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:52 LONG-COND close=23988.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:52 LONG-COND close=23987.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:53 LONG-COND close=23987.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:53 LONG-COND close=23990.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:53 LONG-COND close=23992.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:53 LONG-COND close=23992.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:53 LONG-COND close=23991.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:53 LONG-COND close=23990.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:53 LONG-COND close=23990.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:53 LONG-COND close=23991.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:53 LONG-COND close=23992.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:53 LONG-COND close=23990.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:53 LONG-COND close=23991.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:53 LONG-COND close=23989.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:53 LONG-COND close=23990.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:54 LONG-COND close=23989.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:54 LONG-COND close=23989.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:54 LONG-COND close=23989.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:54 LONG-COND close=23989.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:54 LONG-COND close=23988.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:54 LONG-COND close=23989.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:54 LONG-COND close=23989 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:54 LONG-COND close=23989.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:54 LONG-COND close=23990.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:54 LONG-COND close=23991.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:54 LONG-COND close=23991.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:54 LONG-COND close=23991.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:54 LONG-COND close=23990.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:54 LONG-COND close=23990.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:55 LONG-COND close=23990.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:55 LONG-COND close=23990.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:55 LONG-COND close=23989.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:55 LONG-COND close=23990.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:55 LONG-COND close=23990.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:55 LONG-COND close=23989.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:55 LONG-COND close=23989.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:55 LONG-COND close=23991.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:55 LONG-COND close=23990.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:55 LONG-COND close=23990.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:55 LONG-COND close=23989.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:55 LONG-COND close=23989.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:55 LONG-COND close=23990 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:56 LONG-COND close=23989.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:56 LONG-COND close=23989.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:56 LONG-COND close=23989.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:56 LONG-COND close=23989.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:56 LONG-COND close=23992.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:56 LONG-COND close=23991.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:56 LONG-COND close=23990.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:56 LONG-COND close=23989.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:56 LONG-COND close=23989.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:56 LONG-COND close=23989.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:56 LONG-COND close=23990.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:56 LONG-COND close=23990.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:56 LONG-COND close=23989.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:57 LONG-COND close=23989.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:57 LONG-COND close=23992.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:57 LONG-COND close=23992.8 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:57 LONG-COND close=23991.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:57 LONG-COND close=23989.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:57 LONG-COND close=23989.6 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:57 LONG-COND close=23989.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:57 LONG-COND close=23990.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:57 LONG-COND close=23990.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:57 LONG-COND close=23990.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:57 LONG-COND close=23990.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:57 LONG-COND close=23990.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:58 LONG-COND close=23993.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:58 LONG-COND close=23991.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:58 LONG-COND close=23991.15 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:58 LONG-COND close=23989.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:58 LONG-COND close=23989.45 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:58 LONG-COND close=23990.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:58 LONG-COND close=23990.95 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:58 LONG-COND close=23990.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:58 LONG-COND close=23990.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:58 LONG-COND close=23990 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:58 LONG-COND close=23990.5 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:58 LONG-COND close=23990.25 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:58 LONG-COND close=23990.4 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:59 LONG-COND close=23990.1 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:59 LONG-COND close=23988.7 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:59 LONG-COND close=23988.85 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:59 LONG-COND close=23988.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:59 LONG-COND close=23988.75 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:59 LONG-COND close=23988.55 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:59 LONG-COND close=23988.2 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:59 LONG-COND close=23988.65 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:59 LONG-COND close=23988.3 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:59 LONG-COND close=23989.05 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:59 LONG-COND close=23989.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:59 LONG-COND close=23989.35 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:35:59 LONG-COND close=23988.9 > prevH=23986.15 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:37:03 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:37:03 ENTER-ATM  sym='NIFTY26JUL24050PE'
+13:37:03 ENTER-BUY  placing NIFTY26JUL24050PE x65 (ltp=69.6)
+13:37:33 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:37:33 ENTER-ATM  sym='NIFTY26JUL24050PE'
+13:37:33 ENTER-BUY  placing NIFTY26JUL24050PE x65 (ltp=72.45)
+13:40:01 LONG-COND close=23986.8 > prevH=23986.7 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:40:02 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:40:02 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:40:02 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=40.2)
+13:43:28 LONG-COND close=23981.95 > prevH=23981.5 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:43:28 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:43:28 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:43:28 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=39.2)
+13:43:58 LONG-COND close=23981.55 > prevH=23981.5 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:43:58 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:43:58 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:43:59 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=40.05)
+13:44:29 LONG-COND close=23982.6 > prevH=23981.95 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:44:29 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:44:29 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:44:30 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=40)
+13:45:00 LONG-COND close=23982.65 > prevH=23982.6 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:45:00 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:45:00 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:45:00 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=40.65)
+13:45:31 LONG-COND close=23983.2 > prevH=23982.6 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:45:31 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:45:31 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:45:31 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=38.65)
+13:46:02 LONG-COND close=23983.7 > prevH=23983.2 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:46:02 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:46:02 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:46:02 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=42.85)
+13:46:32 LONG-COND close=23983.7 > prevH=23983.2 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:46:32 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:46:32 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:46:33 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=40.35)
+13:47:03 LONG-COND close=23983.8 > prevH=23983.7 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:47:03 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:47:03 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:47:03 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=41.15)
+13:47:34 LONG-COND close=23983.9 > prevH=23983.7 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:47:34 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:47:34 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:47:34 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=40.45)
+13:48:05 LONG-COND close=23984.35 > prevH=23983.9 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:48:05 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:48:05 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:48:05 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=40.5)
+13:48:47 LONG-COND close=23984.15 > prevH=23983.9 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:48:47 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:48:48 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:48:48 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=38.2)
+13:49:18 LONG-COND close=23984.4 > prevH=23984.35 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:49:18 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:49:19 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:49:19 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=39.05)
+13:49:49 LONG-COND close=23984.4 > prevH=23984.35 | CEflat=True confirmFlat=True PErun=True -> enter=True
+13:49:49 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:49:49 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:49:49 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=40.75)
+13:50:21 LONG-COND close=23984.5 > prevH=23984.4 | CEflat=True confirmFlat=True PErun=False -> enter=True
+13:50:21 ENTER-CALL dir=LONG ot=CE ExitTrade=no
+13:50:21 ENTER-ATM  sym='NIFTY26JUL23950CE'
+13:50:21 ENTER-BUY  placing NIFTY26JUL23950CE x65 (ltp=43.65)
+13:50:22 LONG-COND close=23984.75 > prevH=23984.4 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:50:22 LONG-COND close=23984.65 > prevH=23984.4 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:50:22 LONG-COND close=23984.8 > prevH=23984.4 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:50:22 LONG-COND close=23984.85 > prevH=23984.4 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:50:22 LONG-COND close=23984.8 > prevH=23984.4 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:50:23 LONG-COND close=23984.6 > prevH=23984.4 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:50:23 LONG-COND close=23984.7 > prevH=23984.4 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:50:23 LONG-COND close=23984.65 > prevH=23984.4 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:50:24 LONG-COND close=23985.2 > prevH=23984.4 | CEflat=False confirmFlat=False PErun=False -> enter=False
+13:50:25 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:50:25 ENTER-ATM  sym='NIFTY26JUL24050PE'
+13:50:25 ENTER-BUY  placing NIFTY26JUL24050PE x65 (ltp=70.7)
+13:50:57 ENTER-CALL dir=SHORT ot=PE ExitTrade=no
+13:50:57 ENTER-ATM  sym='NIFTY26JUL24050PE'
+13:50:57 ENTER-BUY  placing NIFTY26JUL24050PE x65 (ltp=66.65)

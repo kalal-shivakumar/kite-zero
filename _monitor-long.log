@@ -1,0 +1,24 @@
+[13:06:38] MONITOR START  timeframe=60s  rule: LONG when formingClose > prevCandleHigh
+[13:07:00] candle closed  O 24001.9 H 24002.3 L 24000.6 C 24000.75
+[13:07:01] >>> LONG SIGNAL  close 24003.45 > prevHigh 24002.3  | CE flat (entry SHOULD fire)
+[13:08:00] candle closed  O 24000.5 H 24005.6 L 24000.35 C 24001.55
+[13:08:06] >>> LONG SIGNAL  close 24005.95 > prevHigh 24005.6  | CE flat (entry SHOULD fire)
+[13:09:00] candle closed  O 24001.6 H 24007.85 L 24001.6 C 24003.95
+[13:10:00] candle closed  O 24003.75 H 24006.65 L 24001.6 C 24004.85
+[13:11:00] candle closed  O 24005.7 H 24006.3 L 23989.95 C 23993.1
+[13:12:00] candle closed  O 23993.4 H 23995.8 L 23989.2 C 23989.2
+[13:13:00] candle closed  O 23988.85 H 23994.75 L 23988.85 C 23993.85
+[13:13:01] >>> LONG SIGNAL  close 23995.45 > prevHigh 23994.75  | CE flat (entry SHOULD fire)
+[13:14:00] candle closed  O 23993.9 H 23995.5 L 23988.85 C 23989.65
+[13:15:00] candle closed  O 23989.75 H 23991.3 L 23982.9 C 23983.1
+[13:16:00] candle closed  O 23983.05 H 23984.05 L 23969.85 C 23969.95
+[13:17:00] candle closed  O 23970.6 H 23978.15 L 23968.65 C 23974.45
+[13:17:16] >>> LONG SIGNAL  close 23978.85 > prevHigh 23978.15  | CE flat (entry SHOULD fire)
+[13:18:00] candle closed  O 23973.85 H 23980.1 L 23973.6 C 23979.5
+[13:18:00] >>> LONG SIGNAL  close 23980.25 > prevHigh 23980.1  | CE flat (entry SHOULD fire)
+[13:19:00] candle closed  O 23980 H 23980.65 L 23976.8 C 23977.2
+[13:20:00] candle closed  O 23977.65 H 23978.3 L 23974.15 C 23978.3
+[13:20:00] >>> LONG SIGNAL  close 23978.45 > prevHigh 23978.3  | CE flat (entry SHOULD fire)
+[13:21:00] candle closed  O 23978.45 H 23979.6 L 23974.55 C 23976
+[13:21:26] >>> LONG SIGNAL  close 23980.1 > prevHigh 23979.6  | CE flat (entry SHOULD fire)
+[13:21:39] MONITOR END
