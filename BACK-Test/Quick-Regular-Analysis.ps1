@@ -1,20 +1,22 @@
 <#
 .SYNOPSIS
-  Quick inline Heikin-Ashi trade analysis on raw candles for a single instrument/day.
+  Quick inline regular-candle trade analysis on raw OHLC candles for a single instrument/day.
 .DESCRIPTION
-  Fetches raw candles, converts to HA, runs Long + Short strategies with
+  Fetches raw candles, runs Long + Short strategies on plain OHLC with
   N-candle lookback SL, prints trade log and summary.
+  Entry/exit use regular candle Close vs previous candle High/Low
+  (no Heikin-Ashi smoothing).
 .EXAMPLE
-  .\Quick-HA-Analysis.ps1 -TradingSymbol NIFTY2661623800CE -InstrumentToken 12955394
-  .\Quick-HA-Analysis.ps1 -TradingSymbol NIFTY2661623800CE -InstrumentToken 12955394 -SLLookback 1 -TimeFrame 3minute
-  .\Quick-HA-Analysis.ps1 -TradingSymbol NIFTY2661624100PE -InstrumentToken 12958722 -Date 2026-06-15
+  .\Quick-Regular-Analysis.ps1 -TradingSymbol NIFTY2661623800CE -InstrumentToken 12955394
+  .\Quick-Regular-Analysis.ps1 -TradingSymbol NIFTY2661623800CE -InstrumentToken 12955394 -SLLookback 1 -TimeFrame 3minute
+  .\Quick-Regular-Analysis.ps1 -TradingSymbol "NIFTY 50" -InstrumentToken 256265 -Date 2026-06-15
 #>
 
 param(
     [Parameter(Mandatory)][string]$TradingSymbol,
     [Parameter(Mandatory)][int]$InstrumentToken,
     [string]$Date            = (Get-Date).ToString('yyyy-MM-dd'),
-    [string]$TimeFrame       = 'minute',
+    [string]$TimeFrame       = '3minute',
     [int]$SLLookback         = 1,
     [string]$EntryStartTime  = '09:16',
     [string]$EntryStopTime   = '15:29',
@@ -92,26 +94,16 @@ if (-not $raw -or $raw.Count -lt 2) {
 
 Write-Host "  Got $($raw.Count) candles" -ForegroundColor DarkGray
 
-# ── Convert to Heikin-Ashi ──────────────────────────────────────
-$ha = @()
-$prev = $null
+# ── Map to plain OHLC candle objects ───────────────────────────
+$cds = @()
 foreach ($c in $raw) {
-    $hc = ($c.open + $c.high + $c.low + $c.close) / 4
-    $ho = if ($prev) { ($prev.haOpen + $prev.haClose) / 2 } else { ($c.open + $c.close) / 2 }
-    $hh = [Math]::Max($c.high, [Math]::Max($ho, $hc))
-    $hl = [Math]::Min($c.low,  [Math]::Min($ho, $hc))
-    $obj = [PSCustomObject]@{
-        Time     = $c.timestamp
-        haOpen   = [Math]::Round($ho, 2)
-        haHigh   = [Math]::Round($hh, 2)
-        haLow    = [Math]::Round($hl, 2)
-        haClose  = [Math]::Round($hc, 2)
-        RawClose = $c.close
-        RawHigh  = $c.high
-        RawLow   = $c.low
+    $cds += [PSCustomObject]@{
+        Time  = $c.timestamp
+        Open  = $c.open
+        High  = $c.high
+        Low   = $c.low
+        Close = $c.close
     }
-    $ha += $obj
-    $prev = $obj
 }
 
 # ── Parse time windows ─────────────────────────────────────────
@@ -125,80 +117,80 @@ function Fmt-PnL($v) { if ($v -ge 0) { "+$v" } else { "$v" } }
 $longTrades = @()
 $inPos = $false
 
-for ($i = 1; $i -lt $ha.Count; $i++) {
-    $cur = $ha[$i]; $prv = $ha[$i - 1]
+for ($i = 1; $i -lt $cds.Count; $i++) {
+    $cur = $cds[$i]; $prv = $cds[$i - 1]
     $curTime = ([DateTime]$cur.Time).TimeOfDay
 
-    # Entry: HA Close > Prev HA High, within entry window
-    if (-not $inPos -and $cur.haClose -gt $prv.haHigh -and $curTime -ge $entryStart -and $curTime -le $entryStop) {
+    # Entry: Close > Prev High, within entry window
+    if (-not $inPos -and $cur.Close -gt $prv.High -and $curTime -ge $entryStart -and $curTime -le $entryStop) {
         $inPos = $true
-        $ep = $cur.RawClose
+        $ep = $cur.Close
         $et = $cur.Time
         $start = [Math]::Max(0, $i - $SLLookback + 1)
-        $sl = ($ha[$start..$i] | Measure-Object -Property RawLow -Minimum).Minimum
+        $sl = ($cds[$start..$i] | Measure-Object -Property Low -Minimum).Minimum
         continue
     }
 
     if ($inPos) {
         # SL hit
-        if ($cur.RawClose -le $sl) {
+        if ($cur.Close -le $sl) {
             $longTrades += [PSCustomObject]@{ E=$et; EP=$ep; X=$cur.Time; XP=$sl; PnL=[Math]::Round($sl - $ep, 2); R='SL' }
             $inPos = $false
             continue
         }
-        # Signal exit: HA Close < Prev HA Low
-        if ($cur.haClose -lt $prv.haLow) {
-            $longTrades += [PSCustomObject]@{ E=$et; EP=$ep; X=$cur.Time; XP=$cur.RawClose; PnL=[Math]::Round($cur.RawClose - $ep, 2); R='Signal' }
+        # Signal exit: Close < Prev Low
+        if ($cur.Close -lt $prv.Low) {
+            $longTrades += [PSCustomObject]@{ E=$et; EP=$ep; X=$cur.Time; XP=$cur.Close; PnL=[Math]::Round($cur.Close - $ep, 2); R='Signal' }
             $inPos = $false
         }
     }
 }
 # EOD close
 if ($inPos) {
-    $lc = $ha[-1]
-    $longTrades += [PSCustomObject]@{ E=$et; EP=$ep; X=$lc.Time; XP=$lc.RawClose; PnL=[Math]::Round($lc.RawClose - $ep, 2); R='EOD' }
+    $lc = $cds[-1]
+    $longTrades += [PSCustomObject]@{ E=$et; EP=$ep; X=$lc.Time; XP=$lc.Close; PnL=[Math]::Round($lc.Close - $ep, 2); R='EOD' }
 }
 
 # ── SHORT Strategy ─────────────────────────────────────────────
 $shortTrades = @()
 $inPos = $false
 
-for ($i = 1; $i -lt $ha.Count; $i++) {
-    $cur = $ha[$i]; $prv = $ha[$i - 1]
+for ($i = 1; $i -lt $cds.Count; $i++) {
+    $cur = $cds[$i]; $prv = $cds[$i - 1]
     $curTime = ([DateTime]$cur.Time).TimeOfDay
 
-    # Entry: HA Close < Prev HA Low, within entry window
-    if (-not $inPos -and $cur.haClose -lt $prv.haLow -and $curTime -ge $entryStart -and $curTime -le $entryStop) {
+    # Entry: Close < Prev Low, within entry window
+    if (-not $inPos -and $cur.Close -lt $prv.Low -and $curTime -ge $entryStart -and $curTime -le $entryStop) {
         $inPos = $true
-        $ep = $cur.RawClose
+        $ep = $cur.Close
         $et = $cur.Time
         $start = [Math]::Max(0, $i - $SLLookback + 1)
-        $sl = ($ha[$start..$i] | Measure-Object -Property RawHigh -Maximum).Maximum
+        $sl = ($cds[$start..$i] | Measure-Object -Property High -Maximum).Maximum
         continue
     }
 
     if ($inPos) {
         # SL hit
-        if ($cur.RawClose -ge $sl) {
+        if ($cur.Close -ge $sl) {
             $shortTrades += [PSCustomObject]@{ E=$et; EP=$ep; X=$cur.Time; XP=$sl; PnL=[Math]::Round($ep - $sl, 2); R='SL' }
             $inPos = $false
             continue
         }
-        # Signal exit: HA Close > Prev HA High
-        if ($cur.haClose -gt $prv.haHigh) {
-            $shortTrades += [PSCustomObject]@{ E=$et; EP=$ep; X=$cur.Time; XP=$cur.RawClose; PnL=[Math]::Round($ep - $cur.RawClose, 2); R='Signal' }
+        # Signal exit: Close > Prev High
+        if ($cur.Close -gt $prv.High) {
+            $shortTrades += [PSCustomObject]@{ E=$et; EP=$ep; X=$cur.Time; XP=$cur.Close; PnL=[Math]::Round($ep - $cur.Close, 2); R='Signal' }
             $inPos = $false
         }
     }
 }
 # EOD close
 if ($inPos) {
-    $lc = $ha[-1]
-    $shortTrades += [PSCustomObject]@{ E=$et; EP=$ep; X=$lc.Time; XP=$lc.RawClose; PnL=[Math]::Round($ep - $lc.RawClose, 2); R='EOD' }
+    $lc = $cds[-1]
+    $shortTrades += [PSCustomObject]@{ E=$et; EP=$ep; X=$lc.Time; XP=$lc.Close; PnL=[Math]::Round($ep - $lc.Close, 2); R='EOD' }
 }
 
 # ── Print Results ──────────────────────────────────────────────
-$header = "  $TradingSymbol | $TimeFrame | $Date | SL Lookback: $SLLookback"
+$header = "  $TradingSymbol | $TimeFrame | $Date | SL Lookback: $SLLookback | REGULAR"
 Write-Host "`n  $('=' * ($header.Length))" -ForegroundColor Cyan
 Write-Host $header -ForegroundColor Cyan
 Write-Host "  $('=' * ($header.Length))" -ForegroundColor Cyan
