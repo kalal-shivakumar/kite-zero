@@ -1,0 +1,53 @@
+//@version=5
+// ─────────────────────────────────────────────────────────────────────────────
+// Regular Close-Entry Breakout — LONG ONLY
+// Port of the LONG book in Quick-Regular-Breakout-Summary.ps1 (plain OHLC).
+//
+//   Entry : close > previous High   -> fill at that close
+//   Stop  : lowest Low over last N candles (incl. entry bar)
+//   Exit  : stop hit on close, OR opposite signal (close < previous Low)
+//   All checks evaluated on the CLOSE of the bar (process_orders_on_close).
+// ─────────────────────────────────────────────────────────────────────────────
+strategy("Regular Close-Entry Breakout — LONG", overlay=true,
+     default_qty_type=strategy.fixed, default_qty_value=1,
+     process_orders_on_close=true, calc_on_every_tick=false,
+     pyramiding=0, initial_capital=100000)
+
+// ── Inputs ───────────────────────────────────────────────────────────────────
+slLookback   = input.int(1, "SL Lookback (candles)", minval=1)
+entrySession = input.session("0916-1529", "Entry Window")
+tz           = input.string("Asia/Kolkata", "Timezone")
+eodExit      = input.bool(true, "Force-exit at session close")
+exitSession  = input.session("1529-1530", "EOD Exit Window")
+
+// ── Session gates ────────────────────────────────────────────────────────────
+inEntryWindow = not na(time(timeframe.period, entrySession, tz))
+inEodWindow   = not na(time(timeframe.period, exitSession, tz))
+
+// ── Signals (confirmed on close) ─────────────────────────────────────────────
+longSignal    = close > high[1]
+oppositeSignal = close < low[1]
+
+// ── State ────────────────────────────────────────────────────────────────────
+var float longSL = na
+pos = strategy.position_size
+
+// ── LONG management ──────────────────────────────────────────────────────────
+if pos > 0
+    if close <= longSL
+        strategy.close("Long", comment="SL")
+    else if oppositeSignal
+        strategy.close("Long", comment="Exit")
+
+// ── Entry ────────────────────────────────────────────────────────────────────
+if inEntryWindow and longSignal and pos <= 0
+    strategy.entry("Long", strategy.long)
+    longSL := ta.lowest(low, slLookback)
+
+// ── EOD flat ─────────────────────────────────────────────────────────────────
+if eodExit and inEodWindow
+    strategy.close_all(comment="EOD")
+
+// ── Plots ────────────────────────────────────────────────────────────────────
+plot(pos > 0 ? longSL : na, "Long SL", color.red, style=plot.style_linebr)
+plotshape(inEntryWindow and longSignal and pos <= 0, "Long", shape.triangleup, location.belowbar, color.green, size=size.tiny)

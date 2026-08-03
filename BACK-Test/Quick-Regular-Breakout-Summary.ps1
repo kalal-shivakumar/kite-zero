@@ -1,12 +1,15 @@
 <#
 .SYNOPSIS
-  Runs Quick-Regular-Analysis (plain OHLC, no Heikin-Ashi) for multiple days and shows a summary table.
+  Multi-day regular-candle breakout summary (plain OHLC, no Heikin-Ashi).
 .DESCRIPTION
-  Entry/exit use regular candle Close vs previous candle High/Low with an
-  N-candle lookback stop loss. Skips weekends. Exports a CSV to Results-csv/.
+  Signal is confirmed on candle CLOSE and the trade is entered at that close price:
+    LONG  entry when current Close > previous High  -> entry = current Close
+    SHORT entry when current Close < previous Low   -> entry = current Close
+  Exit on opposite signal or an N-candle lookback stop loss. Skips weekends.
+  Exports a CSV to Results-csv/.
 .EXAMPLE
-  .\Quick-Regular-Summary.ps1 -TradingSymbol "NIFTY 50" -InstrumentToken 256265 -Days 50 -TimeFrame 3minute
-  .\Quick-Regular-Summary.ps1 -TradingSymbol SENSEX -InstrumentToken 265 -Days 10 -TimeFrame 2minute -SLLookback 1
+  .\Quick-Regular-Breakout-Summary.ps1 -TradingSymbol "NIFTY 50" -InstrumentToken 256265 -Days 50 -TimeFrame 3minute
+  .\Quick-Regular-Breakout-Summary.ps1 -TradingSymbol SENSEX -InstrumentToken 265 -Days 10 -TimeFrame 2minute -SLLookback 1
 #>
 
 param(
@@ -98,13 +101,13 @@ for ($d = $Days; $d -ge 0; $d--) {
         }
     }
 
-    # ── LONG ──
+    # ── LONG ── entry = current candle close on close > prev high
     $longTrades = @(); $inPos = $false
     for ($i = 1; $i -lt $cds.Count; $i++) {
         $cur = $cds[$i]; $prv = $cds[$i-1]
         $curTime = ([DateTime]$cur.Time).TimeOfDay
         if (-not $inPos -and $cur.Close -gt $prv.High -and $curTime -ge $entryStart -and $curTime -le $entryStop) {
-            $inPos = $true; $ep = $prv.High; $et = $cur.Time   # fill at breakout level
+            $inPos = $true; $ep = $cur.Close; $et = $cur.Time
             $start = [Math]::Max(0, $i - $SLLookback + 1)
             $sl = ($cds[$start..$i] | Measure-Object -Property Low -Minimum).Minimum
             continue
@@ -122,13 +125,13 @@ for ($d = $Days; $d -ge 0; $d--) {
     }
     if ($inPos) { $longTrades += [PSCustomObject]@{ PnL=[Math]::Round($cds[-1].Close - $ep, 2); EntryTime=$et } }
 
-    # ── SHORT ──
+    # ── SHORT ── entry = current candle close on close < prev low
     $shortTrades = @(); $inPos = $false
     for ($i = 1; $i -lt $cds.Count; $i++) {
         $cur = $cds[$i]; $prv = $cds[$i-1]
         $curTime = ([DateTime]$cur.Time).TimeOfDay
         if (-not $inPos -and $cur.Close -lt $prv.Low -and $curTime -ge $entryStart -and $curTime -le $entryStop) {
-            $inPos = $true; $ep = $prv.Low; $et = $cur.Time   # fill at breakout level
+            $inPos = $true; $ep = $cur.Close; $et = $cur.Time
             $start = [Math]::Max(0, $i - $SLLookback + 1)
             $sl = ($cds[$start..$i] | Measure-Object -Property High -Maximum).Maximum
             continue
@@ -175,7 +178,7 @@ if ($results.Count -eq 0) { Write-Host "`n  No trading days found." -ForegroundC
 # ── Print Summary Table ─────────────────────────────────────────
 Write-Host ""
 Write-Host "  ══════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "  $TradingSymbol | $TimeFrame | SL: $SLLookback | Last $Days days ($($results.Count) trading days) | REGULAR" -ForegroundColor Cyan
+Write-Host "  $TradingSymbol | $TimeFrame | SL: $SLLookback | Last $Days days ($($results.Count) trading days) | BREAKOUT (close entry)" -ForegroundColor Cyan
 Write-Host "  ══════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 
@@ -295,7 +298,7 @@ $csvRows += [PSCustomObject]@{
     BestTrade=$overallBest; BestTradeTime=''; WorstTrade=$overallWorst; WorstTradeTime=''
 }
 
-$csvFile = Join-Path $csvDir "regular-backtest-$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').csv"
+$csvFile = Join-Path $csvDir "regular-breakout-$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').csv"
 $csvRows | Export-Csv -Path $csvFile -NoTypeInformation -Force
 Write-Host "  CSV exported: $csvFile" -ForegroundColor Green
 Write-Host ""

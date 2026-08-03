@@ -1,10 +1,27 @@
 ﻿<#
 .SYNOPSIS
-  Heikin-Ashi Swing Low Stop Loss Monitor.
+  Swing Low Stop Loss Monitor.
 .DESCRIPTION
-  Monitors open CE/PE positions. For any position without a stop-loss,
-  calculates swing low from HA candles and places an SL order automatically.
-  Uses KiteData.psm1 module and input.json config (same as CALL/PUT-Hedge scripts).
+  Continuously checks for open CE/PE positions and ensures each one has a
+  stop-loss. For any position without an SL, it calculates the swing low from
+  the last N regular (OHLC) candles and places an SL order automatically.
+  Also cancels orphaned SL orders once their position is closed.
+
+  Quantity handling:
+    - The SL quantity is taken from the live position (pos.quantity), so it
+      protects the full running quantity of each symbol regardless of how many
+      lots are open, and handles multiple strikes (each gets its own SL).
+    - NOTE: An SL is only placed when no pending SL already exists for that
+      symbol. It does NOT reconcile quantity, so if lots are added after an SL
+      was placed, the extra quantity stays unprotected until the SL is recreated.
+
+  Driven by input.json config (same as CALL/PUT-Hedge scripts):
+    - SLCandlesLookback : number of recent candles scanned for the swing low (SL price = lowest low)
+    - SLTriggerOffset   : amount added to the SL price to derive the trigger price
+    - TimeFrame         : candle interval used for the lookback
+    - IndexChoosen / NoOfLotsPurchaseAtaTime / Product / Variety : instrument & order settings
+
+  Uses KiteData.psm1 module for auth, candle data, and order placement.
 .EXAMPLE
   .\Stop_Loss_Creater_Swinglow.ps1
 #>

@@ -1,12 +1,16 @@
 <#
 .SYNOPSIS
-  Runs Quick-Regular-Analysis (plain OHLC, no Heikin-Ashi) for multiple days and shows a summary table.
+  Multi-day regular-candle LEVEL-BREAK summary (plain OHLC, intrabar breakout).
 .DESCRIPTION
-  Entry/exit use regular candle Close vs previous candle High/Low with an
-  N-candle lookback stop loss. Skips weekends. Exports a CSV to Results-csv/.
+  Signal triggers intrabar the moment price pierces the prior candle's extreme,
+  and the trade is filled at that breakout LEVEL (no waiting for candle close):
+    LONG  entry when current High > previous High  -> entry = previous High
+    SHORT entry when current Low  < previous Low   -> entry = previous Low
+  Exit on the opposite level break (long exits at prev Low, short at prev High)
+  or an N-candle lookback stop loss. Skips weekends. Exports a CSV to Results-csv/.
 .EXAMPLE
-  .\Quick-Regular-Summary.ps1 -TradingSymbol "NIFTY 50" -InstrumentToken 256265 -Days 50 -TimeFrame 3minute
-  .\Quick-Regular-Summary.ps1 -TradingSymbol SENSEX -InstrumentToken 265 -Days 10 -TimeFrame 2minute -SLLookback 1
+  .\Quick-Regular-LevelBreak-Summary.ps1 -TradingSymbol "NIFTY 50" -InstrumentToken 256265 -Days 50 -TimeFrame minute
+  .\Quick-Regular-LevelBreak-Summary.ps1 -TradingSymbol SENSEX -InstrumentToken 265 -Days 10 -TimeFrame 2minute -SLLookback 1
 #>
 
 param(
@@ -98,48 +102,48 @@ for ($d = $Days; $d -ge 0; $d--) {
         }
     }
 
-    # ── LONG ──
+    # ── LONG ── entry = prev High when current High pierces prev High
     $longTrades = @(); $inPos = $false
     for ($i = 1; $i -lt $cds.Count; $i++) {
         $cur = $cds[$i]; $prv = $cds[$i-1]
         $curTime = ([DateTime]$cur.Time).TimeOfDay
-        if (-not $inPos -and $cur.Close -gt $prv.High -and $curTime -ge $entryStart -and $curTime -le $entryStop) {
-            $inPos = $true; $ep = $prv.High; $et = $cur.Time   # fill at breakout level
+        if (-not $inPos -and $cur.High -gt $prv.High -and $curTime -ge $entryStart -and $curTime -le $entryStop) {
+            $inPos = $true; $ep = $prv.High; $et = $cur.Time
             $start = [Math]::Max(0, $i - $SLLookback + 1)
             $sl = ($cds[$start..$i] | Measure-Object -Property Low -Minimum).Minimum
             continue
         }
         if ($inPos) {
-            if ($cur.Close -le $sl) {
+            if ($cur.Low -le $sl) {
                 $longTrades += [PSCustomObject]@{ PnL=[Math]::Round($sl - $ep, 2); EntryTime=$et }
                 $inPos = $false; continue
             }
-            if ($cur.Close -lt $prv.Low) {
-                $longTrades += [PSCustomObject]@{ PnL=[Math]::Round($cur.Close - $ep, 2); EntryTime=$et }
+            if ($cur.Low -lt $prv.Low) {
+                $longTrades += [PSCustomObject]@{ PnL=[Math]::Round($prv.Low - $ep, 2); EntryTime=$et }
                 $inPos = $false
             }
         }
     }
     if ($inPos) { $longTrades += [PSCustomObject]@{ PnL=[Math]::Round($cds[-1].Close - $ep, 2); EntryTime=$et } }
 
-    # ── SHORT ──
+    # ── SHORT ── entry = prev Low when current Low pierces prev Low
     $shortTrades = @(); $inPos = $false
     for ($i = 1; $i -lt $cds.Count; $i++) {
         $cur = $cds[$i]; $prv = $cds[$i-1]
         $curTime = ([DateTime]$cur.Time).TimeOfDay
-        if (-not $inPos -and $cur.Close -lt $prv.Low -and $curTime -ge $entryStart -and $curTime -le $entryStop) {
-            $inPos = $true; $ep = $prv.Low; $et = $cur.Time   # fill at breakout level
+        if (-not $inPos -and $cur.Low -lt $prv.Low -and $curTime -ge $entryStart -and $curTime -le $entryStop) {
+            $inPos = $true; $ep = $prv.Low; $et = $cur.Time
             $start = [Math]::Max(0, $i - $SLLookback + 1)
             $sl = ($cds[$start..$i] | Measure-Object -Property High -Maximum).Maximum
             continue
         }
         if ($inPos) {
-            if ($cur.Close -ge $sl) {
+            if ($cur.High -ge $sl) {
                 $shortTrades += [PSCustomObject]@{ PnL=[Math]::Round($ep - $sl, 2); EntryTime=$et }
                 $inPos = $false; continue
             }
-            if ($cur.Close -gt $prv.High) {
-                $shortTrades += [PSCustomObject]@{ PnL=[Math]::Round($ep - $cur.Close, 2); EntryTime=$et }
+            if ($cur.High -gt $prv.High) {
+                $shortTrades += [PSCustomObject]@{ PnL=[Math]::Round($ep - $prv.High, 2); EntryTime=$et }
                 $inPos = $false
             }
         }
@@ -175,7 +179,7 @@ if ($results.Count -eq 0) { Write-Host "`n  No trading days found." -ForegroundC
 # ── Print Summary Table ─────────────────────────────────────────
 Write-Host ""
 Write-Host "  ══════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "  $TradingSymbol | $TimeFrame | SL: $SLLookback | Last $Days days ($($results.Count) trading days) | REGULAR" -ForegroundColor Cyan
+Write-Host "  $TradingSymbol | $TimeFrame | SL: $SLLookback | Last $Days days ($($results.Count) trading days) | LEVEL-BREAK (intrabar)" -ForegroundColor Cyan
 Write-Host "  ══════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 
@@ -295,7 +299,7 @@ $csvRows += [PSCustomObject]@{
     BestTrade=$overallBest; BestTradeTime=''; WorstTrade=$overallWorst; WorstTradeTime=''
 }
 
-$csvFile = Join-Path $csvDir "regular-backtest-$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').csv"
+$csvFile = Join-Path $csvDir "regular-levelbreak-$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').csv"
 $csvRows | Export-Csv -Path $csvFile -NoTypeInformation -Force
 Write-Host "  CSV exported: $csvFile" -ForegroundColor Green
 Write-Host ""

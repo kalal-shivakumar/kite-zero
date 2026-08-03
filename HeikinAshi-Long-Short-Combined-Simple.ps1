@@ -1,14 +1,22 @@
 <#
 .SYNOPSIS
-    Regular-candle intraday Long+Short auto-trade bot for Zerodha Kite (NIFTY/index options).
+    Heikin-Ashi intraday Long+Short auto-trade bot for Zerodha Kite (NIFTY/index options).
+    Identical trading logic to Regular-Long-Short-Combined-Simple.ps1 - the ONLY difference is
+    that signals are computed from Heikin-Ashi candles instead of regular OHLC candles.
     All trading parameters are read from input.json; no values are hard-coded.
 
 .DESCRIPTION
     ENTRY LOGIC (intra-candle breakout, evaluated live on every websocket tick):
-      The current forming candle's live close (= latest LTP) is compared against the
-      PREVIOUS completed candle's High/Low:
-        * LONG  : forming Close > previous candle High  ->  BUY CE (call)
-        * SHORT : forming Close < previous candle Low   ->  BUY PE (put)
+      The current forming Heikin-Ashi candle's live HA-Close is compared against the
+      PREVIOUS completed HA candle's High/Low:
+        * LONG  : forming HA-Close > previous HA candle High  ->  BUY CE (call)
+        * SHORT : forming HA-Close < previous HA candle Low   ->  BUY PE (put)
+
+      Heikin-Ashi construction (from the raw tick candle O/H/L/C):
+        HA-Close = (O + H + L + C) / 4
+        HA-Open  = (previous HA-Open + previous HA-Close) / 2   (seed = (O + C) / 2)
+        HA-High  = max(H, HA-Open, HA-Close)
+        HA-Low   = min(L, HA-Open, HA-Close)
 
     ENTRY GATES (all must pass before an order is placed):
         1. Time is inside the [StartTime, StopTime] trading window.
@@ -36,7 +44,8 @@
 
     DATA FEED:
         Kite websocket (wss://ws.kite.trade) streams LTP ticks that are bucketed into
-        fixed-interval candles (TimeFrame in input.json, e.g. 'minute' = 60s).
+        fixed-interval raw candles (TimeFrame in input.json, e.g. 'minute' = 60s), which
+        are then converted to Heikin-Ashi candles for signal evaluation.
 
     REQUIREMENTS:
         KiteData.psm1, input.json, accesstoken.json, and PlacedOrders\Position.json.
@@ -218,20 +227,20 @@ function Draw($hist,$raw,$ltp,$tbSec){
     Clear-Host
     Write-Host ''
     Write-Host ('   ╔'+('═'*68)+'╗') -f DarkCyan
-    Write-Host ('   ║'+(Ctr "$Sym    •    REGULAR-CANDLE BOT    •    ${sec}s    •    ● LIVE" 68)+'║') -f Red
+    Write-Host ('   ║'+(Ctr "$Sym    •    HEIKIN-ASHI BOT    •    ${sec}s    •    ● LIVE" 68)+'║') -f Red
     Write-Host ('   ╟'+('─'*68)+'╢') -f DarkCyan
     Write-Host ('   ║'+(Ctr "Idx $IndexChoosen     Lots $Lots     Amt $Amount     $OffLbl     $Product     Win $WinStr" 68)+'║') -f Gray
     Write-Host ('   ╚'+('═'*68)+'╝') -f DarkCyan
     Write-Host ''
-    Write-Host "   ▸ LAST 5 CANDLES  (${sec}s)" -f DarkYellow
+    Write-Host "   ▸ LAST 5 HA CANDLES  (${sec}s)" -f DarkYellow
     Write-Host $Ttop -f DarkGray
-    Write-Host ('   │'+(Ctr 'Time' 10)+'│'+(Ctr 'Open' 12)+'│'+(Ctr 'High' 12)+'│'+(Ctr 'Low' 12)+'│'+(Ctr 'Close' 12)+'│'+(Ctr '▲▼' 5)+'│') -f Cyan
+    Write-Host ('   │'+(Ctr 'Time' 10)+'│'+(Ctr 'HA-Open' 12)+'│'+(Ctr 'HA-High' 12)+'│'+(Ctr 'HA-Low' 12)+'│'+(Ctr 'HA-Close' 12)+'│'+(Ctr '▲▼' 5)+'│') -f Cyan
     Write-Host $Tmid -f DarkGray
     if(@($hist).Count -eq 0){ Write-Host ('   │'+(Ctr 'building first candle...' 63)+'│') -f DarkGray }
     else{ foreach($c in $hist){ $up=$c.C -ge $c.O;$arw=if($up){'▲'}else{'▼'};$clr=if($up){'Green'}else{'Red'};Write-Host ('   │'+(Ctr $c.T 10)+'│'+(PC $c.O)+'│'+(PC $c.H)+'│'+(PC $c.L)+'│'+(PC $c.C)+'│'+(Ctr $arw 5)+'│') -f $clr } }
     Write-Host $Tbot -f DarkGray
     Write-Host ''
-    if($raw){ $fu=$raw.C -ge $raw.O;$fc=if($fu){'Green'}else{'Red'};$fa=if($fu){'▲'}else{'▼'};$ft=[timespan]::FromSeconds($tbSec).ToString('hh\:mm\:ss');Write-Host ("   ▸ FORMING   $ft    O {0:N2}   H {1:N2}   L {2:N2}   C {3:N2}     LTP {4:N2} {5}" -f $raw.O,$raw.H,$raw.L,$raw.C,$ltp,$fa) -f $fc }
+    if($raw){ $fu=$raw.C -ge $raw.O;$fc=if($fu){'Green'}else{'Red'};$fa=if($fu){'▲'}else{'▼'};$ft=[timespan]::FromSeconds($tbSec).ToString('hh\:mm\:ss');Write-Host ("   ▸ FORMING HA   $ft    O {0:N2}   H {1:N2}   L {2:N2}   C {3:N2}     LTP {4:N2} {5}" -f $raw.O,$raw.H,$raw.L,$raw.C,$ltp,$fa) -f $fc }
     Write-Host ''
     $tot=0;foreach($tr in $g.Trades){$tot+=$tr.PnL}
     $tc=if($tot -ge 0){'Green'}else{'Red'}
@@ -239,7 +248,7 @@ function Draw($hist,$raw,$ltp,$tbSec){
     Write-Host ''
     $tr=$g.Trend
     $pv=$g.Prev
-    Write-Host "   ▸ PER-TICK SIGNAL STATUS  (Close vs previous candle)" -f DarkYellow
+    Write-Host "   ▸ PER-TICK SIGNAL STATUS  (HA-Close vs previous HA candle)" -f DarkYellow
     Write-Host $Stop -f DarkGray
     Write-Host ('   │'+(Ctr 'Side' 7)+'│'+(Ctr 'Condition' 26)+'│'+(Ctr 'Signal' 11)+'│'+(Ctr 'Entry' 9)+'│'+(Ctr 'Running Position' 28)+'│') -f Cyan
     Write-Host $Smid -f DarkGray
@@ -270,7 +279,7 @@ $ws=[System.Net.WebSockets.ClientWebSocket]::new()
 $ws.ConnectAsync("wss://ws.kite.trade?api_key=${key}&access_token=${acc}",[Threading.CancellationToken]::None).Wait(10000)
 $ws.SendAsync([ArraySegment[byte]][Text.Encoding]::UTF8.GetBytes("{`"a`":`"subscribe`",`"v`":[$tok]}"),'Text',$true,[Threading.CancellationToken]::None).Wait(5000)
 
-$buf=[byte[]]::new(65536);$tb=0;$raw=$null;$prev=$null;$hist=@();$ltp=0;$lastDraw=[datetime]::MinValue
+$buf=[byte[]]::new(65536);$tb=0;$raw=$null;$prev=$null;$hist=@();$ltp=0;$lastDraw=[datetime]::MinValue;$haPrev=$null
 Draw $hist $raw $ltp $tb
 while($ws.State -eq 'Open'){
     try{
@@ -278,9 +287,23 @@ while($ws.State -eq 'Open'){
         foreach($t in (Ticks $buf $res.Count)){
             if($t.Tok -ne $tok){continue}
             $ltp=$t.LTP;$n=[datetime]::Now;$bk=[int]([Math]::Floor(($n.Hour*3600+$n.Minute*60+$n.Second)/$sec))*$sec;$upd=$false
-            if($tb -ne $bk){ if($raw){$prev=$raw;$hist=(@($hist)+@{T=[timespan]::FromSeconds($tb).ToString('hh\:mm\:ss');O=[Math]::Round($raw.O,2);H=[Math]::Round($raw.H,2);L=[Math]::Round($raw.L,2);C=[Math]::Round($raw.C,2)})|Select-Object -Last 5;$upd=$true};$raw=@{O=$ltp;H=$ltp;L=$ltp;C=$ltp};$tb=$bk }
+            if($tb -ne $bk){
+                if($raw){
+                    # finalize the just-completed raw candle into a Heikin-Ashi candle (this becomes the "previous" candle for signals)
+                    $haC=($raw.O+$raw.H+$raw.L+$raw.C)/4
+                    $haO=if($haPrev){($haPrev.O+$haPrev.C)/2}else{($raw.O+$raw.C)/2}
+                    $haH=[Math]::Max($raw.H,[Math]::Max($haO,$haC));$haL=[Math]::Min($raw.L,[Math]::Min($haO,$haC))
+                    $haPrev=@{O=$haO;H=$haH;L=$haL;C=$haC};$prev=$haPrev
+                    $hist=(@($hist)+@{T=[timespan]::FromSeconds($tb).ToString('hh\:mm\:ss');O=[Math]::Round($haO,2);H=[Math]::Round($haH,2);L=[Math]::Round($haL,2);C=[Math]::Round($haC,2)})|Select-Object -Last 5;$upd=$true
+                }
+                $raw=@{O=$ltp;H=$ltp;L=$ltp;C=$ltp};$tb=$bk
+            }
             else{ $raw.H=[Math]::Max($raw.H,$ltp);$raw.L=[Math]::Min($raw.L,$ltp);$raw.C=$ltp }
-            $cur=$raw
+            # forming Heikin-Ashi candle: HA-Close from the live raw O/H/L/C, HA-Open from the previous HA candle
+            $haCloseCur=($raw.O+$raw.H+$raw.L+$raw.C)/4
+            $haOpenCur=if($haPrev){($haPrev.O+$haPrev.C)/2}else{($raw.O+$raw.C)/2}
+            $haHighCur=[Math]::Max($raw.H,[Math]::Max($haOpenCur,$haCloseCur));$haLowCur=[Math]::Min($raw.L,[Math]::Min($haOpenCur,$haCloseCur))
+            $cur=@{O=$haOpenCur;H=$haHighCur;L=$haLowCur;C=$haCloseCur}
             # PRIMARY running check on EVERY tick = /orders (stable). If unreadable, skip this tick entirely.
             $trend=Open-Orders
             if($null -eq $trend){ continue }

@@ -124,7 +124,7 @@ for ($i = 1; $i -lt $cds.Count; $i++) {
     # Entry: Close > Prev High, within entry window
     if (-not $inPos -and $cur.Close -gt $prv.High -and $curTime -ge $entryStart -and $curTime -le $entryStop) {
         $inPos = $true
-        $ep = $cur.Close
+        $ep = $prv.High   # fill at breakout level, not the signal-candle close
         $et = $cur.Time
         $start = [Math]::Max(0, $i - $SLLookback + 1)
         $sl = ($cds[$start..$i] | Measure-Object -Property Low -Minimum).Minimum
@@ -162,7 +162,7 @@ for ($i = 1; $i -lt $cds.Count; $i++) {
     # Entry: Close < Prev Low, within entry window
     if (-not $inPos -and $cur.Close -lt $prv.Low -and $curTime -ge $entryStart -and $curTime -le $entryStop) {
         $inPos = $true
-        $ep = $cur.Close
+        $ep = $prv.Low   # fill at breakout level, not the signal-candle close
         $et = $cur.Time
         $start = [Math]::Max(0, $i - $SLLookback + 1)
         $sl = ($cds[$start..$i] | Measure-Object -Property High -Maximum).Maximum

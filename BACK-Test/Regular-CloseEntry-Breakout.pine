@@ -1,0 +1,70 @@
+//@version=5
+// ─────────────────────────────────────────────────────────────────────────────
+// Regular Close-Entry Breakout
+// Port of Quick-Regular-Breakout-Summary.ps1 (plain OHLC, no Heikin-Ashi).
+//
+//   LONG  entry : close > previous High   -> fill at that close
+//   SHORT entry : close < previous Low    -> fill at that close
+//   Stop loss   : long  = lowest Low  over last N candles (incl. entry bar)
+//                 short = highest High over last N candles (incl. entry bar)
+//   Exit        : stop hit on close, OR opposite signal (stop-and-reverse)
+//   All checks are evaluated on the CLOSE of the bar (process_orders_on_close).
+// ─────────────────────────────────────────────────────────────────────────────
+strategy("Regular Close-Entry Breakout", overlay=true,
+     default_qty_type=strategy.fixed, default_qty_value=1,
+     process_orders_on_close=true, calc_on_every_tick=false,
+     pyramiding=0, initial_capital=100000)
+
+// ── Inputs ───────────────────────────────────────────────────────────────────
+slLookback   = input.int(1, "SL Lookback (candles)", minval=1)
+entrySession = input.session("0916-1529", "Entry Window")
+tz           = input.string("Asia/Kolkata", "Timezone")
+eodExit      = input.bool(true, "Force-exit at session close")
+exitSession  = input.session("1529-1530", "EOD Exit Window")
+
+// ── Session gates ────────────────────────────────────────────────────────────
+inEntryWindow = not na(time(timeframe.period, entrySession, tz))
+inEodWindow   = not na(time(timeframe.period, exitSession, tz))
+
+// ── Signals (confirmed on close) ─────────────────────────────────────────────
+longSignal  = close > high[1]
+shortSignal = close < low[1]
+
+// ── State: stop loss captured at entry ───────────────────────────────────────
+var float longSL  = na
+var float shortSL = na
+
+pos = strategy.position_size
+
+// ── LONG management ──────────────────────────────────────────────────────────
+if pos > 0
+    if close <= longSL
+        strategy.close("Long", comment="SL")          // stop hit
+    else if shortSignal
+        strategy.close("Long", comment="Rev")         // opposite signal exit
+
+// ── SHORT management ─────────────────────────────────────────────────────────
+if pos < 0
+    if close >= shortSL
+        strategy.close("Short", comment="SL")
+    else if longSignal
+        strategy.close("Short", comment="Rev")
+
+// ── Entries (stop-and-reverse) ───────────────────────────────────────────────
+if inEntryWindow and longSignal and pos <= 0
+    strategy.entry("Long", strategy.long)
+    longSL := ta.lowest(low, slLookback)
+
+if inEntryWindow and shortSignal and pos >= 0
+    strategy.entry("Short", strategy.short)
+    shortSL := ta.highest(high, slLookback)
+
+// ── EOD flat ─────────────────────────────────────────────────────────────────
+if eodExit and inEodWindow
+    strategy.close_all(comment="EOD")
+
+// ── Plots ────────────────────────────────────────────────────────────────────
+plot(pos > 0 ? longSL  : na, "Long SL",  color.red,  style=plot.style_linebr)
+plot(pos < 0 ? shortSL : na, "Short SL", color.red,  style=plot.style_linebr)
+plotshape(inEntryWindow and longSignal  and pos <= 0, "Long",  shape.triangleup,   location.belowbar, color.green, size=size.tiny)
+plotshape(inEntryWindow and shortSignal and pos >= 0, "Short", shape.triangledown, location.abovebar, color.red,   size=size.tiny)

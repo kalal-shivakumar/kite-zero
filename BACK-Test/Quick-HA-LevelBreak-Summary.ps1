@@ -1,12 +1,16 @@
 <#
 .SYNOPSIS
-  Runs Quick-Regular-Analysis (plain OHLC, no Heikin-Ashi) for multiple days and shows a summary table.
+  Multi-day Heikin-Ashi LEVEL-BREAK summary (intrabar breakout on HA candles).
 .DESCRIPTION
-  Entry/exit use regular candle Close vs previous candle High/Low with an
-  N-candle lookback stop loss. Skips weekends. Exports a CSV to Results-csv/.
+  Signal triggers intrabar the moment the HA price pierces the prior HA candle's
+  extreme, and the trade is filled at that HA breakout level (no waiting for close):
+    LONG  entry when current haHigh > previous haHigh  -> entry = previous haHigh
+    SHORT entry when current haLow  < previous haLow    -> entry = previous haLow
+  Exit on the opposite level break (long exits at prev haLow, short at prev haHigh)
+  or an N-candle lookback stop loss. Skips weekends. Exports a CSV to Results-csv/.
 .EXAMPLE
-  .\Quick-Regular-Summary.ps1 -TradingSymbol "NIFTY 50" -InstrumentToken 256265 -Days 50 -TimeFrame 3minute
-  .\Quick-Regular-Summary.ps1 -TradingSymbol SENSEX -InstrumentToken 265 -Days 10 -TimeFrame 2minute -SLLookback 1
+  .\Quick-HA-LevelBreak-Summary.ps1 -TradingSymbol "NIFTY 50" -InstrumentToken 256265 -Days 50 -TimeFrame minute
+  .\Quick-HA-LevelBreak-Summary.ps1 -TradingSymbol SENSEX -InstrumentToken 265 -Days 10 -TimeFrame 2minute -SLLookback 1
 #>
 
 param(
@@ -86,65 +90,69 @@ for ($d = $Days; $d -ge 0; $d--) {
 
     if (-not $raw -or $raw.Count -lt 2) { continue }
 
-    # Map to plain OHLC candle objects
-    $cds = @()
+    # Convert to HA
+    $ha = @()
+    $prev = $null
     foreach ($c in $raw) {
-        $cds += [PSCustomObject]@{
-            Time  = $c.timestamp
-            Open  = $c.open
-            High  = $c.high
-            Low   = $c.low
-            Close = $c.close
+        $hc = ($c.open + $c.high + $c.low + $c.close) / 4
+        $ho = if ($prev) { ($prev.haOpen + $prev.haClose) / 2 } else { ($c.open + $c.close) / 2 }
+        $hh = [Math]::Max($c.high, [Math]::Max($ho, $hc))
+        $hl = [Math]::Min($c.low,  [Math]::Min($ho, $hc))
+        $obj = [PSCustomObject]@{
+            Time=$c.timestamp; haOpen=[Math]::Round($ho,2); haHigh=[Math]::Round($hh,2)
+            haLow=[Math]::Round($hl,2); haClose=[Math]::Round($hc,2)
+            RawClose=$c.close; RawHigh=$c.high; RawLow=$c.low
         }
+        $ha += $obj; $prev = $obj
     }
 
-    # ── LONG ──
+    # ── LONG ── entry = prev haHigh when current haHigh pierces prev haHigh
     $longTrades = @(); $inPos = $false
-    for ($i = 1; $i -lt $cds.Count; $i++) {
-        $cur = $cds[$i]; $prv = $cds[$i-1]
+    for ($i = 1; $i -lt $ha.Count; $i++) {
+        $cur = $ha[$i]; $prv = $ha[$i-1]
         $curTime = ([DateTime]$cur.Time).TimeOfDay
-        if (-not $inPos -and $cur.Close -gt $prv.High -and $curTime -ge $entryStart -and $curTime -le $entryStop) {
-            $inPos = $true; $ep = $prv.High; $et = $cur.Time   # fill at breakout level
+        if (-not $inPos -and $cur.haHigh -gt $prv.haHigh -and $curTime -ge $entryStart -and $curTime -le $entryStop) {
+            $inPos = $true; $ep = $prv.haHigh; $et = $cur.Time
             $start = [Math]::Max(0, $i - $SLLookback + 1)
-            $sl = ($cds[$start..$i] | Measure-Object -Property Low -Minimum).Minimum
+            $sl = ($ha[$start..$i] | Measure-Object -Property haLow -Minimum).Minimum
             continue
         }
         if ($inPos) {
-            if ($cur.Close -le $sl) {
+            if ($cur.haLow -le $sl) {
                 $longTrades += [PSCustomObject]@{ PnL=[Math]::Round($sl - $ep, 2); EntryTime=$et }
                 $inPos = $false; continue
             }
-            if ($cur.Close -lt $prv.Low) {
-                $longTrades += [PSCustomObject]@{ PnL=[Math]::Round($cur.Close - $ep, 2); EntryTime=$et }
+            if ($cur.haLow -lt $prv.haLow) {
+                $longTrades += [PSCustomObject]@{ PnL=[Math]::Round($prv.haLow - $ep, 2); EntryTime=$et }
                 $inPos = $false
             }
         }
     }
-    if ($inPos) { $longTrades += [PSCustomObject]@{ PnL=[Math]::Round($cds[-1].Close - $ep, 2); EntryTime=$et } }
+    if ($inPos) { $longTrades += [PSCustomObject]@{ PnL=[Math]::Round($ha[-1].haClose - $ep, 2); EntryTime=$et } }
 
-    # ── SHORT ──
+    # ── SHORT ── entry = prev haLow when current haLow pierces prev haLow
     $shortTrades = @(); $inPos = $false
-    for ($i = 1; $i -lt $cds.Count; $i++) {
-        $cur = $cds[$i]; $prv = $cds[$i-1]
+    for ($i = 1; $i -lt $ha.Count; $i++) {
+        $cur = $ha[$i]; $prv = $ha[$i-1]
         $curTime = ([DateTime]$cur.Time).TimeOfDay
-        if (-not $inPos -and $cur.Close -lt $prv.Low -and $curTime -ge $entryStart -and $curTime -le $entryStop) {
-            $inPos = $true; $ep = $prv.Low; $et = $cur.Time   # fill at breakout level
+        if (-not $inPos -and $cur.haLow -lt $prv.haLow -and $curTime -ge $entryStart -and $curTime -le $entryStop) {
+            $inPos = $true; $ep = $prv.haLow; $et = $cur.Time
             $start = [Math]::Max(0, $i - $SLLookback + 1)
-            $sl = ($cds[$start..$i] | Measure-Object -Property High -Maximum).Maximum
+            $sl = ($ha[$start..$i] | Measure-Object -Property haHigh -Maximum).Maximum
             continue
         }
         if ($inPos) {
-            if ($cur.Close -ge $sl) {
+            if ($cur.haHigh -ge $sl) {
                 $shortTrades += [PSCustomObject]@{ PnL=[Math]::Round($ep - $sl, 2); EntryTime=$et }
                 $inPos = $false; continue
             }
-            if ($cur.Close -gt $prv.High) {
-                $shortTrades += [PSCustomObject]@{ PnL=[Math]::Round($ep - $cur.Close, 2); EntryTime=$et }
+            if ($cur.haHigh -gt $prv.haHigh) {
+                $shortTrades += [PSCustomObject]@{ PnL=[Math]::Round($ep - $prv.haHigh, 2); EntryTime=$et }
                 $inPos = $false
             }
         }
     }
-    if ($inPos) { $shortTrades += [PSCustomObject]@{ PnL=[Math]::Round($ep - $cds[-1].Close, 2); EntryTime=$et } }
+    if ($inPos) { $shortTrades += [PSCustomObject]@{ PnL=[Math]::Round($ep - $ha[-1].haClose, 2); EntryTime=$et } }
 
     # Summarize
     $lPnL = if ($longTrades.Count -gt 0) { [Math]::Round(($longTrades | Measure-Object -Property PnL -Sum).Sum, 2) } else { 0 }
@@ -175,7 +183,7 @@ if ($results.Count -eq 0) { Write-Host "`n  No trading days found." -ForegroundC
 # ── Print Summary Table ─────────────────────────────────────────
 Write-Host ""
 Write-Host "  ══════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
-Write-Host "  $TradingSymbol | $TimeFrame | SL: $SLLookback | Last $Days days ($($results.Count) trading days) | REGULAR" -ForegroundColor Cyan
+Write-Host "  $TradingSymbol | $TimeFrame | SL: $SLLookback | Last $Days days ($($results.Count) trading days) | HA LEVEL-BREAK (intrabar)" -ForegroundColor Cyan
 Write-Host "  ══════════════════════════════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 
@@ -295,7 +303,7 @@ $csvRows += [PSCustomObject]@{
     BestTrade=$overallBest; BestTradeTime=''; WorstTrade=$overallWorst; WorstTradeTime=''
 }
 
-$csvFile = Join-Path $csvDir "regular-backtest-$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').csv"
+$csvFile = Join-Path $csvDir "ha-levelbreak-$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').csv"
 $csvRows | Export-Csv -Path $csvFile -NoTypeInformation -Force
 Write-Host "  CSV exported: $csvFile" -ForegroundColor Green
 Write-Host ""

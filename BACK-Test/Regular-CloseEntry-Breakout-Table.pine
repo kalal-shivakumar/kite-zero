@@ -1,0 +1,179 @@
+//@version=5
+// ─────────────────────────────────────────────────────────────────────────────
+// Regular Close-Entry Breakout — DAILY TABLE
+// Simulates the LONG and SHORT books independently (same rules as
+// Quick-Regular-Breakout-Summary.ps1) and prints a per-day PnL table:
+//   Date | Long | Short | Day Total | Cumulative
+//
+//   LONG  entry : close > previous High -> fill at close ; SL = lowest Low  (N)
+//   SHORT entry : close < previous Low  -> fill at close ; SL = highest High (N)
+//   Exit  : stop hit on close, OR opposite signal ; EOD flat in exit window.
+//   All checks evaluated on the CLOSE of the bar.
+// ─────────────────────────────────────────────────────────────────────────────
+indicator("Regular Close-Entry Breakout — Daily Table", overlay=true, max_bars_back=5000)
+
+// ── Inputs ───────────────────────────────────────────────────────────────────
+slLookback   = input.int(1, "SL Lookback (candles)", minval=1)
+entrySession = input.session("0916-1529", "Entry Window")
+exitSession  = input.session("1529-1530", "EOD Exit Window")
+tz           = input.string("Asia/Kolkata", "Timezone")
+maxRows      = input.int(40, "Trading days to include", minval=1)
+tblPos       = input.string("top_right", "Daily table position", options=["top_right","top_left","bottom_right","bottom_left"])
+totPos       = input.string("bottom_right", "Totals table position", options=["top_right","top_left","bottom_right","bottom_left"])
+
+// ── Session gates ────────────────────────────────────────────────────────────
+inEntryWindow = not na(time(timeframe.period, entrySession, tz))
+inEodWindow   = not na(time(timeframe.period, exitSession, tz))
+
+// ── Signals (confirmed on close) ─────────────────────────────────────────────
+longSignal  = close > high[1]
+shortSignal = close < low[1]
+
+// ── Book state ───────────────────────────────────────────────────────────────
+var bool  longIn    = false
+var float longEntry = na
+var float longSL    = na
+var bool  shortIn    = false
+var float shortEntry = na
+var float shortSL    = na
+
+// ── Per-day accumulators ─────────────────────────────────────────────────────
+var float dayLong  = 0.0
+var float dayShort = 0.0
+
+// ── Stored daily results ─────────────────────────────────────────────────────
+var array<string> aDate  = array.new_string()
+var array<float>  aLong  = array.new_float()
+var array<float>  aShort = array.new_float()
+
+// ── Day rollover ─────────────────────────────────────────────────────────────
+dstr = str.format("{0,number,0000}-{1,number,00}-{2,number,00}", year, month, dayofmonth)
+var string trackDay = na
+
+if na(trackDay) or trackDay != dstr
+    if not na(trackDay)
+        // book any position left open on the prior day's last close
+        if longIn
+            dayLong  += close[1] - longEntry
+            longIn   := false
+        if shortIn
+            dayShort += shortEntry - close[1]
+            shortIn  := false
+        array.push(aDate,  trackDay)
+        array.push(aLong,  dayLong)
+        array.push(aShort, dayShort)
+    trackDay := dstr
+    dayLong  := 0.0
+    dayShort := 0.0
+
+// ── LONG book ────────────────────────────────────────────────────────────────
+longEntered = false
+longWasIn = longIn
+if longWasIn
+    if close <= longSL
+        dayLong += longSL - longEntry
+        longIn  := false
+    else if shortSignal
+        dayLong += close - longEntry
+        longIn  := false
+if not longWasIn and inEntryWindow and longSignal
+    longIn    := true
+    longEntry := close
+    longSL    := ta.lowest(low, slLookback)
+    longEntered := true
+
+// ── SHORT book ───────────────────────────────────────────────────────────────
+shortEntered = false
+shortWasIn = shortIn
+if shortWasIn
+    if close >= shortSL
+        dayShort += shortEntry - shortSL
+        shortIn  := false
+    else if longSignal
+        dayShort += shortEntry - close
+        shortIn  := false
+if not shortWasIn and inEntryWindow and shortSignal
+    shortIn    := true
+    shortEntry := close
+    shortSL    := ta.highest(high, slLookback)
+    shortEntered := true
+
+// ── EOD flat ─────────────────────────────────────────────────────────────────
+if inEodWindow
+    if longIn
+        dayLong += close - longEntry
+        longIn  := false
+    if shortIn
+        dayShort += shortEntry - close
+        shortIn  := false
+
+// ── Render table on the last bar ─────────────────────────────────────────────
+f_pos(p) =>
+    p == "top_left" ? position.top_left : p == "bottom_right" ? position.bottom_right : p == "bottom_left" ? position.bottom_left : position.top_right
+
+f_col(v) => v >= 0 ? color.new(color.green, 0) : color.new(color.red, 0)
+f_num(v) => (v >= 0 ? "+" : "") + str.tostring(v, "0.00")
+
+var table t  = table.new(f_pos(tblPos), 5, maxRows + 1, border_width=1, frame_width=1, frame_color=color.gray)
+var table t2 = table.new(f_pos(totPos), 2, 5, border_width=1, frame_width=1, frame_color=color.gray)
+
+if barstate.islast
+    // include the current (still-open) day
+    dl = dayLong  + (longIn  ? close - longEntry  : 0.0)
+    ds = dayShort + (shortIn ? shortEntry - close : 0.0)
+
+    nDone = array.size(aDate)
+    n     = nDone + 1
+    startIdx = math.max(0, n - maxRows)
+
+    // ── daily table header ──
+    hdrBg = color.new(color.blue, 70)
+    table.cell(t, 0, 0, "Date",  text_color=color.white, bgcolor=hdrBg, text_size=size.small)
+    table.cell(t, 1, 0, "Long",  text_color=color.white, bgcolor=hdrBg, text_size=size.small)
+    table.cell(t, 2, 0, "Short", text_color=color.white, bgcolor=hdrBg, text_size=size.small)
+    table.cell(t, 3, 0, "Total", text_color=color.white, bgcolor=hdrBg, text_size=size.small)
+    table.cell(t, 4, 0, "Cum",   text_color=color.white, bgcolor=hdrBg, text_size=size.small)
+
+    // ── daily rows (cumulative & totals over the chosen days only) ──
+    rowBg = color.new(color.gray, 90)
+    cum = 0.0
+    tL  = 0.0
+    tS  = 0.0
+    dCount  = 0
+    winDays = 0
+    row = 1
+    for i = startIdx to n - 1
+        d  = i < nDone ? array.get(aDate, i)  : trackDay
+        lp = i < nDone ? array.get(aLong, i)  : dl
+        sp = i < nDone ? array.get(aShort, i) : ds
+        tot = lp + sp
+        cum += tot
+        tL  += lp
+        tS  += sp
+        dCount  += 1
+        winDays += tot >= 0 ? 1 : 0
+        table.cell(t, 0, row, d,         text_color=color.silver, bgcolor=rowBg, text_size=size.tiny)
+        table.cell(t, 1, row, f_num(lp),  text_color=f_col(lp),  bgcolor=rowBg, text_size=size.tiny)
+        table.cell(t, 2, row, f_num(sp),  text_color=f_col(sp),  bgcolor=rowBg, text_size=size.tiny)
+        table.cell(t, 3, row, f_num(tot), text_color=f_col(tot), bgcolor=rowBg, text_size=size.tiny)
+        table.cell(t, 4, row, f_num(cum), text_color=f_col(cum), bgcolor=rowBg, text_size=size.tiny)
+        row += 1
+
+    // ── separate totals table ──
+    tC  = tL + tS
+    hBg = color.new(color.blue, 60)
+    vBg = color.new(color.gray, 90)
+    table.cell(t2, 0, 0, "SUMMARY",  text_color=color.white,  bgcolor=hBg, text_size=size.small)
+    table.cell(t2, 1, 0, str.tostring(dCount) + "d",           text_color=color.white,  bgcolor=hBg, text_size=size.small)
+    table.cell(t2, 0, 1, "Long",     text_color=color.silver, bgcolor=vBg, text_size=size.small)
+    table.cell(t2, 1, 1, f_num(tL),  text_color=f_col(tL),    bgcolor=vBg, text_size=size.small)
+    table.cell(t2, 0, 2, "Short",    text_color=color.silver, bgcolor=vBg, text_size=size.small)
+    table.cell(t2, 1, 2, f_num(tS),  text_color=f_col(tS),    bgcolor=vBg, text_size=size.small)
+    table.cell(t2, 0, 3, "Combined", text_color=color.silver, bgcolor=vBg, text_size=size.small)
+    table.cell(t2, 1, 3, f_num(tC),  text_color=f_col(tC),    bgcolor=vBg, text_size=size.small)
+    table.cell(t2, 0, 4, "Win Days", text_color=color.silver, bgcolor=vBg, text_size=size.small)
+    table.cell(t2, 1, 4, str.tostring(winDays) + "/" + str.tostring(dCount), text_color=color.white, bgcolor=vBg, text_size=size.small)
+
+// ── Markers (actual entries only) ────────────────────────────────────────────
+plotshape(longEntered,  "Long",  shape.triangleup,   location.belowbar, color.green, size=size.tiny)
+plotshape(shortEntered, "Short", shape.triangledown, location.abovebar, color.red,   size=size.tiny)

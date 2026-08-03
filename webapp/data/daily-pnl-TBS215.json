@@ -1608,5 +1608,1452 @@
       }
     ],
     "updated": "2026-07-28T04:48:10.657Z"
+  },
+  "2026-07-29": {
+    "pnl": -3195,
+    "trades": 34,
+    "wins": 11,
+    "losses": 23,
+    "entries": [
+      {
+        "symbol": "SENSEX26JUL77500PE",
+        "exchange": "BFO",
+        "qty": 20,
+        "entry": 267.05,
+        "exit": 265.25,
+        "pnl": -36,
+        "entryTime": "2026-07-29 09:21:31",
+        "exitTime": "2026-07-29 09:21:32"
+      },
+      {
+        "symbol": "SENSEX26JUL77300CE",
+        "exchange": "BFO",
+        "qty": 20,
+        "entry": 343.55,
+        "exit": 340.45,
+        "pnl": -62,
+        "entryTime": "2026-07-29 09:22:03",
+        "exitTime": "2026-07-29 09:22:03"
+      },
+      {
+        "symbol": "SENSEX26JUL77500PE",
+        "exchange": "BFO",
+        "qty": 20,
+        "entry": 279,
+        "exit": 280.75,
+        "pnl": 35,
+        "entryTime": "2026-07-29 09:22:04",
+        "exitTime": "2026-07-29 09:22:04"
+      },
+      {
+        "symbol": "SENSEX26JUL77300CE",
+        "exchange": "BFO",
+        "qty": 20,
+        "entry": 341.25,
+        "exit": 338.8,
+        "pnl": -49,
+        "entryTime": "2026-07-29 09:22:05",
+        "exitTime": "2026-07-29 09:22:07"
+      },
+      {
+        "symbol": "SENSEX26JUL77500PE",
+        "exchange": "BFO",
+        "qty": 20,
+        "entry": 283.65,
+        "exit": 286.25,
+        "pnl": 52,
+        "entryTime": "2026-07-29 09:22:07",
+        "exitTime": "2026-07-29 09:23:48"
+      },
+      {
+        "symbol": "SENSEX26JUL77300CE",
+        "exchange": "BFO",
+        "qty": 20,
+        "entry": 352,
+        "exit": 345.1,
+        "pnl": -138,
+        "entryTime": "2026-07-29 09:23:49",
+        "exitTime": "2026-07-29 09:25:58"
+      },
+      {
+        "symbol": "SENSEX26JUL77500PE",
+        "exchange": "BFO",
+        "qty": 20,
+        "entry": 290.8,
+        "exit": 291.45,
+        "pnl": 13,
+        "entryTime": "2026-07-29 09:25:59",
+        "exitTime": "2026-07-29 09:26:31"
+      },
+      {
+        "symbol": "SENSEX26JUL77300CE",
+        "exchange": "BFO",
+        "qty": 20,
+        "entry": 346.15,
+        "exit": 366.2,
+        "pnl": 401,
+        "entryTime": "2026-07-29 09:26:31",
+        "exitTime": "2026-07-29 09:28:03"
+      },
+      {
+        "symbol": "SENSEX26JUL77600PE",
+        "exchange": "BFO",
+        "qty": 20,
+        "entry": 325.9,
+        "exit": 329.25,
+        "pnl": 67,
+        "entryTime": "2026-07-29 09:28:03",
+        "exitTime": "2026-07-29 09:30:21"
+      },
+      {
+        "symbol": "SENSEX26JUL77400CE",
+        "exchange": "BFO",
+        "qty": 20,
+        "entry": 301.95,
+        "exit": 289.85,
+        "pnl": -242,
+        "entryTime": "2026-07-29 09:30:21",
+        "exitTime": "2026-07-29 09:31:07"
+      },
+      {
+        "symbol": "SENSEX26JUL77500PE",
+        "exchange": "BFO",
+        "qty": 20,
+        "entry": 292.85,
+        "exit": 283.5,
+        "pnl": -187,
+        "entryTime": "2026-07-29 09:31:07",
+        "exitTime": "2026-07-29 09:31:32"
+      },
+      {
+        "symbol": "SENSEX26JUL77400CE",
+        "exchange": "BFO",
+        "qty": 20,
+        "entry": 303.95,
+        "exit": 299.5,
+        "pnl": -89,
+        "entryTime": "2026-07-29 09:31:32",
+        "exitTime": "2026-07-29 09:32:10"
+      },
+      {
+        "symbol": "SENSEX26JUL77500PE",
+        "exchange": "BFO",
+        "qty": 20,
+        "entry": 288,
+        "exit": 283.45,
+        "pnl": -91,
+        "entryTime": "2026-07-29 09:32:10",
+        "exitTime": "2026-07-29 09:32:39"
+      },
+      {
+        "symbol": "SENSEX26JUL77400CE",
+        "exchange": "BFO",
+        "qty": 20,
+        "entry": 304,
+        "exit": 306.3,
+        "pnl": 46,
+        "entryTime": "2026-07-29 09:32:39",
+        "exitTime": "2026-07-29 09:34:27"
+      },
+      {
+        "symbol": "SENSEX26JUL77600PE",
+        "exchange": "BFO",
+        "qty": 20,
+        "entry": 324.8,
+        "exit": 326.3,
+        "pnl": 30,
+        "entryTime": "2026-07-29 09:34:27",
+        "exitTime": "2026-07-29 09:35:06"
+      },
+      {
+        "symbol": "SENSEX26JUL77400CE",
+        "exchange": "BFO",
+        "qty": 20,
+        "entry": 307.25,
+        "exit": 311,
+        "pnl": 75,
+        "entryTime": "2026-07-29 09:35:06",
+        "exitTime": "2026-07-29 09:36:18"
+      },
+      {
+        "symbol": "SENSEX26JUL77600PE",
+        "exchange": "BFO",
+        "qty": 20,
+        "entry": 325.55,
+        "exit": 327.25,
+        "pnl": 34,
+        "entryTime": "2026-07-29 09:36:18",
+        "exitTime": "2026-07-29 09:37:37"
+      },
+      {
+        "symbol": "SENSEX26JUL77400CE",
+        "exchange": "BFO",
+        "qty": 20,
+        "entry": 310.25,
+        "exit": 328.2,
+        "pnl": 359,
+        "entryTime": "2026-07-29 09:37:37",
+        "exitTime": "2026-07-29 09:41:50"
+      },
+      {
+        "symbol": "SENSEX26JUL77700PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 376.7,
+        "exit": 371,
+        "pnl": -228,
+        "entryTime": "2026-07-29 09:41:50",
+        "exitTime": "2026-07-29 09:42:42"
+      },
+      {
+        "symbol": "SENSEX26JUL77400CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 336.3,
+        "exit": 326.2,
+        "pnl": -404,
+        "entryTime": "2026-07-29 09:42:42",
+        "exitTime": "2026-07-29 09:43:32"
+      },
+      {
+        "symbol": "SENSEX26JUL77600PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 318.65,
+        "exit": 313,
+        "pnl": -226,
+        "entryTime": "2026-07-29 09:43:33",
+        "exitTime": "2026-07-29 09:44:06"
+      },
+      {
+        "symbol": "SENSEX26JUL77400CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 333,
+        "exit": 330.25,
+        "pnl": -110,
+        "entryTime": "2026-07-29 09:44:06",
+        "exitTime": "2026-07-29 09:45:13"
+      },
+      {
+        "symbol": "SENSEX26JUL77700PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 369.7,
+        "exit": 365.5,
+        "pnl": -168,
+        "entryTime": "2026-07-29 09:45:13",
+        "exitTime": "2026-07-29 09:46:34"
+      },
+      {
+        "symbol": "SENSEX26JUL77400CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 332,
+        "exit": 332.85,
+        "pnl": 34,
+        "entryTime": "2026-07-29 09:46:35",
+        "exitTime": "2026-07-29 09:48:41"
+      },
+      {
+        "symbol": "SENSEX26JUL77600PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 305.82,
+        "exit": 294.75,
+        "pnl": -443,
+        "entryTime": "2026-07-29 09:48:41",
+        "exitTime": "2026-07-29 09:50:21"
+      },
+      {
+        "symbol": "SENSEX26JUL77700PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 355,
+        "exit": 341.15,
+        "pnl": -554,
+        "entryTime": "2026-07-29 09:50:31",
+        "exitTime": "2026-07-29 10:05:48"
+      },
+      {
+        "symbol": "SENSEX26JUL77500CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 270.95,
+        "exit": 264.2,
+        "pnl": -270,
+        "entryTime": "2026-07-29 10:06:31",
+        "exitTime": "2026-07-29 10:06:57"
+      },
+      {
+        "symbol": "SENSEX26JUL77700CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 179.75,
+        "exit": 170.8,
+        "pnl": -358,
+        "entryTime": "2026-07-29 10:07:28",
+        "exitTime": "2026-07-29 10:10:50"
+      },
+      {
+        "symbol": "SENSEX26JUL77500PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 222.97,
+        "exit": 221,
+        "pnl": -79,
+        "entryTime": "2026-07-29 10:10:30",
+        "exitTime": "2026-07-29 10:12:21"
+      },
+      {
+        "symbol": "SENSEX26JUL77700CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 177.85,
+        "exit": 171.1,
+        "pnl": -270,
+        "entryTime": "2026-07-29 10:12:21",
+        "exitTime": "2026-07-29 10:15:12"
+      },
+      {
+        "symbol": "SENSEX26JUL77500PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 220,
+        "exit": 217.2,
+        "pnl": -112,
+        "entryTime": "2026-07-29 10:15:11",
+        "exitTime": "2026-07-29 10:15:50"
+      },
+      {
+        "symbol": "SENSEX26JUL77500PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 210.95,
+        "exit": 210.7,
+        "pnl": -10,
+        "entryTime": "2026-07-29 10:18:00",
+        "exitTime": "2026-07-29 10:18:08"
+      },
+      {
+        "symbol": "SENSEX26JUL77500PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 211.22,
+        "exit": 207.6,
+        "pnl": -145,
+        "entryTime": "2026-07-29 10:18:09",
+        "exitTime": "2026-07-29 10:18:45"
+      },
+      {
+        "symbol": "SENSEX26JUL77500PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 210.65,
+        "exit": 208.9,
+        "pnl": -70,
+        "entryTime": "2026-07-29 10:19:08",
+        "exitTime": "2026-07-29 10:19:20"
+      }
+    ],
+    "updated": "2026-07-29T04:50:40.139Z"
+  },
+  "2026-07-30": {
+    "pnl": 8780,
+    "trades": 96,
+    "wins": 31,
+    "losses": 65,
+    "entries": [
+      {
+        "symbol": "SENSEX26JUL77600CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 192.9,
+        "exit": 172.1,
+        "pnl": -832,
+        "entryTime": "2026-07-30 09:25:40",
+        "exitTime": "2026-07-30 09:35:50"
+      },
+      {
+        "symbol": "SENSEX26JUL77800PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 221.15,
+        "exit": 250.45,
+        "pnl": 1172,
+        "entryTime": "2026-07-30 09:29:01",
+        "exitTime": "2026-07-30 09:39:29"
+      },
+      {
+        "symbol": "SENSEX26JUL77600CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 146.6,
+        "exit": 145.5,
+        "pnl": -44,
+        "entryTime": "2026-07-30 09:39:30",
+        "exitTime": "2026-07-30 09:39:42"
+      },
+      {
+        "symbol": "SENSEX26JUL77700PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 193.4,
+        "exit": 193.2,
+        "pnl": -8,
+        "entryTime": "2026-07-30 09:39:59",
+        "exitTime": "2026-07-30 09:42:30"
+      },
+      {
+        "symbol": "SENSEX26JUL77500CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 187.45,
+        "exit": 182.88,
+        "pnl": -183,
+        "entryTime": "2026-07-30 09:42:31",
+        "exitTime": "2026-07-30 09:42:34"
+      },
+      {
+        "symbol": "SENSEX26JUL77500CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 196.7,
+        "exit": 190.3,
+        "pnl": -256,
+        "entryTime": "2026-07-30 09:44:30",
+        "exitTime": "2026-07-30 09:44:49"
+      },
+      {
+        "symbol": "SENSEX26JUL77700PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 199.9,
+        "exit": 169.05,
+        "pnl": -1234,
+        "entryTime": "2026-07-30 09:45:59",
+        "exitTime": "2026-07-30 09:46:30"
+      },
+      {
+        "symbol": "SENSEX26JUL77600CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 154.6,
+        "exit": 158.45,
+        "pnl": 154,
+        "entryTime": "2026-07-30 09:46:30",
+        "exitTime": "2026-07-30 09:52:30"
+      },
+      {
+        "symbol": "SENSEX26JUL77800PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 223.8,
+        "exit": 232.97,
+        "pnl": 367,
+        "entryTime": "2026-07-30 09:52:30",
+        "exitTime": "2026-07-30 09:55:49"
+      },
+      {
+        "symbol": "SENSEX26JUL77500CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 208.25,
+        "exit": 229.22,
+        "pnl": 839,
+        "entryTime": "2026-07-30 09:55:49",
+        "exitTime": "2026-07-30 09:58:07"
+      },
+      {
+        "symbol": "SENSEX26JUL77800PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 212.15,
+        "exit": 207.5,
+        "pnl": -186,
+        "entryTime": "2026-07-30 09:58:08",
+        "exitTime": "2026-07-30 09:59:33"
+      },
+      {
+        "symbol": "SENSEX26JUL77600CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 167.85,
+        "exit": 160.65,
+        "pnl": -288,
+        "entryTime": "2026-07-30 09:59:34",
+        "exitTime": "2026-07-30 10:00:02"
+      },
+      {
+        "symbol": "SENSEX26JUL77800PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 213.95,
+        "exit": 205.35,
+        "pnl": -344,
+        "entryTime": "2026-07-30 10:00:03",
+        "exitTime": "2026-07-30 10:02:09"
+      },
+      {
+        "symbol": "SENSEX26JUL77600CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 165.3,
+        "exit": 161.95,
+        "pnl": -134,
+        "entryTime": "2026-07-30 10:02:10",
+        "exitTime": "2026-07-30 10:03:00"
+      },
+      {
+        "symbol": "SENSEX26JUL77800PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 209.2,
+        "exit": 201,
+        "pnl": -328,
+        "entryTime": "2026-07-30 10:03:00",
+        "exitTime": "2026-07-30 10:03:21"
+      },
+      {
+        "symbol": "SENSEX26JUL77600CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 170.65,
+        "exit": 166.65,
+        "pnl": -160,
+        "entryTime": "2026-07-30 10:03:21",
+        "exitTime": "2026-07-30 10:05:12"
+      },
+      {
+        "symbol": "SENSEX26JUL77800PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 203.68,
+        "exit": 251,
+        "pnl": 1893,
+        "entryTime": "2026-07-30 10:05:13",
+        "exitTime": "2026-07-30 10:43:25"
+      },
+      {
+        "symbol": "SENSEX26JUL77600CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 171.7,
+        "exit": 164,
+        "pnl": -308,
+        "entryTime": "2026-07-30 10:06:35",
+        "exitTime": "2026-07-30 10:07:14"
+      },
+      {
+        "symbol": "SENSEX26JUL77600CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 167.25,
+        "exit": 159.15,
+        "pnl": -324,
+        "entryTime": "2026-07-30 10:08:00",
+        "exitTime": "2026-07-30 10:08:17"
+      },
+      {
+        "symbol": "SENSEX26JUL77600CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 146.45,
+        "exit": 139.5,
+        "pnl": -278,
+        "entryTime": "2026-07-30 10:10:28",
+        "exitTime": "2026-07-30 10:10:34"
+      },
+      {
+        "symbol": "SENSEX26JUL77600CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 146.45,
+        "exit": 138.7,
+        "pnl": -310,
+        "entryTime": "2026-07-30 10:11:27",
+        "exitTime": "2026-07-30 10:11:54"
+      },
+      {
+        "symbol": "SENSEX26JUL77500CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 193.72,
+        "exit": 175.7,
+        "pnl": -721,
+        "entryTime": "2026-07-30 10:17:30",
+        "exitTime": "2026-07-30 10:19:08"
+      },
+      {
+        "symbol": "SENSEX26JUL77500CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 177.85,
+        "exit": 172.35,
+        "pnl": -220,
+        "entryTime": "2026-07-30 10:19:30",
+        "exitTime": "2026-07-30 10:19:42"
+      },
+      {
+        "symbol": "SENSEX26JUL77500CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 172.72,
+        "exit": 168.1,
+        "pnl": -185,
+        "entryTime": "2026-07-30 10:19:42",
+        "exitTime": "2026-07-30 10:20:26"
+      },
+      {
+        "symbol": "SENSEX26JUL77500CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 174.1,
+        "exit": 161,
+        "pnl": -524,
+        "entryTime": "2026-07-30 10:23:24",
+        "exitTime": "2026-07-30 10:25:24"
+      },
+      {
+        "symbol": "SENSEX26JUL77500CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 156.8,
+        "exit": 154.85,
+        "pnl": -78,
+        "entryTime": "2026-07-30 10:27:04",
+        "exitTime": "2026-07-30 10:27:06"
+      },
+      {
+        "symbol": "SENSEX26JUL77500CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 156.75,
+        "exit": 154.6,
+        "pnl": -86,
+        "entryTime": "2026-07-30 10:27:07",
+        "exitTime": "2026-07-30 10:27:28"
+      },
+      {
+        "symbol": "SENSEX26JUL77500CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 145.75,
+        "exit": 140.25,
+        "pnl": -220,
+        "entryTime": "2026-07-30 10:31:31",
+        "exitTime": "2026-07-30 10:32:12"
+      },
+      {
+        "symbol": "SENSEX26JUL77500CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 139.75,
+        "exit": 171,
+        "pnl": 1250,
+        "entryTime": "2026-07-30 10:34:26",
+        "exitTime": "2026-07-30 10:59:13"
+      },
+      {
+        "symbol": "SENSEX26JUL77700PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 167.6,
+        "exit": 166.9,
+        "pnl": -28,
+        "entryTime": "2026-07-30 10:46:06",
+        "exitTime": "2026-07-30 10:46:26"
+      },
+      {
+        "symbol": "SENSEX26JUL77700PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 167.65,
+        "exit": 164.5,
+        "pnl": -126,
+        "entryTime": "2026-07-30 10:46:27",
+        "exitTime": "2026-07-30 10:46:37"
+      },
+      {
+        "symbol": "SENSEX26JUL77700PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 165.2,
+        "exit": 157.6,
+        "pnl": -304,
+        "entryTime": "2026-07-30 10:46:38",
+        "exitTime": "2026-07-30 10:46:56"
+      },
+      {
+        "symbol": "SENSEX26JUL77800PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 204.3,
+        "exit": 220.15,
+        "pnl": 634,
+        "entryTime": "2026-07-30 10:52:08",
+        "exitTime": "2026-07-30 10:58:49"
+      },
+      {
+        "symbol": "SENSEX26JUL77700PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 167.6,
+        "exit": 164,
+        "pnl": -144,
+        "entryTime": "2026-07-30 11:00:37",
+        "exitTime": "2026-07-30 11:01:31"
+      },
+      {
+        "symbol": "SENSEX26JUL77500CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 170.55,
+        "exit": 171.25,
+        "pnl": 28,
+        "entryTime": "2026-07-30 11:02:08",
+        "exitTime": "2026-07-30 11:02:12"
+      },
+      {
+        "symbol": "SENSEX26JUL77500CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 166.8,
+        "exit": 171,
+        "pnl": 168,
+        "entryTime": "2026-07-30 11:02:22",
+        "exitTime": "2026-07-30 12:10:05"
+      },
+      {
+        "symbol": "SENSEX26JUL77700PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 155.65,
+        "exit": 146.55,
+        "pnl": -364,
+        "entryTime": "2026-07-30 11:04:28",
+        "exitTime": "2026-07-30 11:05:08"
+      },
+      {
+        "symbol": "SENSEX26JUL77700PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 156,
+        "exit": 155.2,
+        "pnl": -32,
+        "entryTime": "2026-07-30 11:06:00",
+        "exitTime": "2026-07-30 11:06:22"
+      },
+      {
+        "symbol": "SENSEX26JUL77700PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 157.9,
+        "exit": 151,
+        "pnl": -276,
+        "entryTime": "2026-07-30 11:06:37",
+        "exitTime": "2026-07-30 11:09:47"
+      },
+      {
+        "symbol": "SENSEX26JUL77800PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 205.2,
+        "exit": 203,
+        "pnl": -88,
+        "entryTime": "2026-07-30 11:13:20",
+        "exitTime": "2026-07-30 11:16:24"
+      },
+      {
+        "symbol": "SENSEX26JUL77800PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 200.55,
+        "exit": 189.5,
+        "pnl": -442,
+        "entryTime": "2026-07-30 11:23:27",
+        "exitTime": "2026-07-30 11:26:06"
+      },
+      {
+        "symbol": "SENSEX26JUL77800PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 184,
+        "exit": 191.5,
+        "pnl": 300,
+        "entryTime": "2026-07-30 11:40:14",
+        "exitTime": "2026-07-30 11:59:46"
+      },
+      {
+        "symbol": "SENSEX26JUL77800PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 213.7,
+        "exit": 196.8,
+        "pnl": -676,
+        "entryTime": "2026-07-30 12:02:52",
+        "exitTime": "2026-07-30 12:03:52"
+      },
+      {
+        "symbol": "SENSEX26JUL77500CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 180.65,
+        "exit": 171.45,
+        "pnl": -368,
+        "entryTime": "2026-07-30 12:04:45",
+        "exitTime": "2026-07-30 12:10:21"
+      },
+      {
+        "symbol": "SENSEX26JUL77700PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 140.9,
+        "exit": 139,
+        "pnl": -76,
+        "entryTime": "2026-07-30 12:10:28",
+        "exitTime": "2026-07-30 12:11:45"
+      },
+      {
+        "symbol": "SENSEX26JUL77700PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 143.3,
+        "exit": 139.75,
+        "pnl": -142,
+        "entryTime": "2026-07-30 12:10:38",
+        "exitTime": "2026-07-30 12:11:50"
+      },
+      {
+        "symbol": "SENSEX26JUL77500CE",
+        "exchange": "BFO",
+        "qty": 80,
+        "entry": 180.6,
+        "exit": 178.07,
+        "pnl": -202,
+        "entryTime": "2026-07-30 12:12:05",
+        "exitTime": "2026-07-30 12:12:08"
+      },
+      {
+        "symbol": "SENSEX26JUL77500CE",
+        "exchange": "BFO",
+        "qty": 80,
+        "entry": 183.05,
+        "exit": 357.11,
+        "pnl": 13925,
+        "entryTime": "2026-07-30 12:13:06",
+        "exitTime": "2026-07-30 12:34:52"
+      },
+      {
+        "symbol": "SENSEX26JUL77900PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 187.85,
+        "exit": 178.6,
+        "pnl": -370,
+        "entryTime": "2026-07-30 13:02:30",
+        "exitTime": "2026-07-30 13:02:39"
+      },
+      {
+        "symbol": "SENSEX26JUL77700CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 130.35,
+        "exit": 132.45,
+        "pnl": 84,
+        "entryTime": "2026-07-30 13:02:40",
+        "exitTime": "2026-07-30 13:03:30"
+      },
+      {
+        "symbol": "SENSEX26JUL77900PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 170.6,
+        "exit": 169.1,
+        "pnl": -60,
+        "entryTime": "2026-07-30 13:03:30",
+        "exitTime": "2026-07-30 13:04:03"
+      },
+      {
+        "symbol": "SENSEX26JUL77700CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 136.07,
+        "exit": 131.1,
+        "pnl": -199,
+        "entryTime": "2026-07-30 13:04:03",
+        "exitTime": "2026-07-30 13:04:32"
+      },
+      {
+        "symbol": "SENSEX26JUL77900PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 173.45,
+        "exit": 173.9,
+        "pnl": 18,
+        "entryTime": "2026-07-30 13:04:33",
+        "exitTime": "2026-07-30 13:05:35"
+      },
+      {
+        "symbol": "SENSEX26JUL77700CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 131.15,
+        "exit": 132.9,
+        "pnl": 70,
+        "entryTime": "2026-07-30 13:05:35",
+        "exitTime": "2026-07-30 13:07:20"
+      },
+      {
+        "symbol": "SENSEX26JUL77900PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 171.5,
+        "exit": 165.45,
+        "pnl": -242,
+        "entryTime": "2026-07-30 13:07:21",
+        "exitTime": "2026-07-30 13:07:31"
+      },
+      {
+        "symbol": "SENSEX26JUL77700CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 138.4,
+        "exit": 130.25,
+        "pnl": -326,
+        "entryTime": "2026-07-30 13:07:31",
+        "exitTime": "2026-07-30 13:08:00"
+      },
+      {
+        "symbol": "SENSEX26JUL77900PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 171.65,
+        "exit": 169.15,
+        "pnl": -100,
+        "entryTime": "2026-07-30 13:08:01",
+        "exitTime": "2026-07-30 13:09:17"
+      },
+      {
+        "symbol": "SENSEX26JUL77700CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 130.95,
+        "exit": 123.38,
+        "pnl": -303,
+        "entryTime": "2026-07-30 13:09:18",
+        "exitTime": "2026-07-30 13:09:42"
+      },
+      {
+        "symbol": "SENSEX26JUL77900PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 176.55,
+        "exit": 262.65,
+        "pnl": 3444,
+        "entryTime": "2026-07-30 13:09:42",
+        "exitTime": "2026-07-30 13:13:31"
+      },
+      {
+        "symbol": "SENSEX26JUL77600CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 121,
+        "exit": 125.25,
+        "pnl": 170,
+        "entryTime": "2026-07-30 13:13:31",
+        "exitTime": "2026-07-30 13:15:02"
+      },
+      {
+        "symbol": "SENSEX26JUL77800PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 166.6,
+        "exit": 152,
+        "pnl": -584,
+        "entryTime": "2026-07-30 13:15:02",
+        "exitTime": "2026-07-30 13:15:20"
+      },
+      {
+        "symbol": "SENSEX26JUL77600CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 135.4,
+        "exit": 121.5,
+        "pnl": -556,
+        "entryTime": "2026-07-30 13:15:20",
+        "exitTime": "2026-07-30 13:15:50"
+      },
+      {
+        "symbol": "SENSEX26JUL77800PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 169.78,
+        "exit": 161.2,
+        "pnl": -343,
+        "entryTime": "2026-07-30 13:15:51",
+        "exitTime": "2026-07-30 13:17:13"
+      },
+      {
+        "symbol": "SENSEX26JUL77600CE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 129.53,
+        "exit": 125.8,
+        "pnl": -149,
+        "entryTime": "2026-07-30 13:17:13",
+        "exitTime": "2026-07-30 13:17:48"
+      },
+      {
+        "symbol": "SENSEX26JUL77800PE",
+        "exchange": "BFO",
+        "qty": 40,
+        "entry": 166.8,
+        "exit": 155.1,
+        "pnl": -468,
+        "entryTime": "2026-07-30 13:17:48",
+        "exitTime": "2026-07-30 13:18:36"
+      },
+      {
+        "symbol": "SENSEX26JUL77600CE",
+        "exchange": "BFO",
+        "qty": 100,
+        "entry": 129.58,
+        "exit": 103.9,
+        "pnl": -2568,
+        "entryTime": "2026-07-30 14:50:05",
+        "exitTime": "2026-07-30 14:53:43"
+      },
+      {
+        "symbol": "SENSEX26JUL77800PE",
+        "exchange": "BFO",
+        "qty": 100,
+        "entry": 120.85,
+        "exit": 126.64,
+        "pnl": 579,
+        "entryTime": "2026-07-30 14:53:43",
+        "exitTime": "2026-07-30 14:54:34"
+      },
+      {
+        "symbol": "SENSEX26JUL77600CE",
+        "exchange": "BFO",
+        "qty": 100,
+        "entry": 99.56,
+        "exit": 93.85,
+        "pnl": -571,
+        "entryTime": "2026-07-30 14:54:34",
+        "exitTime": "2026-07-30 14:55:01"
+      },
+      {
+        "symbol": "SENSEX26JUL77800PE",
+        "exchange": "BFO",
+        "qty": 100,
+        "entry": 130.7,
+        "exit": 126.25,
+        "pnl": -445,
+        "entryTime": "2026-07-30 14:55:01",
+        "exitTime": "2026-07-30 14:55:49"
+      },
+      {
+        "symbol": "SENSEX26JUL77600CE",
+        "exchange": "BFO",
+        "qty": 100,
+        "entry": 97.95,
+        "exit": 118.7,
+        "pnl": 2075,
+        "entryTime": "2026-07-30 14:55:49",
+        "exitTime": "2026-07-30 14:58:35"
+      },
+      {
+        "symbol": "SENSEX26JUL77800PE",
+        "exchange": "BFO",
+        "qty": 100,
+        "entry": 95.34,
+        "exit": 103.59,
+        "pnl": 825,
+        "entryTime": "2026-07-30 14:59:03",
+        "exitTime": "2026-07-30 14:59:08"
+      },
+      {
+        "symbol": "SENSEX26JUL77600CE",
+        "exchange": "BFO",
+        "qty": 100,
+        "entry": 119.7,
+        "exit": 127.93,
+        "pnl": 823,
+        "entryTime": "2026-07-30 14:59:08",
+        "exitTime": "2026-07-30 15:00:08"
+      },
+      {
+        "symbol": "SENSEX26JUL77800PE",
+        "exchange": "BFO",
+        "qty": 100,
+        "entry": 95.4,
+        "exit": 96.2,
+        "pnl": 80,
+        "entryTime": "2026-07-30 15:00:08",
+        "exitTime": "2026-07-30 15:00:10"
+      },
+      {
+        "symbol": "SENSEX26JUL77600CE",
+        "exchange": "BFO",
+        "qty": 100,
+        "entry": 120.9,
+        "exit": 114.4,
+        "pnl": -650,
+        "entryTime": "2026-07-30 15:00:11",
+        "exitTime": "2026-07-30 15:00:15"
+      },
+      {
+        "symbol": "SENSEX26JUL77800PE",
+        "exchange": "BFO",
+        "qty": 100,
+        "entry": 111.85,
+        "exit": 79.15,
+        "pnl": -3270,
+        "entryTime": "2026-07-30 15:00:43",
+        "exitTime": "2026-07-30 15:01:32"
+      },
+      {
+        "symbol": "SENSEX26JUL77700CE",
+        "exchange": "BFO",
+        "qty": 100,
+        "entry": 73.4,
+        "exit": 74.41,
+        "pnl": 101,
+        "entryTime": "2026-07-30 15:02:01",
+        "exitTime": "2026-07-30 15:02:02"
+      },
+      {
+        "symbol": "SENSEX26JUL77900PE",
+        "exchange": "BFO",
+        "qty": 100,
+        "entry": 136.2,
+        "exit": 136.5,
+        "pnl": 30,
+        "entryTime": "2026-07-30 15:02:02",
+        "exitTime": "2026-07-30 15:02:03"
+      },
+      {
+        "symbol": "SENSEX26JUL77700CE",
+        "exchange": "BFO",
+        "qty": 100,
+        "entry": 74.95,
+        "exit": 109.21,
+        "pnl": 3426,
+        "entryTime": "2026-07-30 15:02:03",
+        "exitTime": "2026-07-30 15:06:07"
+      },
+      {
+        "symbol": "SENSEX26JUL77900PE",
+        "exchange": "BFO",
+        "qty": 60,
+        "entry": 87.65,
+        "exit": 36.03,
+        "pnl": -3097,
+        "entryTime": "2026-07-30 15:07:02",
+        "exitTime": "2026-07-30 15:08:25"
+      },
+      {
+        "symbol": "SENSEX26JUL77700CE",
+        "exchange": "BFO",
+        "qty": 60,
+        "entry": 128,
+        "exit": 149.05,
+        "pnl": 1263,
+        "entryTime": "2026-07-30 15:07:16",
+        "exitTime": "2026-07-30 15:09:01"
+      },
+      {
+        "symbol": "SENSEX26JUL78000PE",
+        "exchange": "BFO",
+        "qty": 60,
+        "entry": 152.95,
+        "exit": 144.3,
+        "pnl": -519,
+        "entryTime": "2026-07-30 15:09:02",
+        "exitTime": "2026-07-30 15:09:31"
+      },
+      {
+        "symbol": "SENSEX26JUL77800CE",
+        "exchange": "BFO",
+        "qty": 60,
+        "entry": 61.05,
+        "exit": 56.28,
+        "pnl": -286,
+        "entryTime": "2026-07-30 15:09:32",
+        "exitTime": "2026-07-30 15:10:29"
+      },
+      {
+        "symbol": "SENSEX26JUL78000PE",
+        "exchange": "BFO",
+        "qty": 60,
+        "entry": 149.97,
+        "exit": 146.2,
+        "pnl": -226,
+        "entryTime": "2026-07-30 15:10:29",
+        "exitTime": "2026-07-30 15:11:02"
+      },
+      {
+        "symbol": "SENSEX26JUL77800CE",
+        "exchange": "BFO",
+        "qty": 60,
+        "entry": 58.37,
+        "exit": 60.8,
+        "pnl": 146,
+        "entryTime": "2026-07-30 15:11:02",
+        "exitTime": "2026-07-30 15:12:59"
+      },
+      {
+        "symbol": "SENSEX26JUL78000PE",
+        "exchange": "BFO",
+        "qty": 60,
+        "entry": 142.9,
+        "exit": 139.85,
+        "pnl": -183,
+        "entryTime": "2026-07-30 15:12:59",
+        "exitTime": "2026-07-30 15:13:34"
+      },
+      {
+        "symbol": "SENSEX26JUL77800CE",
+        "exchange": "BFO",
+        "qty": 60,
+        "entry": 61.45,
+        "exit": 57.9,
+        "pnl": -213,
+        "entryTime": "2026-07-30 15:13:34",
+        "exitTime": "2026-07-30 15:13:36"
+      },
+      {
+        "symbol": "SENSEX26JUL78000PE",
+        "exchange": "BFO",
+        "qty": 60,
+        "entry": 144.1,
+        "exit": 153.75,
+        "pnl": 579,
+        "entryTime": "2026-07-30 15:13:36",
+        "exitTime": "2026-07-30 15:15:00"
+      },
+      {
+        "symbol": "SENSEX26JUL77800CE",
+        "exchange": "BFO",
+        "qty": 60,
+        "entry": 49.25,
+        "exit": 40.35,
+        "pnl": -534,
+        "entryTime": "2026-07-30 15:15:00",
+        "exitTime": "2026-07-30 15:15:29"
+      },
+      {
+        "symbol": "SENSEX26JUL77900PE",
+        "exchange": "BFO",
+        "qty": 60,
+        "entry": 64.95,
+        "exit": 63.4,
+        "pnl": -93,
+        "entryTime": "2026-07-30 15:15:29",
+        "exitTime": "2026-07-30 15:17:40"
+      },
+      {
+        "symbol": "SENSEX26JUL77800CE",
+        "exchange": "BFO",
+        "qty": 60,
+        "entry": 40.3,
+        "exit": 46.45,
+        "pnl": 369,
+        "entryTime": "2026-07-30 15:17:40",
+        "exitTime": "2026-07-30 15:18:02"
+      },
+      {
+        "symbol": "SENSEX26JUL77900PE",
+        "exchange": "BFO",
+        "qty": 60,
+        "entry": 55.65,
+        "exit": 58.7,
+        "pnl": 183,
+        "entryTime": "2026-07-30 15:18:03",
+        "exitTime": "2026-07-30 15:18:17"
+      },
+      {
+        "symbol": "SENSEX26JUL77800CE",
+        "exchange": "BFO",
+        "qty": 60,
+        "entry": 44.17,
+        "exit": 45.5,
+        "pnl": 80,
+        "entryTime": "2026-07-30 15:18:17",
+        "exitTime": "2026-07-30 15:18:29"
+      },
+      {
+        "symbol": "SENSEX26JUL77900PE",
+        "exchange": "BFO",
+        "qty": 60,
+        "entry": 58,
+        "exit": 57.45,
+        "pnl": -33,
+        "entryTime": "2026-07-30 15:18:30",
+        "exitTime": "2026-07-30 15:18:56"
+      },
+      {
+        "symbol": "SENSEX26JUL77800CE",
+        "exchange": "BFO",
+        "qty": 60,
+        "entry": 45.55,
+        "exit": 72.5,
+        "pnl": 1617,
+        "entryTime": "2026-07-30 15:18:56",
+        "exitTime": "2026-07-30 15:20:55"
+      },
+      {
+        "symbol": "SENSEX26JUL77900PE",
+        "exchange": "BFO",
+        "qty": 60,
+        "entry": 32.5,
+        "exit": 17.45,
+        "pnl": -903,
+        "entryTime": "2026-07-30 15:20:56",
+        "exitTime": "2026-07-30 15:21:35"
+      },
+      {
+        "symbol": "SENSEX26JUL77800CE",
+        "exchange": "BFO",
+        "qty": 60,
+        "entry": 93.2,
+        "exit": 91.5,
+        "pnl": -102,
+        "entryTime": "2026-07-30 15:21:36",
+        "exitTime": "2026-07-30 15:21:52"
+      }
+    ],
+    "updated": "2026-07-30T09:52:34.699Z"
+  },
+  "2026-07-31": {
+    "pnl": -3487.25,
+    "trades": 12,
+    "wins": 2,
+    "losses": 10,
+    "entries": [
+      {
+        "symbol": "NIFTY2680424200PE",
+        "exchange": "NFO",
+        "qty": 195,
+        "entry": 42,
+        "exit": 39.15,
+        "pnl": -555.75,
+        "entryTime": "2026-07-31 09:16:03",
+        "exitTime": "2026-07-31 11:15:08"
+      },
+      {
+        "symbol": "NIFTY2680424500CE",
+        "exchange": "NFO",
+        "qty": 195,
+        "entry": 39.6,
+        "exit": 36.5,
+        "pnl": -604.5,
+        "entryTime": "2026-07-31 09:17:04",
+        "exitTime": "2026-07-31 09:28:47"
+      },
+      {
+        "symbol": "NIFTY2680424450CE",
+        "exchange": "NFO",
+        "qty": 195,
+        "entry": 47.9,
+        "exit": 47.5,
+        "pnl": -78,
+        "entryTime": "2026-07-31 09:32:36",
+        "exitTime": "2026-07-31 09:32:40"
+      },
+      {
+        "symbol": "NIFTY2680424450CE",
+        "exchange": "NFO",
+        "qty": 195,
+        "entry": 46.75,
+        "exit": 45.7,
+        "pnl": -204.75,
+        "entryTime": "2026-07-31 09:35:13",
+        "exitTime": "2026-07-31 09:35:30"
+      },
+      {
+        "symbol": "NIFTY2680424450CE",
+        "exchange": "NFO",
+        "qty": 195,
+        "entry": 46.05,
+        "exit": 45,
+        "pnl": -204.75,
+        "entryTime": "2026-07-31 09:36:29",
+        "exitTime": "2026-07-31 09:37:24"
+      },
+      {
+        "symbol": "NIFTY2680424450CE",
+        "exchange": "NFO",
+        "qty": 195,
+        "entry": 45.5,
+        "exit": 44.6,
+        "pnl": -175.5,
+        "entryTime": "2026-07-31 09:38:03",
+        "exitTime": "2026-07-31 09:38:45"
+      },
+      {
+        "symbol": "NIFTY2680424450CE",
+        "exchange": "NFO",
+        "qty": 195,
+        "entry": 45.58,
+        "exit": 51.5,
+        "pnl": 1153.75,
+        "entryTime": "2026-07-31 09:39:20",
+        "exitTime": "2026-07-31 14:58:38"
+      },
+      {
+        "symbol": "NIFTY2680424200PE",
+        "exchange": "NFO",
+        "qty": 195,
+        "entry": 39.6,
+        "exit": 38.3,
+        "pnl": -253.5,
+        "entryTime": "2026-07-31 11:27:28",
+        "exitTime": "2026-07-31 11:29:14"
+      },
+      {
+        "symbol": "NIFTY2680424200PE",
+        "exchange": "NFO",
+        "qty": 195,
+        "entry": 39.6,
+        "exit": 38.7,
+        "pnl": -175.5,
+        "entryTime": "2026-07-31 11:31:51",
+        "exitTime": "2026-07-31 11:35:14"
+      },
+      {
+        "symbol": "NIFTY2680424450CE",
+        "exchange": "NFO",
+        "qty": 195,
+        "entry": 54.82,
+        "exit": 54.9,
+        "pnl": 16.25,
+        "entryTime": "2026-07-31 14:45:20",
+        "exitTime": "2026-07-31 15:06:26"
+      },
+      {
+        "symbol": "NIFTY2680424450CE",
+        "exchange": "NFO",
+        "qty": 325,
+        "entry": 58.1,
+        "exit": 53.3,
+        "pnl": -1560,
+        "entryTime": "2026-07-31 15:03:21",
+        "exitTime": "2026-07-31 15:19:14"
+      },
+      {
+        "symbol": "NIFTY2680424200PE",
+        "exchange": "NFO",
+        "qty": 650,
+        "entry": 29.3,
+        "exit": 28,
+        "pnl": -845,
+        "entryTime": "2026-07-31 15:06:44",
+        "exitTime": "2026-07-31 15:07:09"
+      }
+    ],
+    "updated": "2026-07-31T10:08:49.667Z"
   }
 }

@@ -1456,6 +1456,202 @@ app.get('/api/sweepbot/stream', (req, res) => {
     });
 });
 
+// ══════════════════════════════════════════════════════════════
+// REGULAR HEDGE BOT — Spawns Regular-Long-Short-Combined-Simple.ps1
+// Same config/input.json contract as the main bot; only the script differs.
+// ══════════════════════════════════════════════════════════════
+const regularProcesses = new Map(); // userId → { proc, status, logs }
+const regularSSEClients = new Map(); // userId → Set<res>
+
+function broadcastRegularSSE(userId, event, data) {
+    const clients = regularSSEClients.get(userId);
+    if (!clients) return;
+    const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+    for (const res of clients) {
+        try { res.write(payload); } catch { clients.delete(res); }
+    }
+}
+
+app.post('/api/regularbot/start', async (req, res) => {
+    if (!req.session.accessToken || !req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    const uid = req.session.userId;
+
+    // Stop existing regular process
+    if (regularProcesses.has(uid)) {
+        const prev = regularProcesses.get(uid);
+        if (prev.proc && !prev.proc.killed) {
+            try {
+                process.platform === 'win32'
+                    ? require('child_process').execSync(`taskkill /pid ${prev.proc.pid} /T /F`, { stdio: 'ignore' })
+                    : prev.proc.kill('SIGTERM');
+            } catch {}
+        }
+        regularProcesses.delete(uid);
+    }
+
+    const config = req.body;
+
+    // Optional fresh start — remove any stale saved position before launching
+    if (config.cleanupPosition === true) {
+        try { fs.unlinkSync(path.join(__dirname, '..', 'PlacedOrders', 'Position.json')); } catch {}
+    }
+
+    // Write config to the SHARED input.json (same fields as the main bot)
+    const inputJsonPath = path.join(__dirname, '..', 'input.json');
+    const inputData = {
+        API_Key: req.session.apiKey,
+        API_Secret: '',
+        TradingSymbol: config.tradingSymbol || 'Nifty',
+        InstrumentToken: config.instrumentToken || 0,
+        TimeFrame: config.timeFrame || '30second',
+        CandlesToShow: config.candlesToShow || 10,
+        FullMode: config.fullMode === true || config.fullMode === 'true',
+        IndexChoosen: config.indexChoosen || 'Nifty',
+        NoOfLotsPurchaseAtaTime: config.noOfLots || 1,
+        AmountToTrade: config.amountToTrade || 0,
+        Product: config.product || 'NRML',
+        StartTime: config.startTime || '09:16:01',
+        StopTime: config.stopTime || '15:30:00',
+        Order_type: config.orderType || 'MARKET',
+        ModeOfTrading: config.modeOfTrading || 'Option_Buyer',
+        ATMOffset: config.atmOffset || 1,
+        Variety: config.variety || 'regular',
+        MarketProtection: config.marketProtection || 2,
+        ExitTrade: config.exitTrade || 'yes',
+        SLCandlesLookback: config.slCandlesLookback || 1,
+        SLTriggerOffset: config.slTriggerOffset || 0.5
+    };
+    try {
+        const existing = JSON.parse(fs.readFileSync(inputJsonPath, 'utf8'));
+        if (existing.API_Secret) inputData.API_Secret = existing.API_Secret;
+    } catch {}
+    fs.writeFileSync(inputJsonPath, JSON.stringify(inputData, null, 4));
+    console.log(`Config saved to input.json for regular bot (user ${uid})`);
+
+    // Spawn Regular-Long-Short-Combined-Simple.ps1 (reads input.json + accesstoken.json itself)
+    const scriptPath = path.join(__dirname, '..', 'Regular-Long-Short-Combined-Simple.ps1');
+    const proc = spawn('pwsh', ['-NoProfile', '-File', scriptPath], {
+        cwd: path.join(__dirname, '..'),
+        env: { ...process.env },
+        stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    const entry = { proc, status: 'running', startTime: new Date().toISOString(), logs: [] };
+    regularProcesses.set(uid, entry);
+
+    const logLine = (msg, level = 'info') => {
+        const ts = new Date().toISOString().replace('T', ' ').substring(0, 23);
+        const logEntry = { ts, level, msg: msg.trim() };
+        entry.logs.push(logEntry);
+        if (entry.logs.length > 500) entry.logs = entry.logs.slice(-300);
+        broadcastRegularSSE(uid, 'log', logEntry);
+    };
+
+    proc.stdout.on('data', (data) => {
+        const raw = data.toString().replace(/\x1b\[[0-9;]*[A-Za-z]/g, '').replace(/\x1b\[\?[0-9;]*[A-Za-z]/g, '');
+        const lines = raw.split('\n').filter(l => l.trim());
+        for (const line of lines) logLine(line);
+    });
+
+    proc.stderr.on('data', (data) => {
+        const raw = data.toString().replace(/\x1b\[[0-9;]*[A-Za-z]/g, '').replace(/\x1b\[\?[0-9;]*[A-Za-z]/g, '');
+        const lines = raw.split('\n').filter(l => l.trim());
+        for (const line of lines) logLine(line, 'error');
+    });
+
+    proc.on('close', (code) => {
+        entry.status = 'stopped';
+        logLine(`Regular bot exited with code ${code}`, code === 0 ? 'info' : 'error');
+        broadcastRegularSSE(uid, 'status', { status: 'stopped' });
+    });
+
+    broadcastRegularSSE(uid, 'status', { status: 'running' });
+    broadcastRegularSSE(uid, 'log', { ts: new Date().toISOString().replace('T', ' ').substring(0, 23), level: 'info', msg: 'Regular-Long-Short-Combined-Simple.ps1 started' });
+
+    res.json({ success: true, message: 'Regular bot started' });
+});
+
+app.post('/api/regularbot/stop', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    const uid = req.session.userId;
+    const entry = regularProcesses.get(uid);
+    if (entry && entry.proc && !entry.proc.killed) {
+        try {
+            process.platform === 'win32'
+                ? require('child_process').execSync(`taskkill /pid ${entry.proc.pid} /T /F`, { stdio: 'ignore' })
+                : entry.proc.kill('SIGTERM');
+        } catch {}
+        entry.status = 'stopped';
+    }
+    regularProcesses.delete(uid);
+    res.json({ success: true });
+});
+
+app.get('/api/regularbot/state', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    const entry = regularProcesses.get(req.session.userId);
+    if (entry && entry.status === 'running') {
+        return res.json({ status: 'running', logs: entry.logs.slice(-100) });
+    }
+    res.json({ status: 'idle' });
+});
+
+// Saved position for the regular bot (reads the shared PlacedOrders/Position.json + live LTP)
+app.get('/api/regularbot/position', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    const posFile = path.join(__dirname, '..', 'PlacedOrders', 'Position.json');
+    try {
+        if (!fs.existsSync(posFile)) return res.json({ exists: false });
+        const data = JSON.parse(fs.readFileSync(posFile, 'utf8'));
+        if (!data.Direction || !data.Symbol) return res.json({ exists: false });
+        const position = {
+            direction: data.Direction, symbol: data.Symbol, strike: data.Strike || 0,
+            qty: data.Qty || 0, time: data.Time || '', price: data.Price || 0,
+            optType: data.OptType || '', totalPnL: data.TotalPnL || 0,
+            optionLTP: data.OptionLTP || 0, lots: data.Lots || 1, token: data.Token || 0
+        };
+        if (req.session.accessToken && data.Symbol) {
+            try {
+                const exchange = data.Symbol.startsWith('SENSEX') ? 'BFO' : 'NFO';
+                const r = await axios.get(`${KITE_BASE_URL}/quote/ltp?i=${encodeURIComponent(exchange + ':' + data.Symbol)}`, {
+                    headers: kiteHeaders(req.session.apiKey, req.session.accessToken), timeout: 5000
+                });
+                if (r.data?.data) { for (const v of Object.values(r.data.data)) { position.liveLTP = v.last_price; break; } }
+            } catch {}
+        }
+        return res.json({ exists: true, position });
+    } catch { return res.json({ exists: false }); }
+});
+
+app.get('/api/regularbot/stream', (req, res) => {
+    if (!req.session.userId) return res.status(401).end();
+    const uid = req.session.userId;
+
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no'
+    });
+    res.write(':ok\n\n');
+
+    if (!regularSSEClients.has(uid)) regularSSEClients.set(uid, new Set());
+    regularSSEClients.get(uid).add(res);
+
+    const entry = regularProcesses.get(uid);
+    if (entry) {
+        res.write(`event: status\ndata: ${JSON.stringify({ status: entry.status })}\n\n`);
+        for (const log of entry.logs.slice(-50)) {
+            res.write(`event: log\ndata: ${JSON.stringify(log)}\n\n`);
+        }
+    }
+
+    req.on('close', () => {
+        const set = regularSSEClients.get(uid);
+        if (set) { set.delete(res); if (set.size === 0) regularSSEClients.delete(uid); }
+    });
+});
+
 app.listen(PORT, () => {
     console.log(`Trading Bot server on port ${PORT} — local mode`);
 });
