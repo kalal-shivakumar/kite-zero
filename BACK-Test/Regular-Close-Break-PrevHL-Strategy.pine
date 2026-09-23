@@ -1,0 +1,24 @@
+//@version=5
+strategy("Close Break Prev H/L Strategy", overlay=true, default_qty_type=strategy.fixed, default_qty_value=1, pyramiding=1)
+
+lots = input.int(1, "Lots", minval=1)
+
+// Webhook JSON for Delta Exchange. {{...}} placeholders are filled by TradingView per order.
+alertMsg = '{"symbol":"{{ticker}}","side":"{{strategy.order.action}}","qty":"{{strategy.order.contracts}}","trigger_time":"{{timenow}}","strategy_id":"9cf2817c0406ca0b253a547e4f7d0e8d"}'
+
+// BUY: close > previous High. SELL: close < previous Low. Alternate long/short only.
+var int pos = 0
+buySignal  = close > high[1] and pos != 1
+sellSignal = close < low[1]  and pos != -1
+
+if buySignal
+    strategy.order("Long", strategy.long, qty=lots, alert_message=alertMsg)
+    pos := 1
+
+if sellSignal
+    strategy.order("Short", strategy.short, qty=lots, alert_message=alertMsg)
+    pos := -1
+
+plotshape(buySignal,  title="BUY",  location=location.belowbar, style=shape.triangleup,   color=color.green, text="BUY")
+plotshape(sellSignal, title="SELL", location=location.abovebar, style=shape.triangledown, color=color.red,   text="SELL")
+

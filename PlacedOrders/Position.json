@@ -1,0 +1,13 @@
+{
+  "TotalPnL": -23705.49999999997,
+  "Direction": "SHORT",
+  "OptType": "PE",
+  "Token": 14608386,
+  "Strike": 23700.0,
+  "Qty": 1625,
+  "Symbol": "NIFTY2692223700PE",
+  "Lots": 25,
+  "Time": "2026-09-22_10-16-02",
+  "Price": 259.95,
+  "OptionLTP": 243.2
+}

@@ -2534,9 +2534,13 @@ function Cancel-AllStopLosses {
 function Get-HAStrategyTimeBucket {
     param([int]$IntervalSeconds)
     $now = [datetime]::Now
+    # Anchor candles to the market session open (09:15) so buckets match exchange/Zerodha
+    # candles (e.g. 30m: 09:15, 09:45, 10:15, 10:45) instead of clock midnight (09:00, 09:30...).
+    $marketOpenSeconds = 9 * 3600 + 15 * 60
     $totalSeconds = $now.Hour * 3600 + $now.Minute * 60 + $now.Second
-    $bucket = [int]([Math]::Floor($totalSeconds / $IntervalSeconds)) * $IntervalSeconds
-    $bH = [int]($bucket / 3600); $bM = [int](($bucket % 3600) / 60); $bS = $bucket % 60
+    $elapsed = $totalSeconds - $marketOpenSeconds
+    $bucket = $marketOpenSeconds + [int]([Math]::Floor($elapsed / $IntervalSeconds)) * $IntervalSeconds
+    $bH = [int][Math]::Floor($bucket / 3600); $bM = [int][Math]::Floor(($bucket % 3600) / 60); $bS = $bucket % 60
     return $now.ToString('yyyy-MM-dd ') + ('{0:D2}:{1:D2}:{2:D2}' -f $bH, $bM, $bS)
 }
 
@@ -2847,5 +2851,245 @@ function Invoke-HAStrategyForceExit {
     }
 }
 
+# ── Regular-candle strategy (raw OHLC; identical logic to the HA variant above,
+#    minus the Heikin-Ashi conversion — signals use the raw candle Open/High/Low/Close) ──
+function Invoke-RegularStrategySignalCheck {
+    param([hashtable]$State, [int]$instrumentToken, [double]$lastPrice)
+    $currentRaw = $State.STR_ActiveCandle[$instrumentToken]
+    if ($null -eq $currentRaw) { return }
+
+    $now = [datetime]::Now
+    # Trading window gates NEW ENTRIES only. Exits are ALWAYS allowed so an existing
+    # position is never force-closed just because stop time passed — it stays open
+    # until its normal opposite-candle exit signal fires.
+    $withinWindow = ($now.TimeOfDay -ge $State.StartTime.TimeOfDay -and $now.TimeOfDay -le $State.StopTime.TimeOfDay)
+    $timeStamp = $now.ToString('yyyy-MM-dd_HH-mm-ss')
+
+    # ── Offset candle-color logic (opt-in via State.UseOffsetCandleLogic) ──
+    # Uses only the current forming candle's own Open/Close, so it acts on the
+    # candle in progress and does NOT require a completed candle. Entry on a strong
+    # same-color candle; exit on opposite color OR at candle close (candle-close/
+    # time-window exit is handled in Update-RegularStrategyFromTick).
+    if ($State.UseOffsetCandleLogic) {
+        $offset  = [double]$State.OffsetPoints
+        $isGreen = ($currentRaw.Close -ge ($currentRaw.Open + $offset))
+        $isRed   = ($currentRaw.Close -le ($currentRaw.Open - $offset))
+
+        # -- CE ENTRY (LONG): green candle, flat, within window, bar retries left --
+        if ($withinWindow -and $State.Direction -eq '' -and $isGreen -and $State.BarEntryCount -lt $State.MaxRetryCountOnBar) {
+            Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** CE ENTRY (green) *** LTP: $lastPrice | Close: $([Math]::Round($currentRaw.Close,2)) >= Open+Offset: $([Math]::Round($currentRaw.Open + $offset,2)) | Bar entry $($State.BarEntryCount + 1)/$($State.MaxRetryCountOnBar)" -ForegroundColor Yellow
+            $State.SwingLow = $currentRaw.Low
+            $ok = Enter-HAStrategyPosition $State 'LONG' $lastPrice $timeStamp
+            if ($ok) { $State.BarEntryCount++; $State.StrategySignals.Add("ENTRY LONG @ $lastPrice  CE: $($State.OptSymbol) ($timeStamp)") }
+            return
+        }
+
+        # -- PE ENTRY (SHORT): red candle, flat, within window, bar retries left --
+        if ($withinWindow -and $State.Direction -eq '' -and $isRed -and $State.BarEntryCount -lt $State.MaxRetryCountOnBar) {
+            Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** PE ENTRY (red) *** LTP: $lastPrice | Close: $([Math]::Round($currentRaw.Close,2)) <= Open-Offset: $([Math]::Round($currentRaw.Open - $offset,2)) | Bar entry $($State.BarEntryCount + 1)/$($State.MaxRetryCountOnBar)" -ForegroundColor Yellow
+            $State.SwingHigh = $currentRaw.High
+            $ok = Enter-HAStrategyPosition $State 'SHORT' $lastPrice $timeStamp
+            if ($ok) { $State.BarEntryCount++; $State.StrategySignals.Add("ENTRY SHORT @ $lastPrice  PE: $($State.OptSymbol) ($timeStamp)") }
+            return
+        }
+
+        # -- CE EXIT: opposite (red) candle --
+        if ($State.Direction -eq 'LONG' -and $isRed) {
+            Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** CE EXIT (red) *** LTP: $lastPrice | Close: $([Math]::Round($currentRaw.Close,2)) <= Open-Offset: $([Math]::Round($currentRaw.Open - $offset,2))" -ForegroundColor Yellow
+            Exit-HAStrategyPosition $State $lastPrice $timeStamp
+            return
+        }
+
+        # -- PE EXIT: opposite (green) candle --
+        if ($State.Direction -eq 'SHORT' -and $isGreen) {
+            Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** PE EXIT (green) *** LTP: $lastPrice | Close: $([Math]::Round($currentRaw.Close,2)) >= Open+Offset: $([Math]::Round($currentRaw.Open + $offset,2))" -ForegroundColor Yellow
+            Exit-HAStrategyPosition $State $lastPrice $timeStamp
+            return
+        }
+        return
+    }
+
+    # -- Prev-High/Low breakout logic requires at least one completed candle --
+    $completedList = $State.STR_CompletedCandles[$instrumentToken]
+    if (-not $completedList -or $completedList.Count -lt 1) { return }
+    $prev = $completedList[$completedList.Count - 1]
+
+    # -- LONG ENTRY: Close > prev High (only if flat and within window) --
+    if ($withinWindow -and $State.Direction -eq '' -and $currentRaw.Close -gt $prev.High) {
+        Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** LONG ENTRY *** LTP: $lastPrice | Close: $([Math]::Round($currentRaw.Close,2)) > Prev High: $($prev.High)" -ForegroundColor Yellow
+        $State.SwingLow = $currentRaw.Low  # Record Swing Low for this LONG entry
+        $ok = Enter-HAStrategyPosition $State 'LONG' $lastPrice $timeStamp
+        if ($ok) { $State.StrategySignals.Add("ENTRY LONG @ $lastPrice  CE: $($State.OptSymbol) ($timeStamp)") }
+        return
+    }
+
+    # -- SHORT ENTRY: Close < prev Low (only if flat and within window) --
+    if ($withinWindow -and $State.Direction -eq '' -and $currentRaw.Close -lt $prev.Low) {
+        Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** SHORT ENTRY *** LTP: $lastPrice | Close: $([Math]::Round($currentRaw.Close,2)) < Prev Low: $($prev.Low)" -ForegroundColor Yellow
+        $State.SwingHigh = $currentRaw.High  # Record Swing High for this SHORT entry
+        $ok = Enter-HAStrategyPosition $State 'SHORT' $lastPrice $timeStamp
+        if ($ok) { $State.StrategySignals.Add("ENTRY SHORT @ $lastPrice  PE: $($State.OptSymbol) ($timeStamp)") }
+        return
+    }
+
+    # -- LONG EXIT: Close < prev Low --
+    if ($State.Direction -eq 'LONG' -and $currentRaw.Close -lt $prev.Low) {
+        Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** LONG EXIT *** LTP: $lastPrice | Close: $([Math]::Round($currentRaw.Close,2)) < Prev Low: $($prev.Low)" -ForegroundColor Yellow
+        Exit-HAStrategyPosition $State $lastPrice $timeStamp
+        return
+    }
+
+    # -- SHORT EXIT: Close > prev High --
+    if ($State.Direction -eq 'SHORT' -and $currentRaw.Close -gt $prev.High) {
+        Write-Host "`n  [$($now.ToString('HH:mm:ss.fff'))] *** SHORT EXIT *** LTP: $lastPrice | Close: $([Math]::Round($currentRaw.Close,2)) > Prev High: $($prev.High)" -ForegroundColor Yellow
+        Exit-HAStrategyPosition $State $lastPrice $timeStamp
+        return
+    }
+}
+
+function Update-RegularStrategyFromTick {
+    param([hashtable]$State, [int]$instrumentToken, [double]$lastPrice, [int]$volume, [double]$dayOpen, [double]$dayHigh, [double]$dayLow, [double]$dayClose, [int]$openInterest)
+    $State.STR_TickCount++
+    $timeBucket = Get-HAStrategyTimeBucket $State.IntervalSeconds
+
+    if (-not $State.STR_CompletedCandles.ContainsKey($instrumentToken)) {
+        $State.STR_CompletedCandles[$instrumentToken] = [System.Collections.Generic.List[PSCustomObject]]::new()
+    }
+
+    $currentCandle = $State.STR_ActiveCandle[$instrumentToken]
+
+    if (($null -eq $currentCandle) -or ($currentCandle.TimeBucket -ne $timeBucket)) {
+        if ($null -ne $currentCandle) {
+            # store the just-completed RAW candle as-is (no Heikin-Ashi conversion)
+            $State.STR_CompletedCandles[$instrumentToken].Add([PSCustomObject]@{
+                TimeBucket=$currentCandle.TimeBucket
+                Open=[Math]::Round($currentCandle.Open, 2); High=[Math]::Round($currentCandle.High, 2)
+                Low=[Math]::Round($currentCandle.Low, 2); Close=[Math]::Round($currentCandle.Close, 2)
+                Volume=$currentCandle.Volume; OpenInterest=$currentCandle.OpenInterest
+                TicksInCandle=$currentCandle.TicksInCandle
+            })
+            # Offset logic: force-exit any open position at candle (time-window) close
+            if ($State.UseOffsetCandleLogic -and $State.Direction -ne '') {
+                $ts = [datetime]::Now.ToString('yyyy-MM-dd_HH-mm-ss')
+                Write-Host "`n  [$([datetime]::Now.ToString('HH:mm:ss.fff'))] *** CANDLE CLOSE EXIT *** $($State.OptType) $($State.OptSymbol) - time window completed" -ForegroundColor Yellow
+                Exit-HAStrategyPosition $State $lastPrice $ts
+            }
+        }
+        $State.STR_ActiveCandle[$instrumentToken] = @{
+            TimeBucket=$timeBucket; Open=$lastPrice; High=$lastPrice; Low=$lastPrice; Close=$lastPrice
+            Volume=0; PreviousVolume=$volume; OpenInterest=$openInterest; TicksInCandle=1
+            DayOpen=$dayOpen; DayHigh=$dayHigh; DayLow=$dayLow; DayClose=$dayClose
+        }
+        # New candle: reset the per-bar entry counter so fresh entries are allowed
+        if ($State.UseOffsetCandleLogic) { $State.BarEntryCount = 0 }
+    } else {
+        $currentCandle.High  = [Math]::Max($currentCandle.High, $lastPrice)
+        $currentCandle.Low   = [Math]::Min($currentCandle.Low, $lastPrice)
+        $currentCandle.Close = $lastPrice
+        $currentCandle.OpenInterest = $openInterest
+        $currentCandle.TicksInCandle++
+        if ($dayHigh -gt 0)  { $currentCandle.DayHigh  = $dayHigh }
+        if ($dayLow -gt 0)   { $currentCandle.DayLow   = $dayLow }
+        if ($dayOpen -gt 0)  { $currentCandle.DayOpen   = $dayOpen }
+        if ($dayClose -gt 0) { $currentCandle.DayClose  = $dayClose }
+        if (($volume -gt $currentCandle.PreviousVolume) -and ($currentCandle.PreviousVolume -gt 0)) {
+            $currentCandle.Volume += ($volume - $currentCandle.PreviousVolume)
+        }
+        $currentCandle.PreviousVolume = $volume
+    }
+
+    Invoke-RegularStrategySignalCheck $State $instrumentToken $lastPrice
+}
+
+function Show-RegularStrategyDisplay {
+    param([hashtable]$State, [int]$instrumentToken)
+    $now = [datetime]::Now
+    if (($now - $State.LastDisplayTime).TotalMilliseconds -lt $State.DisplayIntervalMs) { return }
+    $State.LastDisplayTime = $now
+
+    $config = $State.DisplayConfig
+    $allCandles = [System.Collections.Generic.List[PSCustomObject]]::new()
+    $closedCandles = $State.STR_CompletedCandles[$instrumentToken]
+    if ($closedCandles -and $closedCandles.Count -gt 0) { $allCandles.AddRange($closedCandles) }
+
+    $currentCandle = $State.STR_ActiveCandle[$instrumentToken]
+    if ($null -ne $currentCandle) {
+        $allCandles.Add([PSCustomObject]@{
+            TimeBucket=$currentCandle.TimeBucket
+            Open=[Math]::Round($currentCandle.Open, 2); High=[Math]::Round($currentCandle.High, 2)
+            Low=[Math]::Round($currentCandle.Low, 2); Close=[Math]::Round($currentCandle.Close, 2)
+            Volume=$currentCandle.Volume; OpenInterest=$currentCandle.OpenInterest; TicksInCandle=$currentCandle.TicksInCandle
+        })
+    }
+    if ($allCandles.Count -eq 0) { return }
+
+    $skipCount = [Math]::Max(0, $allCandles.Count - $config.MaxCandles)
+    $visibleCandles = if ($skipCount -gt 0) { $allCandles.GetRange($skipCount, $allCandles.Count - $skipCount) } else { $allCandles }
+
+    $sb = [System.Text.StringBuilder]::new(2048)
+    $null = $sb.AppendLine('')
+    $null = $sb.AppendLine("  ================================================")
+    $null = $sb.AppendLine("  $($config.SymbolLabel) - Regular Long+Short | CE+PE Auto-Trade")
+    $null = $sb.AppendLine("  ================================================")
+    $null = $sb.AppendLine("  Symbol  : $($config.SymbolName)  |  Token: $($config.InstrumentToken)  |  TF: $($config.TimeFrame)")
+    if ($State.AmountToTrade -gt 0) {
+        $null = $sb.AppendLine("  Trade   : Amount: $($State.AmountToTrade)  |  LotSize: $($State.LotSize)  |  Product: $($State.Product)")
+    } else {
+        $null = $sb.AppendLine("  Trade   : Lots: $($State.NoOfLotsPurchaseAtaTime)  |  Qty: $($State.Quantity)  |  Product: $($State.Product)")
+    }
+    $null = $sb.AppendLine("  Ticks   : $($State.STR_TickCount)  |  Window: $($State.StartTime.ToString('HH:mm:ss'))-$($State.StopTime.ToString('HH:mm:ss'))  |  Total P&L: $($State.TotalPnL.ToString('N2'))")
+    $null = $sb.AppendLine("  Candles : $($allCandles.Count) total | Showing $($visibleCandles.Count)")
+    if ($State.UseOffsetCandleLogic) {
+        $null = $sb.AppendLine("  Bar     : Entries this candle: $($State.BarEntryCount)/$($State.MaxRetryCountOnBar)  |  Offset: $($State.OffsetPoints)")
+    }
+    $nowTOD = [datetime]::Now.TimeOfDay
+    $winStatus = if ($nowTOD -lt $State.StartTime.TimeOfDay) { "CLOSED (before $($State.StartTime.ToString('HH:mm:ss'))) - live candles only, NO trades" } elseif ($nowTOD -gt $State.StopTime.TimeOfDay) { "CLOSED (after $($State.StopTime.ToString('HH:mm:ss'))) - live candles only, NO new entries" } else { 'OPEN - entries active' }
+    $null = $sb.AppendLine("  Trading : Window $winStatus")
+    $null = $sb.AppendLine("  Time    : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff')")
+
+    if ($State.Direction -ne '') {
+        $null = $sb.AppendLine("  POSITION: $($State.Direction) ACTIVE  $($State.OptType): $($State.OptSymbol)  Strike: $($State.OptStrike)  Lots: $($State.OptLots)  Qty: $($State.OptQty)  Entry: $($State.EntryPrice.ToString('N2')) @ $($State.EntryTime)  OptLTP: $($State.OptEntryLTP)")
+        if ($null -ne $currentCandle) {
+            $unrealized = if ($State.Direction -eq 'LONG') { $currentCandle.Close - $State.EntryPrice } else { $State.EntryPrice - $currentCandle.Close }
+            $null = $sb.AppendLine("  LTP     : $($currentCandle.Close.ToString('N2'))  |  Unrealized Spot P&L: $($unrealized.ToString('N2'))")
+        }
+    } else {
+        $null = $sb.AppendLine("  POSITION: FLAT  (Waiting for signal)")
+        if ($null -ne $currentCandle) {
+            $null = $sb.AppendLine("  LTP     : $($currentCandle.Close.ToString('N2'))  |  Day O/H/L/C: $($currentCandle.DayOpen.ToString('N2'))/$($currentCandle.DayHigh.ToString('N2'))/$($currentCandle.DayLow.ToString('N2'))/$($currentCandle.DayClose.ToString('N2'))")
+        }
+    }
+
+    $null = $sb.AppendLine('')
+    $rowFormat = ' {0,-18} {1,14} {2,14} {3,14} {4,14} {5,8} {6,7} {7,7} {8,5} {9,6}'
+    $null = $sb.AppendLine(($rowFormat -f 'Time','Open','High','Low','Close','Signal','SL','SH','Ticks','Trend'))
+    $null = $sb.AppendLine(' ' + ('-' * 120))
+
+    if ($null -eq $State.CanClearHost) { $State.CanClearHost = try { Clear-Host; $true } catch { $false } }
+    elseif ($State.CanClearHost) { try { Clear-Host } catch {} }
+    Write-Host $sb.ToString()
+
+    for ($i = 0; $i -lt $visibleCandles.Count; $i++) {
+        $c = $visibleCandles[$i]
+        $trend = if ($c.Close -ge $c.Open) { '  UP' } else { 'DOWN' }
+        $color = if ($c.Close -ge $c.Open) { 'Green' } else { 'Red' }
+        $signal = if ($State.Direction -eq '') { 'FLAT' } else { $State.Direction }
+        $sl = if ($State.Direction -eq 'LONG') { $State.SwingLow.ToString('N2') } else { '-' }
+        $sh = if ($State.Direction -eq 'SHORT') { $State.SwingHigh.ToString('N2') } else { '-' }
+        $line = $rowFormat -f $c.TimeBucket, ('{0:N2}' -f $c.Open), ('{0:N2}' -f $c.High), ('{0:N2}' -f $c.Low), ('{0:N2}' -f $c.Close), $signal, $sl, $sh, $c.TicksInCandle, $trend
+        Write-Host $line -ForegroundColor $(if ($i -eq $visibleCandles.Count - 1) { 'Yellow' } else { $color })
+    }
+
+    if ($State.StrategySignals.Count -gt 0) {
+        Write-Host ''; Write-Host '  --- Trade Signals ---' -ForegroundColor Cyan
+        $show = [Math]::Min(8, $State.StrategySignals.Count)
+        for ($si = $State.StrategySignals.Count - $show; $si -lt $State.StrategySignals.Count; $si++) {
+            $sigColor = if ($State.StrategySignals[$si] -match 'ENTRY') { 'Green' } else { 'Red' }
+            Write-Host "    $($State.StrategySignals[$si])" -ForegroundColor $sigColor
+        }
+    }
+    Write-Host ''; Write-Host '  Press Ctrl+C to stop' -ForegroundColor DarkGray
+}
+
 # ── Module exports (single consolidated statement) ─────────
-Export-ModuleMember -Function Search-KiteInstrument, Show-KitePresets, Get-KiteLiveCandles, Get-KiteHeikinAshiCandles, Invoke-KiteHALongStrategy, Invoke-KiteHAShortStrategy, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol, Place-ZerodhaOrder, Get-IndexOptionConfig, Get-KiteSpotPrice, Get-KiteOptionInstruments, Get-ATMOption, Get-IntervalSeconds, Get-IntervalLabel, Parse-KiteTicks, Get-KiteOpenPositions, Get-ZerodhaCandleData, Get-HeikinAshiCandlesData, Check-AlreadyAnyOrderRunning, Cancel-AllStopLosses, Get-HAStrategyTimeBucket, Convert-ToHACandle, Enter-HAStrategyPosition, Exit-HAStrategyPosition, Invoke-HAStrategySignalCheck, Update-HAStrategyFromTick, Show-HAStrategyDisplay, Invoke-HAStrategyForceExit
+Export-ModuleMember -Function Search-KiteInstrument, Show-KitePresets, Get-KiteLiveCandles, Get-KiteHeikinAshiCandles, Invoke-KiteHALongStrategy, Invoke-KiteHAShortStrategy, Resolve-KiteAccessToken, Exchange-KiteRequestToken, Show-KiteSymbols, Resolve-KiteSymbol, Place-ZerodhaOrder, Get-IndexOptionConfig, Get-KiteSpotPrice, Get-KiteOptionInstruments, Get-ATMOption, Get-IntervalSeconds, Get-IntervalLabel, Parse-KiteTicks, Get-KiteOpenPositions, Get-ZerodhaCandleData, Get-HeikinAshiCandlesData, Check-AlreadyAnyOrderRunning, Cancel-AllStopLosses, Get-HAStrategyTimeBucket, Convert-ToHACandle, Enter-HAStrategyPosition, Exit-HAStrategyPosition, Invoke-HAStrategySignalCheck, Update-HAStrategyFromTick, Show-HAStrategyDisplay, Invoke-HAStrategyForceExit, Invoke-RegularStrategySignalCheck, Update-RegularStrategyFromTick, Show-RegularStrategyDisplay

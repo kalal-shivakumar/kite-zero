@@ -1,0 +1,121 @@
+//@version=6
+// ═══════════════════════════════════════════════════════════════
+// Regular Candle — PE (PUT) OPTIONS Signal Generator  [Bearish leg]
+//   ENTRY (BUY PE) : close <= open - offset (red) while flat
+//   EXIT  (SELL PE): close >= open + offset (green) OR candle close
+//   STRIKE MEMORY  : the strike (and full option symbol) is locked at
+//                    entry and REUSED on exit, so you always close the
+//                    exact same contract you opened.
+//   NO-ENTRY WINDOW: no new entries 17:25–18:05 IST (exits still allowed).
+// Configure ONE alert -> condition "Any alert() function call" -> webhook URL.
+// ═══════════════════════════════════════════════════════════════
+indicator("PE Buying NEW", overlay=true, max_labels_count=500)
+
+// ── Strategy inputs ──
+offset       = input.float(5, "Entry Offset Points", minval=0, tooltip="Points below candle open to trigger PE entry.")
+exitAtClose  = input.bool(true, "Exit at candle close")
+allowReentry = input.bool(true, "Allow re-entry within same candle")
+blkStart     = input.int(1725, "No-entry window START (IST HHMM)", tooltip="Block fresh entries from this IST time.")
+blkEnd       = input.int(1805, "No-entry window END (IST HHMM)",   tooltip="Block fresh entries until this IST time. Outside the window entries are allowed. Exits always allowed.")
+useSession   = input.bool(false, "Restrict to time window")
+sess         = input.session("0000-2359", "Trading window (exchange time)")
+
+// ── Option / strike inputs ──
+asset       = input.string("BTC", "Underlying Asset")
+strikeStep  = input.int(200, "Strike Step", minval=1, tooltip="Distance between adjacent strikes (BTC ~200).")
+moneyness   = input.int(0, "Strike (−OTM / 0 ATM / +ITM)", minval=-5, maxval=5, tooltip="Negative = OTM (−5..−1), 0 = ATM, Positive = ITM (1..5). For a PUT, OTM is below spot, ITM is above.")
+autoExpiry  = input.bool(true, "Auto expiry (current daily, 17:30 IST roll)")
+expiryManual= input.string("", "Manual Expiry (ddmmyy)", tooltip="Used only when Auto expiry is off. e.g. 100926 for 10-Sep-2026.")
+
+// ── Webhook payload inputs ──
+qty         = input.string("5", "Order Qty")
+strategyId  = input.string("9cf2817c0406ca0b253a547e4f7d0e8d", "Strategy ID")
+entrySide   = input.string("buy",  "Entry Side (open PE)",  options=["buy", "sell"])
+exitSide    = input.string("sell", "Exit Side (close PE)",  options=["buy", "sell"])
+tablePosIn  = input.string("middle_right", "Info table position", options=["top_right","middle_right","bottom_right","top_left","middle_left","bottom_left","top_center","bottom_center"], tooltip="Use a different corner on each indicator so their tables don't overlap.")
+
+// ── Filters ──
+inWindow = not useSession or not na(time(timeframe.period, sess))
+isGreen  = close >= open + offset
+isRed    = close <= open - offset
+
+// ── Current (front) daily expiry — Delta cycle 17:31 IST → next-day 17:29 IST, settles 17:30 IST ──
+// Uses the live clock (timenow) on purpose: this is the contract an entry RIGHT NOW should trade.
+rollIst  = hour(timenow, "Asia/Kolkata") * 60 + minute(timenow, "Asia/Kolkata")
+rollTime = rollIst >= (17 * 60 + 30) ? timenow + 86400000 : timenow
+expiry   = autoExpiry ? str.format_time(rollTime, "ddMMyy", "Asia/Kolkata") : expiryManual
+
+// ── Entry gate on the BAR's IST time: block only inside 17:25–18:05 IST ──
+barIst   = hour(time, "Asia/Kolkata") * 60 + minute(time, "Asia/Kolkata")
+blkStMin = int(blkStart / 100) * 60 + blkStart % 100
+blkEnMin = int(blkEnd   / 100) * 60 + blkEnd   % 100
+entryOk  = not (barIst >= blkStMin and barIst < blkEnMin)   // no NEW entries inside window; exits still allowed
+expiryOk = str.length(expiry) >= 5                          // guard: never emit P-BTC-<strike>- with a blank date
+
+// Preview: the contract an entry RIGHT NOW would open (verify against Delta's product list)
+previewStrike = int(math.round(close / strikeStep) * strikeStep + moneyness * strikeStep)   // PUT: OTM below, ITM above
+previewSymbol = "P-" + asset + "-" + str.tostring(previewStrike) + "-" + expiry
+
+// ── State (intrabar-persistent) ──
+varip bool   inPos       = false
+varip bool   doneThisBar = false
+varip int    entryStrike = 0
+varip string entrySymbol = ""
+if barstate.isnew
+    inPos       := false
+    doneThisBar := false
+
+entrySignal = false
+exitSignal  = false
+
+// Entry: red breakout while flat -> lock the strike/symbol
+if not inPos and isRed and inWindow and expiryOk and entryOk and (allowReentry or not doneThisBar)
+    atm         = math.round(close / strikeStep) * strikeStep
+    entryStrike := int(atm + moneyness * strikeStep)          // PUT: −OTM below spot, +ITM above spot
+    entrySymbol := "P-" + asset + "-" + str.tostring(entryStrike) + "-" + expiry
+    inPos       := true
+    entrySignal := true
+// Exit on opposite (green) -> close the SAME remembered strike
+else if inPos and isGreen
+    inPos       := false
+    doneThisBar := true
+    exitSignal  := true
+
+// Time exit at candle close -> close the SAME remembered strike
+if inPos and barstate.isconfirmed and exitAtClose
+    inPos      := false
+    doneThisBar := true
+    exitSignal := true
+
+// ── Delta webhook JSON (exit reuses entrySymbol = same strike). {{timenow}} matches Delta's working sample. ──
+entryMsg = '{"symbol":"' + entrySymbol + '","side":"' + entrySide + '","qty":"' + qty + '","trigger_time":"{{timenow}}","strategy_id":"' + strategyId + '"}'
+exitMsg  = '{"symbol":"' + entrySymbol + '","side":"' + exitSide  + '","qty":"' + qty + '","trigger_time":"{{timenow}}","strategy_id":"' + strategyId + '"}'
+
+// ── Plot + strike labels ──
+plotshape(entrySignal, title="PE ENTRY", style=shape.triangledown, location=location.abovebar, color=color.new(color.red, 0),    size=size.small, text="BUY PE")
+plotshape(exitSignal,  title="PE EXIT",  style=shape.xcross,       location=location.belowbar, color=color.new(color.orange, 0), size=size.tiny,  text="EXIT")
+if entrySignal
+    label.new(bar_index, high, "PE " + str.tostring(entryStrike), style=label.style_label_down, color=color.new(color.red, 0),    textcolor=color.white, size=size.small)
+if exitSignal
+    label.new(bar_index, low,  "EXIT " + str.tostring(entryStrike), style=label.style_label_up,  color=color.new(color.orange, 0), textcolor=color.white, size=size.small)
+
+// ── Alerts ──
+alertcondition(entrySignal, title="PE ENTRY", message="PE ENTRY {{ticker}}")
+alertcondition(exitSignal,  title="PE EXIT",  message="PE EXIT {{ticker}}")
+
+// Webhook (fires every entry/exit, allowing re-entries). Use "Any alert() function call".
+if entrySignal
+    alert(entryMsg, alert.freq_all)
+if exitSignal
+    alert(exitMsg, alert.freq_all)
+
+// ── Live symbol readout (this must match a real Delta contract, else webhook = 400) ──
+tablePos = tablePosIn == "top_right" ? position.top_right : tablePosIn == "middle_right" ? position.middle_right : tablePosIn == "bottom_right" ? position.bottom_right : tablePosIn == "top_left" ? position.top_left : tablePosIn == "middle_left" ? position.middle_left : tablePosIn == "bottom_left" ? position.bottom_left : tablePosIn == "top_center" ? position.top_center : position.bottom_center
+var table t = table.new(tablePos, 2, 3, border_color=color.gray, frame_color=color.black)
+if barstate.islast
+    table.cell(t, 0, 0, "PE preview",  text_color=color.white, bgcolor=color.blue)
+    table.cell(t, 1, 0, previewSymbol, text_color=color.white, bgcolor=#0e8024)
+    table.cell(t, 0, 1, "In position", text_color=color.white, bgcolor=color.blue)
+    table.cell(t, 1, 1, inPos ? entrySymbol : "flat", text_color=color.white, bgcolor=#0e8024)
+    table.cell(t, 0, 2, "Expiry",      text_color=color.white, bgcolor=color.blue)
+    table.cell(t, 1, 2, expiryOk ? expiry : "SET EXPIRY!", text_color=color.white, bgcolor=expiryOk ? #0e8024 : color.red)

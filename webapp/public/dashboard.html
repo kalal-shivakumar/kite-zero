@@ -505,6 +505,8 @@ select option{background:#fff;color:var(--text)}
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('dashboard')">Dashboard</button>
         <button class="tab-btn" onclick="switchTab('regular')">Regular-Hedge</button>
+        <button class="tab-btn" onclick="switchTab('heikin')">HeikinAshi-Hedge</button>
+        <button class="tab-btn" onclick="switchTab('selling')">Option-Selling</button>
         <button class="tab-btn" onclick="switchTab('sweep')">Liquidity Sweep</button>
         <button class="tab-btn" onclick="switchTab('trades')">Trade History</button>
     </div>
@@ -609,7 +611,11 @@ select option{background:#fff;color:var(--text)}
                     <div class="fg"><label>Exit Trade</label><select id="cExit"><option value="yes">Yes</option><option value="no">No</option></select></div>
                     <div class="fg"><label>SL Lookback</label><input type="number" id="cSLB" value="1" min="1"></div>
                 </div>
-                <div class="fg" style="margin-top:.65rem"><label>SL Trigger Offset</label><input type="number" id="cSLO" value="0.5" step="0.1"></div>
+                <div class="cfg-grid" style="margin-top:.65rem">
+                    <div class="fg"><label>SL Trigger Offset</label><input type="number" id="cSLO" value="0.5" step="0.1"></div>
+                    <div class="fg"><label>Offset Points</label><input type="number" id="cOffset" value="5" step="0.5" min="0"></div>
+                    <div class="fg"><label>Max Retry / Bar</label><input type="number" id="cMaxRetry" value="10" min="1"></div>
+                </div>
                 <button class="btn-save" id="btnSaveCfg" onclick="saveConfig()">Save Configuration</button>
                 <div id="cfgMsg" style="margin-top:.5rem;font-size:.78rem;display:none;padding:.4rem .7rem;border-radius:6px"></div>
             </div>
@@ -818,6 +824,314 @@ select option{background:#fff;color:var(--text)}
     </div>
     </div>
 
+    <!-- Tab: Option-Selling (runs Option-Selling-Break-out.ps1) -->
+    <div class="tab-content" id="tab-selling">
+
+    <div class="pnl-banner" id="osPnlBanner">
+        <div class="pnl-main">
+            <div class="pnl-label">Cumulative P&L (Today)</div>
+            <div class="pnl-value neutral" id="osCumPnlValue">₹0.00</div>
+        </div>
+        <div class="pnl-divider"></div>
+        <div class="pnl-stat">
+            <div class="ps-label">Trades</div>
+            <div class="ps-value" id="osCumTrades">0</div>
+        </div>
+        <div class="pnl-stat">
+            <div class="ps-label">Winners</div>
+            <div class="ps-value grn" id="osCumWinners">0</div>
+        </div>
+        <div class="pnl-stat">
+            <div class="ps-label">Win Rate</div>
+            <div class="ps-value" id="osCumWinRate">0%</div>
+        </div>
+    </div>
+
+    <div class="control-bar">
+        <button class="ctrl-btn ctrl-btn-start" id="osBtnStart" onclick="osStartBot()">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 13,8 3,15"/></svg>
+            Start Trading
+        </button>
+        <button class="ctrl-btn ctrl-btn-stop" id="osBtnStop" onclick="osStopBot()" disabled>
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="12" height="12" rx="2"/></svg>
+            Stop
+        </button>
+        <div class="status-pill" id="osStStatus"><span class="dot dot-r"></span>Idle</div>
+        <div id="osPositionAlert" style="display:none;margin-left:auto;align-items:center;gap:.6rem;padding:.5rem 1.1rem;background:#fdf3dd;border:1px solid #eccb82;border-radius:var(--radius);font-size:.78rem;color:#7a5a08;font-weight:500;">
+            <span id="osPosAlertText"></span>
+            <button class="ctrl-btn" onclick="osCleanupPosition()" style="padding:.3rem .8rem;background:#d63447;color:#fff;font-size:.72rem;border-radius:6px;font-weight:600;box-shadow:0 2px 8px rgba(214,52,71,.2);">Cleanup &amp; Fresh Start</button>
+            <button class="ctrl-btn" onclick="osDismissPositionAlert()" style="padding:.3rem .8rem;background:transparent;color:#7a5a08;font-size:.72rem;border:1px solid #eccb82;border-radius:6px;font-weight:600;">Resume Position</button>
+        </div>
+    </div>
+
+    <div class="stats">
+        <div class="stat-card stat-blue"><div class="lb">Direction</div><div class="vl flat" id="osStDir">FLAT</div></div>
+        <div class="stat-card"><div class="lb">Symbol</div><div class="vl" id="osStOpt">—</div></div>
+        <div class="stat-card stat-green"><div class="lb">Sold</div><div class="vl" id="osStEntry">—</div></div>
+        <div class="stat-card stat-yellow"><div class="lb">LTP</div><div class="vl" id="osStLTP">—</div></div>
+        <div class="stat-card"><div class="lb">Ticks</div><div class="vl" id="osStTicks">0</div></div>
+        <div class="stat-card highlight"><div class="lb">Total P&L</div><div class="vl flat" id="osStPnL">₹0.00</div></div>
+    </div>
+
+    <div class="grid">
+        <div>
+            <div class="card card-blue robot-card" style="margin-bottom:1.2rem">
+                <div class="robot-stage">
+                    <img class="robot-img" src="/AI-agent-robot-image.png" alt="AI Agent scanning markets">
+                    <div class="robot-hud"></div>
+                    <div class="robot-scan-bar"></div>
+                    <div class="robot-scan-line"></div>
+                    <span class="robot-corner tl"></span>
+                    <span class="robot-corner tr"></span>
+                    <span class="robot-corner bl"></span>
+                    <span class="robot-corner br"></span>
+                    <span class="robot-scan-label">SCANNING MARKETS</span>
+                </div>
+                <div class="robot-title">AI Agent — Option-Selling Scanner</div>
+                <div class="robot-sub">Regular-candle breakout option-writing (sell PE/CE) engine</div>
+                <div class="robot-status"><span class="rdot"></span><span class="robot-dots">Scanning markets</span></div>
+            </div>
+            <div class="card card-green">
+                <div class="card-header"><h2>Strategy Config</h2><span class="card-badge">Selling</span></div>
+                <div class="form-grid">
+                    <div class="fg"><label>Symbol
+                        <span class="sym-btns">
+                            <button type="button" class="btn-mini" id="osBtnFillSym" onclick="osAutoFillSymbol()" title="Fetch ITM1 (ATM Offset) option for the chosen index">ITM1</button>
+                            <button type="button" class="btn-mini btn-mini-ghost" id="osBtnResetSym" onclick="osResetSymbol()" title="Reset symbol to the index name and token to 0 (auto)">Reset</button>
+                        </span></label>
+                        <input type="text" id="osSym" value="SENSEX" placeholder="e.g. SENSEX, SENSEX2670277100CE">
+                    </div>
+                    <div class="fg"><label>Index</label>
+                        <select id="osIdx"><option value="Nifty">NIFTY</option><option value="BANKNIFTY">BANKNIFTY</option><option value="FinNifty">FINNIFTY</option><option value="MIDCPNIFTY">MIDCPNIFTY</option><option value="SENSEX">SENSEX</option></select>
+                    </div>
+                    <div class="fg"><label>Token (0=auto)</label><input type="number" id="osToken" value="0"></div>
+                    <div class="fg"><label>TimeFrame</label>
+                        <select id="osTF"><option value="5second">5s</option><option value="15second">15s</option><option value="30second" selected>30s</option><option value="minute">1m</option><option value="2minute">2m</option><option value="3minute">3m</option><option value="5minute">5m</option><option value="10minute">10m</option><option value="15minute">15m</option><option value="30minute">30m</option><option value="60minute">60m</option></select>
+                    </div>
+                    <div class="fg"><label>Candles</label><input type="number" id="osShow" value="10"></div>
+                    <div class="fg"><label>Mode</label><select id="osFull"><option value="false">Quote</option><option value="true">Full</option></select></div>
+                    <div class="fg"><label>Lots</label><input type="number" id="osLots" value="1" min="1"></div>
+                    <div class="fg"><label>Amount (0=lots)</label><input type="number" id="osAmt" value="0"></div>
+                    <div class="fg"><label>Product</label><select id="osProd"><option value="NRML">NRML</option><option value="MIS">MIS</option></select></div>
+                    <div class="fg"><label>Order Type</label><select id="osOT"><option value="MARKET">MARKET</option><option value="LIMIT">LIMIT</option></select></div>
+                    <div class="fg"><label>Start Time</label><input type="text" id="osStart" value="09:16:01"></div>
+                    <div class="fg"><label>Stop Time</label><input type="text" id="osStop" value="15:30:00"></div>
+                    <div class="fg"><label>Trading Mode</label><select id="osMode"><option value="Option_Seller" selected>Seller</option><option value="Option_Buyer">Buyer</option></select></div>
+                    <div class="fg"><label>ATM Offset</label><input type="number" id="osATM" value="1"></div>
+                    <div class="fg"><label>Variety</label><select id="osVar"><option value="regular">Regular</option><option value="amo">AMO</option></select></div>
+                    <div class="fg"><label>Mkt Protection %</label><input type="number" id="osMP" value="2" min="0" max="100"></div>
+                    <div class="fg"><label>Exit Trade</label><select id="osExit"><option value="yes">Yes</option><option value="no">No</option></select></div>
+                    <div class="fg"><label>SL Lookback</label><input type="number" id="osSLB" value="1" min="1"></div>
+                </div>
+                <div class="fg" style="margin-top:.65rem"><label>SL Trigger Offset</label><input type="number" id="osSLO" value="0.5" step="0.1"></div>
+                <button class="btn-save" id="osBtnSaveCfg" onclick="osSaveConfig()">Save Configuration</button>
+                <div id="osCfgMsg" style="margin-top:.5rem;font-size:.78rem;display:none;padding:.4rem .7rem;border-radius:6px"></div>
+            </div>
+        </div>
+
+        <div class="right">
+            <div class="card card-red">
+                <div class="card-header"><h2>Live Logs</h2><span class="card-badge" id="osLogCount">0 entries</span></div>
+                <div class="logbox" id="osLogBox"><div class="l-i" style="opacity:.5">⏳ System ready. Waiting for start command...</div></div>
+            </div>
+            <div class="card card-blue">
+                <div class="card-header"><h2>Trade Records</h2></div>
+                <div class="tbl-wrap">
+                <table class="ptbl"><thead><tr><th>#</th><th>Time</th><th>Symbol</th><th>Entry</th><th>Exit</th><th>Qty</th><th>P&L</th><th>P&L %</th><th>Cumulative</th></tr></thead>
+                <tbody id="osOrdBody"><tr><td colspan="9" class="flat"><div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg><p>No completed trades yet</p></div></td></tr></tbody></table>
+                </div>
+            </div>
+            <div class="card card-blue">
+                <div class="card-header"><h2>P&amp;L Pivot</h2><span class="card-badge" id="osPivWinRate">0% win</span></div>
+                <div class="pivot-wrap">
+                    <div class="pivot-chart">
+                        <svg viewBox="0 0 150 150">
+                            <circle class="piv-track" cx="75" cy="75" r="60"/>
+                            <circle id="osPivProfitArc" class="piv-arc" cx="75" cy="75" r="60" stroke-dasharray="0 999" stroke-dashoffset="0"/>
+                            <circle id="osPivLossArc" class="piv-arc" cx="75" cy="75" r="60" stroke-dasharray="0 999" stroke-dashoffset="0"/>
+                        </svg>
+                        <div class="pivot-center">
+                            <div class="piv-net-label">Net P&amp;L</div>
+                            <div class="piv-net-value neutral" id="osPivNet">₹0.00</div>
+                        </div>
+                    </div>
+                    <div class="pivot-legend">
+                        <div class="piv-leg"><span class="piv-dot piv-dot-g"></span><span class="piv-leg-lb">Profit</span><span class="piv-leg-vl grn" id="osPivProfit">₹0.00</span></div>
+                        <div class="piv-leg"><span class="piv-dot piv-dot-r"></span><span class="piv-leg-lb">Loss</span><span class="piv-leg-vl red" id="osPivLoss">₹0.00</span></div>
+                        <div class="piv-leg"><span class="piv-dot piv-dot-n"></span><span class="piv-leg-lb">Trades</span><span class="piv-leg-vl" id="osPivTrades">0</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="card card-blue">
+                <div class="card-header">
+                    <h2>Daily P&amp;L</h2>
+                    <select id="osDpnlDays" class="dpnl-filter" onchange="osRenderDailyPnl()">
+                        <option value="5">Last 5 days</option>
+                        <option value="10" selected>Last 10 days</option>
+                        <option value="15">Last 15 days</option>
+                        <option value="30">Last 30 days</option>
+                    </select>
+                </div>
+                <div class="dpnl-chart" id="osDpnlChart"><div class="dpnl-empty">No trade data yet</div></div>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <!-- Tab: HeikinAshi-Hedge (runs HeikinAshi-Long-Short-Combined-Simple.ps1) -->
+    <div class="tab-content" id="tab-heikin">
+
+    <div class="pnl-banner" id="haPnlBanner">
+        <div class="pnl-main">
+            <div class="pnl-label">Cumulative P&L (Today)</div>
+            <div class="pnl-value neutral" id="haCumPnlValue">₹0.00</div>
+        </div>
+        <div class="pnl-divider"></div>
+        <div class="pnl-stat">
+            <div class="ps-label">Trades</div>
+            <div class="ps-value" id="haCumTrades">0</div>
+        </div>
+        <div class="pnl-stat">
+            <div class="ps-label">Winners</div>
+            <div class="ps-value grn" id="haCumWinners">0</div>
+        </div>
+        <div class="pnl-stat">
+            <div class="ps-label">Win Rate</div>
+            <div class="ps-value" id="haCumWinRate">0%</div>
+        </div>
+    </div>
+
+    <div class="control-bar">
+        <button class="ctrl-btn ctrl-btn-start" id="haBtnStart" onclick="haStartBot()">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 13,8 3,15"/></svg>
+            Start Trading
+        </button>
+        <button class="ctrl-btn ctrl-btn-stop" id="haBtnStop" onclick="haStopBot()" disabled>
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="12" height="12" rx="2"/></svg>
+            Stop
+        </button>
+        <div class="status-pill" id="haStStatus"><span class="dot dot-r"></span>Idle</div>
+        <div id="haPositionAlert" style="display:none;margin-left:auto;align-items:center;gap:.6rem;padding:.5rem 1.1rem;background:#fdf3dd;border:1px solid #eccb82;border-radius:var(--radius);font-size:.78rem;color:#7a5a08;font-weight:500;">
+            <span id="haPosAlertText"></span>
+            <button class="ctrl-btn" onclick="haCleanupPosition()" style="padding:.3rem .8rem;background:#d63447;color:#fff;font-size:.72rem;border-radius:6px;font-weight:600;box-shadow:0 2px 8px rgba(214,52,71,.2);">Cleanup &amp; Fresh Start</button>
+            <button class="ctrl-btn" onclick="haDismissPositionAlert()" style="padding:.3rem .8rem;background:transparent;color:#7a5a08;font-size:.72rem;border:1px solid #eccb82;border-radius:6px;font-weight:600;">Resume Position</button>
+        </div>
+    </div>
+
+    <div class="stats">
+        <div class="stat-card stat-blue"><div class="lb">Direction</div><div class="vl flat" id="haStDir">FLAT</div></div>
+        <div class="stat-card"><div class="lb">Symbol</div><div class="vl" id="haStOpt">—</div></div>
+        <div class="stat-card stat-green"><div class="lb">Entry</div><div class="vl" id="haStEntry">—</div></div>
+        <div class="stat-card stat-yellow"><div class="lb">LTP</div><div class="vl" id="haStLTP">—</div></div>
+        <div class="stat-card"><div class="lb">Ticks</div><div class="vl" id="haStTicks">0</div></div>
+        <div class="stat-card highlight"><div class="lb">Total P&L</div><div class="vl flat" id="haStPnL">₹0.00</div></div>
+    </div>
+
+    <div class="grid">
+        <div>
+            <div class="card card-blue robot-card" style="margin-bottom:1.2rem">
+                <div class="robot-stage">
+                    <img class="robot-img" src="/AI-agent-robot-image.png" alt="AI Agent scanning markets">
+                    <div class="robot-hud"></div>
+                    <div class="robot-scan-bar"></div>
+                    <div class="robot-scan-line"></div>
+                    <span class="robot-corner tl"></span>
+                    <span class="robot-corner tr"></span>
+                    <span class="robot-corner bl"></span>
+                    <span class="robot-corner br"></span>
+                    <span class="robot-scan-label">SCANNING MARKETS</span>
+                </div>
+                <div class="robot-title">AI Agent — Heikin-Ashi Candle Scanner</div>
+                <div class="robot-sub">Heikin-Ashi breakout Long+Short auto-trade engine</div>
+                <div class="robot-status"><span class="rdot"></span><span class="robot-dots">Scanning markets</span></div>
+            </div>
+            <div class="card card-green">
+                <div class="card-header"><h2>Strategy Config</h2><span class="card-badge">HeikinAshi</span></div>
+                <div class="form-grid">
+                    <div class="fg"><label>Symbol
+                        <span class="sym-btns">
+                            <button type="button" class="btn-mini" id="haBtnFillSym" onclick="haAutoFillSymbol()" title="Fetch ITM1 (ATM Offset) option for the chosen index">ITM1</button>
+                            <button type="button" class="btn-mini btn-mini-ghost" id="haBtnResetSym" onclick="haResetSymbol()" title="Reset symbol to the index name and token to 0 (auto)">Reset</button>
+                        </span></label>
+                        <input type="text" id="haSym" value="SENSEX" placeholder="e.g. SENSEX, SENSEX2670277100CE">
+                    </div>
+                    <div class="fg"><label>Index</label>
+                        <select id="haIdx"><option value="Nifty">NIFTY</option><option value="BANKNIFTY">BANKNIFTY</option><option value="FinNifty">FINNIFTY</option><option value="MIDCPNIFTY">MIDCPNIFTY</option><option value="SENSEX">SENSEX</option></select>
+                    </div>
+                    <div class="fg"><label>Token (0=auto)</label><input type="number" id="haToken" value="0"></div>
+                    <div class="fg"><label>TimeFrame</label>
+                        <select id="haTF"><option value="5second">5s</option><option value="15second">15s</option><option value="30second" selected>30s</option><option value="minute">1m</option><option value="2minute">2m</option><option value="3minute">3m</option><option value="5minute">5m</option><option value="10minute">10m</option><option value="15minute">15m</option><option value="30minute">30m</option><option value="60minute">60m</option></select>
+                    </div>
+                    <div class="fg"><label>Candles</label><input type="number" id="haShow" value="10"></div>
+                    <div class="fg"><label>Mode</label><select id="haFull"><option value="false">Quote</option><option value="true">Full</option></select></div>
+                    <div class="fg"><label>Lots</label><input type="number" id="haLots" value="1" min="1"></div>
+                    <div class="fg"><label>Amount (0=lots)</label><input type="number" id="haAmt" value="0"></div>
+                    <div class="fg"><label>Product</label><select id="haProd"><option value="NRML">NRML</option><option value="MIS">MIS</option></select></div>
+                    <div class="fg"><label>Order Type</label><select id="haOT"><option value="MARKET">MARKET</option><option value="LIMIT">LIMIT</option></select></div>
+                    <div class="fg"><label>Start Time</label><input type="text" id="haStart" value="09:16:01"></div>
+                    <div class="fg"><label>Stop Time</label><input type="text" id="haStop" value="15:30:00"></div>
+                    <div class="fg"><label>Trading Mode</label><select id="haMode"><option value="Option_Buyer">Buyer</option><option value="Option_Seller">Seller</option></select></div>
+                    <div class="fg"><label>ATM Offset</label><input type="number" id="haATM" value="1"></div>
+                    <div class="fg"><label>Variety</label><select id="haVar"><option value="regular">Regular</option><option value="amo">AMO</option></select></div>
+                    <div class="fg"><label>Mkt Protection %</label><input type="number" id="haMP" value="2" min="0" max="100"></div>
+                    <div class="fg"><label>Exit Trade</label><select id="haExit"><option value="yes">Yes</option><option value="no">No</option></select></div>
+                    <div class="fg"><label>SL Lookback</label><input type="number" id="haSLB" value="1" min="1"></div>
+                </div>
+                <div class="fg" style="margin-top:.65rem"><label>SL Trigger Offset</label><input type="number" id="haSLO" value="0.5" step="0.1"></div>
+                <button class="btn-save" id="haBtnSaveCfg" onclick="haSaveConfig()">Save Configuration</button>
+                <div id="haCfgMsg" style="margin-top:.5rem;font-size:.78rem;display:none;padding:.4rem .7rem;border-radius:6px"></div>
+            </div>
+        </div>
+
+        <div class="right">
+            <div class="card card-red">
+                <div class="card-header"><h2>Live Logs</h2><span class="card-badge" id="haLogCount">0 entries</span></div>
+                <div class="logbox" id="haLogBox"><div class="l-i" style="opacity:.5">⏳ System ready. Waiting for start command...</div></div>
+            </div>
+            <div class="card card-blue">
+                <div class="card-header"><h2>Trade Records</h2></div>
+                <div class="tbl-wrap">
+                <table class="ptbl"><thead><tr><th>#</th><th>Time</th><th>Symbol</th><th>Entry</th><th>Exit</th><th>Qty</th><th>P&L</th><th>P&L %</th><th>Cumulative</th></tr></thead>
+                <tbody id="haOrdBody"><tr><td colspan="9" class="flat"><div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg><p>No completed trades yet</p></div></td></tr></tbody></table>
+                </div>
+            </div>
+            <div class="card card-blue">
+                <div class="card-header"><h2>P&amp;L Pivot</h2><span class="card-badge" id="haPivWinRate">0% win</span></div>
+                <div class="pivot-wrap">
+                    <div class="pivot-chart">
+                        <svg viewBox="0 0 150 150">
+                            <circle class="piv-track" cx="75" cy="75" r="60"/>
+                            <circle id="haPivProfitArc" class="piv-arc" cx="75" cy="75" r="60" stroke-dasharray="0 999" stroke-dashoffset="0"/>
+                            <circle id="haPivLossArc" class="piv-arc" cx="75" cy="75" r="60" stroke-dasharray="0 999" stroke-dashoffset="0"/>
+                        </svg>
+                        <div class="pivot-center">
+                            <div class="piv-net-label">Net P&amp;L</div>
+                            <div class="piv-net-value neutral" id="haPivNet">₹0.00</div>
+                        </div>
+                    </div>
+                    <div class="pivot-legend">
+                        <div class="piv-leg"><span class="piv-dot piv-dot-g"></span><span class="piv-leg-lb">Profit</span><span class="piv-leg-vl grn" id="haPivProfit">₹0.00</span></div>
+                        <div class="piv-leg"><span class="piv-dot piv-dot-r"></span><span class="piv-leg-lb">Loss</span><span class="piv-leg-vl red" id="haPivLoss">₹0.00</span></div>
+                        <div class="piv-leg"><span class="piv-dot piv-dot-n"></span><span class="piv-leg-lb">Trades</span><span class="piv-leg-vl" id="haPivTrades">0</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="card card-blue">
+                <div class="card-header">
+                    <h2>Daily P&amp;L</h2>
+                    <select id="haDpnlDays" class="dpnl-filter" onchange="haRenderDailyPnl()">
+                        <option value="5">Last 5 days</option>
+                        <option value="10" selected>Last 10 days</option>
+                        <option value="15">Last 15 days</option>
+                        <option value="30">Last 30 days</option>
+                    </select>
+                </div>
+                <div class="dpnl-chart" id="haDpnlChart"><div class="dpnl-empty">No trade data yet</div></div>
+            </div>
+        </div>
+    </div>
+    </div>
+
     <div class="tab-content" id="tab-sweep">
     <!-- Sweep PNL Banner -->
     <div class="pnl-banner" id="swpPnlBanner">
@@ -970,7 +1284,7 @@ function updateHeaderClock(){
 }
 updateHeaderClock();setInterval(updateHeaderClock,1000);
 
-const cfgFields=['cSym','cIdx','cToken','cTF','cShow','cFull','cLots','cAmt','cProd','cOT','cStart','cStop','cMode','cATM','cVar','cMP','cExit','cSLB','cSLO'];
+const cfgFields=['cSym','cIdx','cToken','cTF','cShow','cFull','cLots','cAmt','cProd','cOT','cStart','cStop','cMode','cATM','cVar','cMP','cExit','cSLB','cSLO','cOffset','cMaxRetry'];
 
 function setSelectVal(id,val){
     const el=document.getElementById(id);
@@ -999,6 +1313,8 @@ async function loadConfig(){
         if(d.ExitTrade) setSelectVal('cExit',d.ExitTrade);
         if(d.SLCandlesLookback!==undefined) document.getElementById('cSLB').value=d.SLCandlesLookback;
         if(d.SLTriggerOffset!==undefined) document.getElementById('cSLO').value=d.SLTriggerOffset;
+        if(d.OffsetPoints!==undefined) document.getElementById('cOffset').value=d.OffsetPoints;
+        if(d.MaxRetryCountOnBar!==undefined) document.getElementById('cMaxRetry').value=d.MaxRetryCountOnBar;
     }catch{}
 }
 loadConfig();
@@ -1013,7 +1329,8 @@ async function saveConfig(){
             Product:$('#cProd'),Order_type:$('#cOT'),StartTime:$('#cStart'),StopTime:$('#cStop'),
             ModeOfTrading:$('#cMode'),ATMOffset:+$('#cATM'),Variety:$('#cVar'),
             MarketProtection:+$('#cMP'),ExitTrade:$('#cExit'),
-            SLCandlesLookback:+$('#cSLB'),SLTriggerOffset:+$('#cSLO')
+            SLCandlesLookback:+$('#cSLB'),SLTriggerOffset:+$('#cSLO'),
+            OffsetPoints:+$('#cOffset'),MaxRetryCountOnBar:+$('#cMaxRetry')
         };
         const r=await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
         const d=await r.json();
@@ -1075,6 +1392,8 @@ function switchTab(tab){
     document.querySelector(`.tab-btn[onclick="switchTab('${tab}')"]`).classList.add('active');
     if(tab==='trades')renderTrades();
     if(tab==='regular'){rhLoadOrd();rhRenderDailyPnl();rhCheckPosition();}
+    if(tab==='heikin'){haLoadOrd();haRenderDailyPnl();haCheckPosition();}
+    if(tab==='selling'){osLoadOrd();osRenderDailyPnl();osCheckPosition();}
 }
 
 function renderTrades(){
@@ -1366,7 +1685,8 @@ function getCfg(){
         fullMode:$('#cFull')==='true',indexChoosen:$('#cIdx'),noOfLots:+$('#cLots'),amountToTrade:+$('#cAmt'),
         product:$('#cProd'),startTime:$('#cStart'),stopTime:$('#cStop'),orderType:$('#cOT'),
         modeOfTrading:$('#cMode'),atmOffset:+$('#cATM'),variety:$('#cVar'),marketProtection:+$('#cMP'),
-        exitTrade:$('#cExit'),slCandlesLookback:+$('#cSLB'),slTriggerOffset:+$('#cSLO')
+        exitTrade:$('#cExit'),slCandlesLookback:+$('#cSLB'),slTriggerOffset:+$('#cSLO'),
+        offsetPoints:+$('#cOffset'),maxRetryCountOnBar:+$('#cMaxRetry')
     };
 }
 function $(id){const el=document.getElementById(id.replace('#',''));return el.type==='number'?el.value:el.value}
@@ -2221,6 +2541,818 @@ window.addEventListener('resize',()=>{if(_rhDpnlCache&&_rhDpnlCache.length)rhDra
             document.getElementById('rhBtnStart').innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 13,8 3,15"/></svg> Running...';
             document.getElementById('rhBtnStop').disabled=false;
             rhLockConfig(true);rhConnectSSE();
+        }
+    }catch{}
+})();
+
+// ══════════════════════════════════════════════════════════════
+// OPTION-SELLING TAB — runs Option-Selling-Break-out.ps1
+// Mirrors the Regular-Hedge tab; SELLS options on breakout (short PE/CE).
+// Shares input.json (/api/config) and account-wide analytics (/api/orders, /api/pnl/daily).
+// ══════════════════════════════════════════════════════════════
+let osSse=null, osLogEntries=0, osTrades=[], osPendingCleanup=null, _osLoadOrdBusy=false;
+const osCfgFields=['osSym','osIdx','osToken','osTF','osShow','osFull','osLots','osAmt','osProd','osOT','osStart','osStop','osMode','osATM','osVar','osMP','osExit','osSLB','osSLO'];
+
+async function osLoadConfig(){
+    try{
+        const d=await(await fetch('/api/config')).json();
+        if(d.TradingSymbol) document.getElementById('osSym').value=d.TradingSymbol;
+        if(d.IndexChoosen) setSelectVal('osIdx',d.IndexChoosen);
+        if(d.InstrumentToken!==undefined) document.getElementById('osToken').value=d.InstrumentToken;
+        if(d.TimeFrame) setSelectVal('osTF',d.TimeFrame);
+        if(d.CandlesToShow!==undefined) document.getElementById('osShow').value=d.CandlesToShow;
+        if(d.FullMode!==undefined) setSelectVal('osFull',String(d.FullMode));
+        if(d.NoOfLotsPurchaseAtaTime!==undefined) document.getElementById('osLots').value=d.NoOfLotsPurchaseAtaTime;
+        if(d.AmountToTrade!==undefined) document.getElementById('osAmt').value=d.AmountToTrade;
+        if(d.Product) setSelectVal('osProd',d.Product);
+        if(d.Order_type) setSelectVal('osOT',d.Order_type);
+        if(d.StartTime) document.getElementById('osStart').value=d.StartTime;
+        if(d.StopTime) document.getElementById('osStop').value=d.StopTime;
+        if(d.ModeOfTrading) setSelectVal('osMode',d.ModeOfTrading);
+        if(d.ATMOffset!==undefined) document.getElementById('osATM').value=d.ATMOffset;
+        if(d.Variety) setSelectVal('osVar',d.Variety);
+        if(d.MarketProtection!==undefined) document.getElementById('osMP').value=d.MarketProtection;
+        if(d.ExitTrade) setSelectVal('osExit',d.ExitTrade);
+        if(d.SLCandlesLookback!==undefined) document.getElementById('osSLB').value=d.SLCandlesLookback;
+        if(d.SLTriggerOffset!==undefined) document.getElementById('osSLO').value=d.SLTriggerOffset;
+    }catch{}
+}
+osLoadConfig();
+
+function osShowCfgMsg(text,ok){
+    const msg=document.getElementById('osCfgMsg');
+    msg.style.display='block';
+    msg.style.color=ok?'var(--green)':'var(--red)';
+    msg.style.background=ok?'var(--green-light)':'var(--red-light)';
+    msg.textContent=text;
+    setTimeout(()=>{msg.style.display='none'},3500);
+}
+
+async function osSaveConfig(){
+    try{
+        const body={
+            TradingSymbol:$('#osSym'),IndexChoosen:$('#osIdx'),InstrumentToken:+$('#osToken'),
+            TimeFrame:$('#osTF'),CandlesToShow:+$('#osShow'),FullMode:$('#osFull')==='true',
+            NoOfLotsPurchaseAtaTime:+$('#osLots'),AmountToTrade:+$('#osAmt'),
+            Product:$('#osProd'),Order_type:$('#osOT'),StartTime:$('#osStart'),StopTime:$('#osStop'),
+            ModeOfTrading:$('#osMode'),ATMOffset:+$('#osATM'),Variety:$('#osVar'),
+            MarketProtection:+$('#osMP'),ExitTrade:$('#osExit'),
+            SLCandlesLookback:+$('#osSLB'),SLTriggerOffset:+$('#osSLO')
+        };
+        const r=await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const d=await r.json();
+        if(d.success) osShowCfgMsg('✓ Configuration saved successfully',true);
+        else osShowCfgMsg(d.error||'Save failed',false);
+    }catch(e){osShowCfgMsg(e.message,false);}
+}
+
+function osLockConfig(lock){
+    osCfgFields.forEach(id=>{document.getElementById(id).disabled=lock});
+    document.getElementById('osBtnSaveCfg').disabled=lock;
+    ['osBtnFillSym','osBtnResetSym'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=lock});
+}
+
+async function osAutoFillSymbol(){
+    const btn=document.getElementById('osBtnFillSym');
+    const index=document.getElementById('osIdx').value;
+    const offset=Math.abs(parseInt(document.getElementById('osATM').value,10)||1);
+    const orig=btn.textContent;
+    btn.disabled=true;btn.textContent='…';
+    try{
+        const r=await fetch(`/api/atm-option?index=${encodeURIComponent(index)}&offset=${offset}&type=CE`);
+        const d=await r.json();
+        if(r.ok&&d.symbol){
+            document.getElementById('osSym').value=d.symbol;
+            document.getElementById('osToken').value=d.token;
+            osShowCfgMsg(`✓ ${d.symbol} · strike ${d.strike} · spot ₹${Number(d.spot).toFixed(2)}`,true);
+        }else{osShowCfgMsg(d.error||'Failed to fetch ITM1 option',false);}
+    }catch(e){osShowCfgMsg(e.message,false);}
+    finally{btn.disabled=false;btn.textContent=orig;}
+}
+function osResetSymbol(){
+    const index=document.getElementById('osIdx').value;
+    document.getElementById('osSym').value=index;
+    document.getElementById('osToken').value=0;
+    osShowCfgMsg(`↺ Reset to ${index} · token 0 (auto)`,true);
+}
+
+function osGetCfg(){
+    return {
+        tradingSymbol:$('#osSym'),instrumentToken:+$('#osToken'),timeFrame:$('#osTF'),candlesToShow:+$('#osShow'),
+        fullMode:$('#osFull')==='true',indexChoosen:$('#osIdx'),noOfLots:+$('#osLots'),amountToTrade:+$('#osAmt'),
+        product:$('#osProd'),startTime:$('#osStart'),stopTime:$('#osStop'),orderType:$('#osOT'),
+        modeOfTrading:$('#osMode'),atmOffset:+$('#osATM'),variety:$('#osVar'),marketProtection:+$('#osMP'),
+        exitTrade:$('#osExit'),slCandlesLookback:+$('#osSLB'),slTriggerOffset:+$('#osSLO')
+    };
+}
+
+async function osCheckPosition(){
+    try{
+        const d=await(await fetch('/api/osbot/position')).json();
+        if(d.exists){
+            const p=d.position;
+            document.getElementById('osPosAlertText').textContent=`Saved position: ${p.direction} | ${p.symbol} | Strike: ${p.strike} | Qty: ${p.qty} @ ${p.time}`;
+            document.getElementById('osPositionAlert').style.display='flex';
+        }else{document.getElementById('osPositionAlert').style.display='none';}
+    }catch{}
+}
+function osCleanupPosition(){osPendingCleanup=true;document.getElementById('osPositionAlert').style.display='none';osStartBot();}
+function osDismissPositionAlert(){osPendingCleanup=false;document.getElementById('osPositionAlert').style.display='none';osStartBot();}
+
+function osSetStatus(s){
+    const el=document.getElementById('osStStatus');
+    if(s==='running')el.innerHTML='<span class="dot dot-g"></span>Running';
+    else if(s==='initializing'||s==='initialized')el.innerHTML='<span class="dot dot-y"></span>Initializing';
+    else if(s==='stopped')el.innerHTML='<span class="dot dot-r"></span>Stopped';
+    else el.innerHTML='<span class="dot dot-r"></span>Idle';
+}
+
+async function osStartBot(){
+    const b=document.getElementById('osBtnStart');b.disabled=true;b.innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 13,8 3,15"/></svg> Starting...';
+    osLockConfig(true);
+    const resetStart=()=>{b.disabled=false;b.innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 13,8 3,15"/></svg> Start Trading';osLockConfig(false)};
+    try{
+        if(osPendingCleanup===null){
+            const pr=await fetch('/api/osbot/position');
+            if(!pr.ok){resetStart();return}
+            const pd=await pr.json();
+            if(pd.exists){
+                resetStart();
+                const p=pd.position;
+                document.getElementById('osPosAlertText').textContent=`Saved position: ${p.direction} | ${p.symbol} | Strike: ${p.strike} | Qty: ${p.qty} @ ${p.time}`;
+                document.getElementById('osPositionAlert').style.display='flex';
+                return;
+            }
+        }
+        const cfg=osGetCfg();
+        cfg.cleanupPosition=osPendingCleanup===true;
+        osPendingCleanup=null;
+        const r=await fetch('/api/osbot/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
+        if(!r.ok){resetStart();return}
+        const d=await r.json();
+        if(d.success){
+            document.getElementById('osBtnStop').disabled=false;
+            b.innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 13,8 3,15"/></svg> Running...';
+            document.getElementById('osPositionAlert').style.display='none';
+            osConnectSSE();
+        }else{alert(d.error||'Failed');resetStart()}
+    }catch(e){alert(e.message);resetStart()}
+}
+
+async function osStopBot(){
+    const btnStop=document.getElementById('osBtnStop');
+    const btnStart=document.getElementById('osBtnStart');
+    btnStop.disabled=true;
+    btnStop.innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="12" height="12" rx="2"/></svg> Stopping...';
+    try{await fetch('/api/osbot/stop',{method:'POST'})}catch{}
+    osPendingCleanup=null;
+    btnStart.disabled=false;
+    btnStart.innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 13,8 3,15"/></svg> Start Trading';
+    btnStop.innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="12" height="12" rx="2"/></svg> Stop';
+    btnStop.disabled=false;
+    if(osSse){osSse.close();osSse=null}
+    osSetStatus('idle');
+    osLockConfig(false);
+}
+
+function osConnectSSE(){
+    if(osSse)osSse.close();
+    osSse=new EventSource('/api/osbot/stream');
+    osSse.addEventListener('log',e=>{
+        const d=JSON.parse(e.data);
+        const box=document.getElementById('osLogBox');
+        let cls='l-i';
+        if(d.level==='error')cls='l-e';
+        else if((d.msg||'').includes('LONG')||(d.msg||'').includes('SHORT'))cls='l-s';
+        else if((d.msg||'').includes('BUY')||(d.msg||'').includes('SELL'))cls='l-t';
+        const div=document.createElement('div');
+        div.className=cls;
+        div.textContent='['+((d.ts||'').substring(11,23)||'')+'] '+(d.msg||'');
+        box.appendChild(div);
+        if(box.children.length>500)box.removeChild(box.firstChild);
+        box.scrollTop=box.scrollHeight;
+        osLogEntries++;
+        document.getElementById('osLogCount').textContent=osLogEntries+' entries';
+    });
+    osSse.addEventListener('status',e=>{const d=JSON.parse(e.data);osSetStatus(d.status);});
+    osSse.onerror=()=>{if(osSse){osSse.close();osSse=null;setTimeout(()=>{if(!osSse&&document.getElementById('osBtnStart').disabled)osConnectSSE()},3000)}};
+}
+
+function osRenderPnlPivot(records){
+    const R=60,C=2*Math.PI*R;
+    const gp=records.filter(r=>r.pnl>0).reduce((s,r)=>s+r.pnl,0);
+    const gl=Math.abs(records.filter(r=>r.pnl<0).reduce((s,r)=>s+r.pnl,0));
+    const net=gp-gl,total=gp+gl;
+    const wins=records.filter(r=>r.pnl>0).length;
+    const winRate=records.length?Math.round((wins/records.length)*100):0;
+    const profitLen=total>0?(gp/total)*C:0;
+    const lossLen=total>0?(gl/total)*C:0;
+    const gap=(gp>0&&gl>0)?4:0;
+    const pa=document.getElementById('osPivProfitArc');
+    const la=document.getElementById('osPivLossArc');
+    pa.setAttribute('stroke-dasharray',`${Math.max(profitLen-gap,0)} ${C}`);
+    pa.setAttribute('stroke-dashoffset','0');
+    la.setAttribute('stroke-dasharray',`${Math.max(lossLen-gap,0)} ${C}`);
+    la.setAttribute('stroke-dashoffset',`${-profitLen}`);
+    const netEl=document.getElementById('osPivNet');
+    netEl.textContent=`${net>=0?'+':'-'}₹${Math.abs(net).toFixed(2)}`;
+    netEl.className='piv-net-value '+(net>0?'grn':net<0?'red':'neutral');
+    document.getElementById('osPivProfit').textContent=`+₹${gp.toFixed(2)}`;
+    document.getElementById('osPivLoss').textContent=`-₹${gl.toFixed(2)}`;
+    document.getElementById('osPivTrades').textContent=records.length;
+    document.getElementById('osPivWinRate').textContent=`${winRate}% win`;
+}
+
+function osUpdateCumulativePnl(pnl,totalTrades,winners){
+    const el=document.getElementById('osCumPnlValue');
+    el.textContent=(pnl>=0?'+':'')+'₹'+pnl.toFixed(2);
+    el.className='pnl-value '+(pnl>0?'positive':pnl<0?'negative':'neutral');
+    document.getElementById('osCumTrades').textContent=totalTrades;
+    document.getElementById('osCumWinners').textContent=winners;
+    document.getElementById('osCumWinRate').textContent=totalTrades>0?((winners/totalTrades)*100).toFixed(0)+'%':'0%';
+    const banner=document.getElementById('osPnlBanner');
+    if(pnl>0)banner.style.borderColor='var(--green-border)';
+    else if(pnl<0)banner.style.borderColor='var(--red-border)';
+    else banner.style.borderColor='var(--border)';
+}
+
+async function osLoadOrd(){
+    if(_osLoadOrdBusy)return;
+    _osLoadOrdBusy=true;
+    try{
+        const d=await(await fetch('/api/orders')).json();
+        const tb=document.getElementById('osOrdBody');
+        const completed=(d||[]).filter(o=>o.status==='COMPLETE');
+        if(!completed.length){tb.innerHTML='<tr><td colspan="9" class="flat">No completed trades</td></tr>';osRenderPnlPivot([]);osUpdateCumulativePnl(0,0,0);return}
+        const buys=completed.filter(o=>o.transaction_type==='BUY').sort((a,b)=>new Date(a.order_timestamp)-new Date(b.order_timestamp));
+        const sells=completed.filter(o=>o.transaction_type==='SELL').sort((a,b)=>new Date(a.order_timestamp)-new Date(b.order_timestamp));
+        const records=[];
+        const usedBuys=new Set();
+        for(const sell of sells){
+            const buy=buys.find(x=>x.tradingsymbol===sell.tradingsymbol&&!usedBuys.has(x.order_id)&&new Date(x.order_timestamp)>=new Date(sell.order_timestamp));
+            if(buy){
+                usedBuys.add(buy.order_id);
+                const entry=+sell.average_price;const exit=+buy.average_price;const qty=+sell.quantity;
+                const pnl=(entry-exit)*qty;const pct=entry>0?((entry-exit)/entry)*100:0;
+                records.push({time:sell.order_timestamp,symbol:sell.tradingsymbol,entry,exit,qty,pnl,pct});
+            }else{
+                records.push({time:sell.order_timestamp,symbol:sell.tradingsymbol,entry:+sell.average_price,exit:null,qty:+sell.quantity,pnl:null,pct:null});
+            }
+        }
+        let cumPnL=0;
+        for(const r of records){if(r.pnl!==null)r.cum=(cumPnL+=r.pnl);}
+        const closedRecords=records.filter(r=>r.pnl!==null);
+        osUpdateCumulativePnl(cumPnL,closedRecords.length,closedRecords.filter(r=>r.pnl>0).length);
+        osRenderPnlPivot(closedRecords);
+        const totalRecords=records.length;
+        tb.innerHTML=records.slice().reverse().map((r,i)=>{
+            const num=totalRecords-i;
+            const t=r.time?new Date(r.time).toLocaleTimeString('en-IN',{hour12:false}):'--';
+            if(r.exit===null){
+                return`<tr><td>${num}</td><td>${t}</td><td>${r.symbol}</td><td>₹${r.entry.toFixed(2)}</td><td class="flat">OPEN</td><td>${r.qty}</td><td class="flat">—</td><td class="flat">—</td><td class="flat">—</td></tr>`;
+            }
+            const cls=r.pnl>=0?'grn':'red';const cumCls=r.cum>=0?'grn':'red';
+            const rowCls=r.pnl>0?'row-profit':(r.pnl<0?'row-loss':'');
+            return`<tr class="${rowCls}"><td>${num}</td><td>${t}</td><td>${r.symbol}</td><td>₹${r.entry.toFixed(2)}</td><td>₹${r.exit.toFixed(2)}</td><td>${r.qty}</td><td class="${cls}">${r.pnl>=0?'+':''}₹${r.pnl.toFixed(2)}</td><td class="${cls}">${r.pct>=0?'+':''}${r.pct.toFixed(2)}%</td><td class="${cumCls}">${r.cum>=0?'+':''}₹${r.cum.toFixed(2)}</td></tr>`;
+        }).join('');
+    }catch{}finally{_osLoadOrdBusy=false}
+}
+
+let _osDpnlCache=null,_osDpnlPts=null;
+async function osRenderDailyPnl(){
+    const host=document.getElementById('osDpnlChart');
+    if(!host)return;
+    const days=+(document.getElementById('osDpnlDays')?.value||10);
+    let data=[];
+    try{data=await(await fetch('/api/pnl/daily?days='+days)).json();}catch{}
+    _osDpnlCache=Array.isArray(data)?data:[];
+    osDrawDailyPnl();
+}
+function osDrawDailyPnl(){
+    const host=document.getElementById('osDpnlChart');
+    if(!host)return;
+    const data=_osDpnlCache||[];
+    if(!data.length){host.innerHTML='<div class="dpnl-empty">No trade data yet</div>';return}
+    let run=0; const pts=data.map(d=>{const v=d.pnl||0;run+=v;return{date:d.date,pnl:v,cum:run,trades:d.trades||0,entries:d.entries||[]};});
+    _osDpnlPts=pts;
+    const total=run;
+    const n=pts.length;
+    const winDays=pts.filter(p=>p.pnl>0).length;
+    const avg=total/n;
+    const best=pts.reduce((a,b)=>b.pnl>a.pnl?b:a,pts[0]);
+    const winRate=Math.round(winDays/n*100);
+    const cls=v=>v>0?'g':v<0?'r':'';
+    const col=v=>v>0?'var(--green)':v<0?'var(--red)':'var(--text-secondary)';
+    const W=Math.max(host.clientWidth||600,320), H=196;
+    const padT=20,padB=22,padL=6,padR=6;
+    const innerW=W-padL-padR, innerH=H-padT-padB;
+    const step=innerW/n, barW=Math.min(step*0.5,26);
+    const zeroY=padT+innerH/2;
+    const maxAbs=Math.max(...pts.map(p=>Math.abs(p.pnl)),1);
+    const barScale=(innerH/2-6)/maxAbs;
+    const cx=i=>padL+step*(i+0.5);
+    const cmin=Math.min(0,...pts.map(p=>p.cum)), cmax=Math.max(0,...pts.map(p=>p.cum));
+    const cRange=(cmax-cmin)||1;
+    const cY=v=>padT+innerH-((v-cmin)/cRange)*innerH;
+    const cPts=pts.map((p,i)=>({x:cx(i),y:cY(p.cum)}));
+    const linePath='M'+cPts.map((p,i)=>`${i?'L':''}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+    const areaPath=`M${cPts[0].x.toFixed(1)} ${(padT+innerH).toFixed(1)} `+cPts.map(p=>`L${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')+` L${cPts[n-1].x.toFixed(1)} ${(padT+innerH).toFixed(1)} Z`;
+    const bars=pts.map((p,i)=>{
+        const x=cx(i)-barW/2;
+        const h=Math.max(Math.abs(p.pnl)*barScale,p.pnl?2:0);
+        const pos=p.pnl>=0;
+        const bx=x.toFixed(1);
+        let rect='';
+        if(p.pnl!==0){
+            if(pos){const y=(zeroY-h);const r=Math.min(4,barW/2,h);
+                rect=`<path class="dpnl-bar-rect" d="M${bx} ${(y+r).toFixed(1)} Q${bx} ${y.toFixed(1)} ${(x+r).toFixed(1)} ${y.toFixed(1)} H${(x+barW-r).toFixed(1)} Q${(x+barW).toFixed(1)} ${y.toFixed(1)} ${(x+barW).toFixed(1)} ${(y+r).toFixed(1)} V${zeroY.toFixed(1)} H${bx} Z" fill="url(#osDpnlG)"/>`;
+            }else{const y=zeroY;const bh=h;const r=Math.min(4,barW/2,bh);
+                rect=`<path class="dpnl-bar-rect" d="M${bx} ${y.toFixed(1)} H${(x+barW).toFixed(1)} V${(y+bh-r).toFixed(1)} Q${(x+barW).toFixed(1)} ${(y+bh).toFixed(1)} ${(x+barW-r).toFixed(1)} ${(y+bh).toFixed(1)} H${(x+r).toFixed(1)} Q${bx} ${(y+bh).toFixed(1)} ${bx} ${(y+bh-r).toFixed(1)} Z" fill="url(#osDpnlR)"/>`;
+            }
+        }
+        const ly=pos?(zeroY-h-4):(zeroY+h+9);
+        const lbl=p.pnl!==0?`<text class="dpnl-vlabel" x="${cx(i).toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" fill="${pos?'var(--green)':'var(--red)'}">${dpnlCompact(p.pnl)}</text>`:'';
+        const xl=`<text class="dpnl-xlabel" x="${cx(i).toFixed(1)}" y="${(H-6).toFixed(1)}" text-anchor="middle">${dpnlLabel(p.date)}</text>`;
+        const hit=`<rect class="dpnl-col-hit" style="cursor:pointer" x="${(cx(i)-step/2).toFixed(1)}" y="${padT}" width="${step.toFixed(1)}" height="${innerH}" onmousemove="osDpnlShowTip(event,${i})" onmouseleave="osDpnlHideTip()" onclick="osDpnlShowDay(${i})"/>`;
+        return hit+rect+lbl+xl;
+    }).join('');
+    const dots=cPts.map((p,i)=>`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${i===n-1?3.6:2.4}" fill="var(--accent)" stroke="#fff" stroke-width="1.3"/>`).join('');
+    const endLy=Math.max(cY(pts[n-1].cum)-9,10);
+    const endLbl=`<text x="${cPts[n-1].x.toFixed(1)}" y="${endLy.toFixed(1)}" text-anchor="end" font-size="10" font-weight="800" font-family="'JetBrains Mono',monospace" fill="var(--accent)">${dpnlINR(total)}</text>`;
+    const svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Daily and cumulative P&amp;L">
+        <defs>
+            <linearGradient id="osDpnlG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#12b48c"/><stop offset="1" stop-color="var(--green)"/></linearGradient>
+            <linearGradient id="osDpnlR" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--red)"/><stop offset="1" stop-color="#f26d7d"/></linearGradient>
+            <linearGradient id="osDpnlArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".22"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient>
+        </defs>
+        <line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${(W-padR).toFixed(1)}" y2="${zeroY.toFixed(1)}" stroke="var(--border)" stroke-dasharray="3 3"/>
+        ${bars}
+        <path d="${areaPath}" fill="url(#osDpnlArea)"/>
+        <path d="${linePath}" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+        ${dots}${endLbl}
+    </svg>`;
+    host.innerHTML=
+        `<div class="dpnl-summary">`
+        +`<div class="dpnl-stat ${cls(total)}"><div class="k">Total P&amp;L</div><div class="val" style="color:${col(total)}">${dpnlINR(total)}</div><div class="sub">over ${n} day${n>1?'s':''}</div></div>`
+        +`<div class="dpnl-stat ${cls(avg)}"><div class="k">Avg / Day</div><div class="val" style="color:${col(avg)}">${dpnlINR(avg)}</div><div class="sub">best ${dpnlINR(best.pnl)}</div></div>`
+        +`<div class="dpnl-stat ${winRate>=50?'g':'r'}"><div class="k">Win Days</div><div class="val">${winDays}/${n}</div><div class="sub">${winRate}% win rate</div></div>`
+        +`</div>`
+        +`<div class="dpnl-svgwrap">${svg}</div>`
+        +`<div class="dpnl-legend"><span class="lg"><span class="sw" style="background:var(--green)"></span>Profit day</span><span class="lg"><span class="sw" style="background:var(--red)"></span>Loss day</span><span class="lg"><span class="sw ln" style="background:var(--accent)"></span>Cumulative</span></div>`
+        +`<div class="dpnl-hint">Click any bar to see that day's trades (entry / exit)</div>`
+        +`<div class="dpnl-details" id="osDpnlDetails" style="display:none"></div>`
+        +`<div class="dpnl-tip" id="osDpnlTip"></div>`;
+}
+function osDpnlShowDay(i){
+    const box=document.getElementById('osDpnlDetails');
+    if(!box||!_osDpnlPts)return;
+    const d=_osDpnlPts[i];if(!d)return;
+    const es=d.entries||[];
+    const hd=`<div class="dpnl-details-hd"><span>${dpnlLabel(d.date)} · ${d.trades} trade${d.trades===1?'':'s'} · <span class="${d.pnl>=0?'grn':'red'}">${dpnlINR(d.pnl)}</span></span><span class="cl" onclick="osDpnlCloseDay()">\u2715 close</span></div>`;
+    if(!es.length){
+        box.innerHTML=hd+`<div class="dpnl-hint">No per-trade detail stored for this day.<br>(Kite exposes only today's orders, so past-day breakdowns exist only if captured on that day.)</div>`;
+        box.style.display='block';return;
+    }
+    const rows=es.map(e=>{
+        const t=e.exitTime?String(e.exitTime).substring(11,16):(e.entryTime?String(e.entryTime).substring(11,16):'—');
+        const c=e.pnl>=0?'grn':'red';
+        return`<tr><td>${t}</td><td>${e.symbol}<div class="ex">${e.exchange||''}</div></td><td style="text-align:right">${e.qty}</td><td style="text-align:right">\u20b9${(+e.entry).toFixed(2)}</td><td style="text-align:right">\u20b9${(+e.exit).toFixed(2)}</td><td class="${c}" style="text-align:right">${e.pnl>=0?'+':''}\u20b9${(+e.pnl).toFixed(2)}</td></tr>`;
+    }).join('');
+    box.innerHTML=hd+`<table class="dpnl-tbl"><thead><tr><th>Time</th><th>Symbol</th><th>Qty</th><th>Entry</th><th>Exit</th><th>P&amp;L</th></tr></thead><tbody>${rows}</tbody></table>`;
+    box.style.display='block';
+}
+function osDpnlCloseDay(){const b=document.getElementById('osDpnlDetails');if(b){b.style.display='none';b.innerHTML='';}}
+function osDpnlShowTip(evt,i){
+    const t=document.getElementById('osDpnlTip');if(!t||!_osDpnlPts)return;
+    const d=_osDpnlPts[i];if(!d)return;
+    t.innerHTML=`<div style="font-weight:700;margin-bottom:2px">${dpnlLabel(d.date)}</div>`
+        +`<div>Day: <b style="color:${d.pnl>=0?'#3dd7b0':'#ff8a95'}">${dpnlINR(d.pnl)}</b></div>`
+        +`<div>Cumulative: <b style="color:#b3a8f5">${dpnlINR(d.cum)}</b></div>`
+        +`<div style="opacity:.8">${d.trades} trade${d.trades===1?'':'s'}</div>`;
+    const wrap=t.parentElement.getBoundingClientRect();
+    t.classList.add('show');
+    const tx=evt.clientX-wrap.left, ty=evt.clientY-wrap.top;
+    t.style.left=Math.min(Math.max(tx+12,4),wrap.width-t.offsetWidth-4)+'px';
+    t.style.top=Math.max(ty-t.offsetHeight-12,0)+'px';
+}
+function osDpnlHideTip(){const t=document.getElementById('osDpnlTip');if(t)t.classList.remove('show');}
+window.addEventListener('resize',()=>{if(_osDpnlCache&&_osDpnlCache.length)osDrawDailyPnl();});
+
+// Restore running state on load (in case the option-selling bot is already running)
+(async()=>{
+    try{
+        const d=await(await fetch('/api/osbot/state')).json();
+        if(d.status==='running'){
+            document.getElementById('osBtnStart').disabled=true;
+            document.getElementById('osBtnStart').innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 13,8 3,15"/></svg> Running...';
+            document.getElementById('osBtnStop').disabled=false;
+            osLockConfig(true);osConnectSSE();
+        }
+    }catch{}
+})();
+
+// ══════════════════════════════════════════════════════════════
+// HEIKINASHI-HEDGE TAB — runs HeikinAshi-Long-Short-Combined-Simple.ps1
+// Mirrors the Regular-Hedge tab; only the backend script differs.
+// Shares input.json (/api/config) and account-wide analytics (/api/orders, /api/pnl/daily).
+// ══════════════════════════════════════════════════════════════
+let haSse=null, haLogEntries=0, haTrades=[], haPendingCleanup=null, _haLoadOrdBusy=false;
+const haCfgFields=['haSym','haIdx','haToken','haTF','haShow','haFull','haLots','haAmt','haProd','haOT','haStart','haStop','haMode','haATM','haVar','haMP','haExit','haSLB','haSLO'];
+
+async function haLoadConfig(){
+    try{
+        const d=await(await fetch('/api/config')).json();
+        if(d.TradingSymbol) document.getElementById('haSym').value=d.TradingSymbol;
+        if(d.IndexChoosen) setSelectVal('haIdx',d.IndexChoosen);
+        if(d.InstrumentToken!==undefined) document.getElementById('haToken').value=d.InstrumentToken;
+        if(d.TimeFrame) setSelectVal('haTF',d.TimeFrame);
+        if(d.CandlesToShow!==undefined) document.getElementById('haShow').value=d.CandlesToShow;
+        if(d.FullMode!==undefined) setSelectVal('haFull',String(d.FullMode));
+        if(d.NoOfLotsPurchaseAtaTime!==undefined) document.getElementById('haLots').value=d.NoOfLotsPurchaseAtaTime;
+        if(d.AmountToTrade!==undefined) document.getElementById('haAmt').value=d.AmountToTrade;
+        if(d.Product) setSelectVal('haProd',d.Product);
+        if(d.Order_type) setSelectVal('haOT',d.Order_type);
+        if(d.StartTime) document.getElementById('haStart').value=d.StartTime;
+        if(d.StopTime) document.getElementById('haStop').value=d.StopTime;
+        if(d.ModeOfTrading) setSelectVal('haMode',d.ModeOfTrading);
+        if(d.ATMOffset!==undefined) document.getElementById('haATM').value=d.ATMOffset;
+        if(d.Variety) setSelectVal('haVar',d.Variety);
+        if(d.MarketProtection!==undefined) document.getElementById('haMP').value=d.MarketProtection;
+        if(d.ExitTrade) setSelectVal('haExit',d.ExitTrade);
+        if(d.SLCandlesLookback!==undefined) document.getElementById('haSLB').value=d.SLCandlesLookback;
+        if(d.SLTriggerOffset!==undefined) document.getElementById('haSLO').value=d.SLTriggerOffset;
+    }catch{}
+}
+haLoadConfig();
+
+function haShowCfgMsg(text,ok){
+    const msg=document.getElementById('haCfgMsg');
+    msg.style.display='block';
+    msg.style.color=ok?'var(--green)':'var(--red)';
+    msg.style.background=ok?'var(--green-light)':'var(--red-light)';
+    msg.textContent=text;
+    setTimeout(()=>{msg.style.display='none'},3500);
+}
+
+async function haSaveConfig(){
+    try{
+        const body={
+            TradingSymbol:$('#haSym'),IndexChoosen:$('#haIdx'),InstrumentToken:+$('#haToken'),
+            TimeFrame:$('#haTF'),CandlesToShow:+$('#haShow'),FullMode:$('#haFull')==='true',
+            NoOfLotsPurchaseAtaTime:+$('#haLots'),AmountToTrade:+$('#haAmt'),
+            Product:$('#haProd'),Order_type:$('#haOT'),StartTime:$('#haStart'),StopTime:$('#haStop'),
+            ModeOfTrading:$('#haMode'),ATMOffset:+$('#haATM'),Variety:$('#haVar'),
+            MarketProtection:+$('#haMP'),ExitTrade:$('#haExit'),
+            SLCandlesLookback:+$('#haSLB'),SLTriggerOffset:+$('#haSLO')
+        };
+        const r=await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const d=await r.json();
+        if(d.success) haShowCfgMsg('✓ Configuration saved successfully',true);
+        else haShowCfgMsg(d.error||'Save failed',false);
+    }catch(e){haShowCfgMsg(e.message,false);}
+}
+
+function haLockConfig(lock){
+    haCfgFields.forEach(id=>{document.getElementById(id).disabled=lock});
+    document.getElementById('haBtnSaveCfg').disabled=lock;
+    ['haBtnFillSym','haBtnResetSym'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=lock});
+}
+
+async function haAutoFillSymbol(){
+    const btn=document.getElementById('haBtnFillSym');
+    const index=document.getElementById('haIdx').value;
+    const offset=Math.abs(parseInt(document.getElementById('haATM').value,10)||1);
+    const orig=btn.textContent;
+    btn.disabled=true;btn.textContent='…';
+    try{
+        const r=await fetch(`/api/atm-option?index=${encodeURIComponent(index)}&offset=${offset}&type=CE`);
+        const d=await r.json();
+        if(r.ok&&d.symbol){
+            document.getElementById('haSym').value=d.symbol;
+            document.getElementById('haToken').value=d.token;
+            haShowCfgMsg(`✓ ${d.symbol} · strike ${d.strike} · spot ₹${Number(d.spot).toFixed(2)}`,true);
+        }else{haShowCfgMsg(d.error||'Failed to fetch ITM1 option',false);}
+    }catch(e){haShowCfgMsg(e.message,false);}
+    finally{btn.disabled=false;btn.textContent=orig;}
+}
+function haResetSymbol(){
+    const index=document.getElementById('haIdx').value;
+    document.getElementById('haSym').value=index;
+    document.getElementById('haToken').value=0;
+    haShowCfgMsg(`↺ Reset to ${index} · token 0 (auto)`,true);
+}
+
+function haGetCfg(){
+    return {
+        tradingSymbol:$('#haSym'),instrumentToken:+$('#haToken'),timeFrame:$('#haTF'),candlesToShow:+$('#haShow'),
+        fullMode:$('#haFull')==='true',indexChoosen:$('#haIdx'),noOfLots:+$('#haLots'),amountToTrade:+$('#haAmt'),
+        product:$('#haProd'),startTime:$('#haStart'),stopTime:$('#haStop'),orderType:$('#haOT'),
+        modeOfTrading:$('#haMode'),atmOffset:+$('#haATM'),variety:$('#haVar'),marketProtection:+$('#haMP'),
+        exitTrade:$('#haExit'),slCandlesLookback:+$('#haSLB'),slTriggerOffset:+$('#haSLO')
+    };
+}
+
+async function haCheckPosition(){
+    try{
+        const d=await(await fetch('/api/habot/position')).json();
+        if(d.exists){
+            const p=d.position;
+            document.getElementById('haPosAlertText').textContent=`Saved position: ${p.direction} | ${p.symbol} | Strike: ${p.strike} | Qty: ${p.qty} @ ${p.time}`;
+            document.getElementById('haPositionAlert').style.display='flex';
+        }else{document.getElementById('haPositionAlert').style.display='none';}
+    }catch{}
+}
+function haCleanupPosition(){haPendingCleanup=true;document.getElementById('haPositionAlert').style.display='none';haStartBot();}
+function haDismissPositionAlert(){haPendingCleanup=false;document.getElementById('haPositionAlert').style.display='none';haStartBot();}
+
+function haSetStatus(s){
+    const el=document.getElementById('haStStatus');
+    if(s==='running')el.innerHTML='<span class="dot dot-g"></span>Running';
+    else if(s==='initializing'||s==='initialized')el.innerHTML='<span class="dot dot-y"></span>Initializing';
+    else if(s==='stopped')el.innerHTML='<span class="dot dot-r"></span>Stopped';
+    else el.innerHTML='<span class="dot dot-r"></span>Idle';
+}
+
+async function haStartBot(){
+    const b=document.getElementById('haBtnStart');b.disabled=true;b.innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 13,8 3,15"/></svg> Starting...';
+    haLockConfig(true);
+    const resetStart=()=>{b.disabled=false;b.innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 13,8 3,15"/></svg> Start Trading';haLockConfig(false)};
+    try{
+        if(haPendingCleanup===null){
+            const pr=await fetch('/api/habot/position');
+            if(!pr.ok){resetStart();return}
+            const pd=await pr.json();
+            if(pd.exists){
+                resetStart();
+                const p=pd.position;
+                document.getElementById('haPosAlertText').textContent=`Saved position: ${p.direction} | ${p.symbol} | Strike: ${p.strike} | Qty: ${p.qty} @ ${p.time}`;
+                document.getElementById('haPositionAlert').style.display='flex';
+                return;
+            }
+        }
+        const cfg=haGetCfg();
+        cfg.cleanupPosition=haPendingCleanup===true;
+        haPendingCleanup=null;
+        const r=await fetch('/api/habot/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
+        if(!r.ok){resetStart();return}
+        const d=await r.json();
+        if(d.success){
+            document.getElementById('haBtnStop').disabled=false;
+            b.innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 13,8 3,15"/></svg> Running...';
+            document.getElementById('haPositionAlert').style.display='none';
+            haConnectSSE();
+        }else{alert(d.error||'Failed');resetStart()}
+    }catch(e){alert(e.message);resetStart()}
+}
+
+async function haStopBot(){
+    const btnStop=document.getElementById('haBtnStop');
+    const btnStart=document.getElementById('haBtnStart');
+    btnStop.disabled=true;
+    btnStop.innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="12" height="12" rx="2"/></svg> Stopping...';
+    try{await fetch('/api/habot/stop',{method:'POST'})}catch{}
+    haPendingCleanup=null;
+    btnStart.disabled=false;
+    btnStart.innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 13,8 3,15"/></svg> Start Trading';
+    btnStop.innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="12" height="12" rx="2"/></svg> Stop';
+    btnStop.disabled=false;
+    if(haSse){haSse.close();haSse=null}
+    haSetStatus('idle');
+    haLockConfig(false);
+}
+
+function haConnectSSE(){
+    if(haSse)haSse.close();
+    haSse=new EventSource('/api/habot/stream');
+    haSse.addEventListener('log',e=>{
+        const d=JSON.parse(e.data);
+        const box=document.getElementById('haLogBox');
+        let cls='l-i';
+        if(d.level==='error')cls='l-e';
+        else if((d.msg||'').includes('LONG')||(d.msg||'').includes('SHORT'))cls='l-s';
+        else if((d.msg||'').includes('BUY')||(d.msg||'').includes('SELL'))cls='l-t';
+        const div=document.createElement('div');
+        div.className=cls;
+        div.textContent='['+((d.ts||'').substring(11,23)||'')+'] '+(d.msg||'');
+        box.appendChild(div);
+        if(box.children.length>500)box.removeChild(box.firstChild);
+        box.scrollTop=box.scrollHeight;
+        haLogEntries++;
+        document.getElementById('haLogCount').textContent=haLogEntries+' entries';
+    });
+    haSse.addEventListener('status',e=>{const d=JSON.parse(e.data);haSetStatus(d.status);});
+    haSse.onerror=()=>{if(haSse){haSse.close();haSse=null;setTimeout(()=>{if(!haSse&&document.getElementById('haBtnStart').disabled)haConnectSSE()},3000)}};
+}
+
+function haRenderPnlPivot(records){
+    const R=60,C=2*Math.PI*R;
+    const gp=records.filter(r=>r.pnl>0).reduce((s,r)=>s+r.pnl,0);
+    const gl=Math.abs(records.filter(r=>r.pnl<0).reduce((s,r)=>s+r.pnl,0));
+    const net=gp-gl,total=gp+gl;
+    const wins=records.filter(r=>r.pnl>0).length;
+    const winRate=records.length?Math.round((wins/records.length)*100):0;
+    const profitLen=total>0?(gp/total)*C:0;
+    const lossLen=total>0?(gl/total)*C:0;
+    const gap=(gp>0&&gl>0)?4:0;
+    const pa=document.getElementById('haPivProfitArc');
+    const la=document.getElementById('haPivLossArc');
+    pa.setAttribute('stroke-dasharray',`${Math.max(profitLen-gap,0)} ${C}`);
+    pa.setAttribute('stroke-dashoffset','0');
+    la.setAttribute('stroke-dasharray',`${Math.max(lossLen-gap,0)} ${C}`);
+    la.setAttribute('stroke-dashoffset',`${-profitLen}`);
+    const netEl=document.getElementById('haPivNet');
+    netEl.textContent=`${net>=0?'+':'-'}₹${Math.abs(net).toFixed(2)}`;
+    netEl.className='piv-net-value '+(net>0?'grn':net<0?'red':'neutral');
+    document.getElementById('haPivProfit').textContent=`+₹${gp.toFixed(2)}`;
+    document.getElementById('haPivLoss').textContent=`-₹${gl.toFixed(2)}`;
+    document.getElementById('haPivTrades').textContent=records.length;
+    document.getElementById('haPivWinRate').textContent=`${winRate}% win`;
+}
+
+function haUpdateCumulativePnl(pnl,totalTrades,winners){
+    const el=document.getElementById('haCumPnlValue');
+    el.textContent=(pnl>=0?'+':'')+'₹'+pnl.toFixed(2);
+    el.className='pnl-value '+(pnl>0?'positive':pnl<0?'negative':'neutral');
+    document.getElementById('haCumTrades').textContent=totalTrades;
+    document.getElementById('haCumWinners').textContent=winners;
+    document.getElementById('haCumWinRate').textContent=totalTrades>0?((winners/totalTrades)*100).toFixed(0)+'%':'0%';
+    const banner=document.getElementById('haPnlBanner');
+    if(pnl>0)banner.style.borderColor='var(--green-border)';
+    else if(pnl<0)banner.style.borderColor='var(--red-border)';
+    else banner.style.borderColor='var(--border)';
+}
+
+async function haLoadOrd(){
+    if(_haLoadOrdBusy)return;
+    _haLoadOrdBusy=true;
+    try{
+        const d=await(await fetch('/api/orders')).json();
+        const tb=document.getElementById('haOrdBody');
+        const completed=(d||[]).filter(o=>o.status==='COMPLETE');
+        if(!completed.length){tb.innerHTML='<tr><td colspan="9" class="flat">No completed trades</td></tr>';haRenderPnlPivot([]);haUpdateCumulativePnl(0,0,0);return}
+        const buys=completed.filter(o=>o.transaction_type==='BUY').sort((a,b)=>new Date(a.order_timestamp)-new Date(b.order_timestamp));
+        const sells=completed.filter(o=>o.transaction_type==='SELL').sort((a,b)=>new Date(a.order_timestamp)-new Date(b.order_timestamp));
+        const records=[];
+        const usedSells=new Set();
+        for(const buy of buys){
+            const sell=sells.find(s=>s.tradingsymbol===buy.tradingsymbol&&!usedSells.has(s.order_id)&&new Date(s.order_timestamp)>=new Date(buy.order_timestamp));
+            if(sell){
+                usedSells.add(sell.order_id);
+                const entry=+buy.average_price;const exit=+sell.average_price;const qty=+buy.quantity;
+                const pnl=(exit-entry)*qty;const pct=entry>0?((exit-entry)/entry)*100:0;
+                records.push({time:buy.order_timestamp,symbol:buy.tradingsymbol,entry,exit,qty,pnl,pct});
+            }else{
+                records.push({time:buy.order_timestamp,symbol:buy.tradingsymbol,entry:+buy.average_price,exit:null,qty:+buy.quantity,pnl:null,pct:null});
+            }
+        }
+        let cumPnL=0;
+        for(const r of records){if(r.pnl!==null)r.cum=(cumPnL+=r.pnl);}
+        const closedRecords=records.filter(r=>r.pnl!==null);
+        haUpdateCumulativePnl(cumPnL,closedRecords.length,closedRecords.filter(r=>r.pnl>0).length);
+        haRenderPnlPivot(closedRecords);
+        const totalRecords=records.length;
+        tb.innerHTML=records.slice().reverse().map((r,i)=>{
+            const num=totalRecords-i;
+            const t=r.time?new Date(r.time).toLocaleTimeString('en-IN',{hour12:false}):'--';
+            if(r.exit===null){
+                return`<tr><td>${num}</td><td>${t}</td><td>${r.symbol}</td><td>₹${r.entry.toFixed(2)}</td><td class="flat">OPEN</td><td>${r.qty}</td><td class="flat">—</td><td class="flat">—</td><td class="flat">—</td></tr>`;
+            }
+            const cls=r.pnl>=0?'grn':'red';const cumCls=r.cum>=0?'grn':'red';
+            const rowCls=r.pnl>0?'row-profit':(r.pnl<0?'row-loss':'');
+            return`<tr class="${rowCls}"><td>${num}</td><td>${t}</td><td>${r.symbol}</td><td>₹${r.entry.toFixed(2)}</td><td>₹${r.exit.toFixed(2)}</td><td>${r.qty}</td><td class="${cls}">${r.pnl>=0?'+':''}₹${r.pnl.toFixed(2)}</td><td class="${cls}">${r.pct>=0?'+':''}${r.pct.toFixed(2)}%</td><td class="${cumCls}">${r.cum>=0?'+':''}₹${r.cum.toFixed(2)}</td></tr>`;
+        }).join('');
+    }catch{}finally{_haLoadOrdBusy=false}
+}
+
+let _haDpnlCache=null,_haDpnlPts=null;
+async function haRenderDailyPnl(){
+    const host=document.getElementById('haDpnlChart');
+    if(!host)return;
+    const days=+(document.getElementById('haDpnlDays')?.value||10);
+    let data=[];
+    try{data=await(await fetch('/api/pnl/daily?days='+days)).json();}catch{}
+    _haDpnlCache=Array.isArray(data)?data:[];
+    haDrawDailyPnl();
+}
+function haDrawDailyPnl(){
+    const host=document.getElementById('haDpnlChart');
+    if(!host)return;
+    const data=_haDpnlCache||[];
+    if(!data.length){host.innerHTML='<div class="dpnl-empty">No trade data yet</div>';return}
+    let run=0; const pts=data.map(d=>{const v=d.pnl||0;run+=v;return{date:d.date,pnl:v,cum:run,trades:d.trades||0,entries:d.entries||[]};});
+    _haDpnlPts=pts;
+    const total=run;
+    const n=pts.length;
+    const winDays=pts.filter(p=>p.pnl>0).length;
+    const avg=total/n;
+    const best=pts.reduce((a,b)=>b.pnl>a.pnl?b:a,pts[0]);
+    const winRate=Math.round(winDays/n*100);
+    const cls=v=>v>0?'g':v<0?'r':'';
+    const col=v=>v>0?'var(--green)':v<0?'var(--red)':'var(--text-secondary)';
+    const W=Math.max(host.clientWidth||600,320), H=196;
+    const padT=20,padB=22,padL=6,padR=6;
+    const innerW=W-padL-padR, innerH=H-padT-padB;
+    const step=innerW/n, barW=Math.min(step*0.5,26);
+    const zeroY=padT+innerH/2;
+    const maxAbs=Math.max(...pts.map(p=>Math.abs(p.pnl)),1);
+    const barScale=(innerH/2-6)/maxAbs;
+    const cx=i=>padL+step*(i+0.5);
+    const cmin=Math.min(0,...pts.map(p=>p.cum)), cmax=Math.max(0,...pts.map(p=>p.cum));
+    const cRange=(cmax-cmin)||1;
+    const cY=v=>padT+innerH-((v-cmin)/cRange)*innerH;
+    const cPts=pts.map((p,i)=>({x:cx(i),y:cY(p.cum)}));
+    const linePath='M'+cPts.map((p,i)=>`${i?'L':''}${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+    const areaPath=`M${cPts[0].x.toFixed(1)} ${(padT+innerH).toFixed(1)} `+cPts.map(p=>`L${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')+` L${cPts[n-1].x.toFixed(1)} ${(padT+innerH).toFixed(1)} Z`;
+    const bars=pts.map((p,i)=>{
+        const x=cx(i)-barW/2;
+        const h=Math.max(Math.abs(p.pnl)*barScale,p.pnl?2:0);
+        const pos=p.pnl>=0;
+        const bx=x.toFixed(1);
+        let rect='';
+        if(p.pnl!==0){
+            if(pos){const y=(zeroY-h);const r=Math.min(4,barW/2,h);
+                rect=`<path class="dpnl-bar-rect" d="M${bx} ${(y+r).toFixed(1)} Q${bx} ${y.toFixed(1)} ${(x+r).toFixed(1)} ${y.toFixed(1)} H${(x+barW-r).toFixed(1)} Q${(x+barW).toFixed(1)} ${y.toFixed(1)} ${(x+barW).toFixed(1)} ${(y+r).toFixed(1)} V${zeroY.toFixed(1)} H${bx} Z" fill="url(#haDpnlG)"/>`;
+            }else{const y=zeroY;const bh=h;const r=Math.min(4,barW/2,bh);
+                rect=`<path class="dpnl-bar-rect" d="M${bx} ${y.toFixed(1)} H${(x+barW).toFixed(1)} V${(y+bh-r).toFixed(1)} Q${(x+barW).toFixed(1)} ${(y+bh).toFixed(1)} ${(x+barW-r).toFixed(1)} ${(y+bh).toFixed(1)} H${(x+r).toFixed(1)} Q${bx} ${(y+bh).toFixed(1)} ${bx} ${(y+bh-r).toFixed(1)} Z" fill="url(#haDpnlR)"/>`;
+            }
+        }
+        const ly=pos?(zeroY-h-4):(zeroY+h+9);
+        const lbl=p.pnl!==0?`<text class="dpnl-vlabel" x="${cx(i).toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" fill="${pos?'var(--green)':'var(--red)'}">${dpnlCompact(p.pnl)}</text>`:'';
+        const xl=`<text class="dpnl-xlabel" x="${cx(i).toFixed(1)}" y="${(H-6).toFixed(1)}" text-anchor="middle">${dpnlLabel(p.date)}</text>`;
+        const hit=`<rect class="dpnl-col-hit" style="cursor:pointer" x="${(cx(i)-step/2).toFixed(1)}" y="${padT}" width="${step.toFixed(1)}" height="${innerH}" onmousemove="haDpnlShowTip(event,${i})" onmouseleave="haDpnlHideTip()" onclick="haDpnlShowDay(${i})"/>`;
+        return hit+rect+lbl+xl;
+    }).join('');
+    const dots=cPts.map((p,i)=>`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${i===n-1?3.6:2.4}" fill="var(--accent)" stroke="#fff" stroke-width="1.3"/>`).join('');
+    const endLy=Math.max(cY(pts[n-1].cum)-9,10);
+    const endLbl=`<text x="${cPts[n-1].x.toFixed(1)}" y="${endLy.toFixed(1)}" text-anchor="end" font-size="10" font-weight="800" font-family="'JetBrains Mono',monospace" fill="var(--accent)">${dpnlINR(total)}</text>`;
+    const svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Daily and cumulative P&amp;L">
+        <defs>
+            <linearGradient id="haDpnlG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#12b48c"/><stop offset="1" stop-color="var(--green)"/></linearGradient>
+            <linearGradient id="haDpnlR" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--red)"/><stop offset="1" stop-color="#f26d7d"/></linearGradient>
+            <linearGradient id="haDpnlArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--accent)" stop-opacity=".22"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></linearGradient>
+        </defs>
+        <line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${(W-padR).toFixed(1)}" y2="${zeroY.toFixed(1)}" stroke="var(--border)" stroke-dasharray="3 3"/>
+        ${bars}
+        <path d="${areaPath}" fill="url(#haDpnlArea)"/>
+        <path d="${linePath}" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+        ${dots}${endLbl}
+    </svg>`;
+    host.innerHTML=
+        `<div class="dpnl-summary">`
+        +`<div class="dpnl-stat ${cls(total)}"><div class="k">Total P&amp;L</div><div class="val" style="color:${col(total)}">${dpnlINR(total)}</div><div class="sub">over ${n} day${n>1?'s':''}</div></div>`
+        +`<div class="dpnl-stat ${cls(avg)}"><div class="k">Avg / Day</div><div class="val" style="color:${col(avg)}">${dpnlINR(avg)}</div><div class="sub">best ${dpnlINR(best.pnl)}</div></div>`
+        +`<div class="dpnl-stat ${winRate>=50?'g':'r'}"><div class="k">Win Days</div><div class="val">${winDays}/${n}</div><div class="sub">${winRate}% win rate</div></div>`
+        +`</div>`
+        +`<div class="dpnl-svgwrap">${svg}</div>`
+        +`<div class="dpnl-legend"><span class="lg"><span class="sw" style="background:var(--green)"></span>Profit day</span><span class="lg"><span class="sw" style="background:var(--red)"></span>Loss day</span><span class="lg"><span class="sw ln" style="background:var(--accent)"></span>Cumulative</span></div>`
+        +`<div class="dpnl-hint">Click any bar to see that day's trades (entry / exit)</div>`
+        +`<div class="dpnl-details" id="haDpnlDetails" style="display:none"></div>`
+        +`<div class="dpnl-tip" id="haDpnlTip"></div>`;
+}
+function haDpnlShowDay(i){
+    const box=document.getElementById('haDpnlDetails');
+    if(!box||!_haDpnlPts)return;
+    const d=_haDpnlPts[i];if(!d)return;
+    const es=d.entries||[];
+    const hd=`<div class="dpnl-details-hd"><span>${dpnlLabel(d.date)} · ${d.trades} trade${d.trades===1?'':'s'} · <span class="${d.pnl>=0?'grn':'red'}">${dpnlINR(d.pnl)}</span></span><span class="cl" onclick="haDpnlCloseDay()">\u2715 close</span></div>`;
+    if(!es.length){
+        box.innerHTML=hd+`<div class="dpnl-hint">No per-trade detail stored for this day.<br>(Kite exposes only today's orders, so past-day breakdowns exist only if captured on that day.)</div>`;
+        box.style.display='block';return;
+    }
+    const rows=es.map(e=>{
+        const t=e.exitTime?String(e.exitTime).substring(11,16):(e.entryTime?String(e.entryTime).substring(11,16):'—');
+        const c=e.pnl>=0?'grn':'red';
+        return`<tr><td>${t}</td><td>${e.symbol}<div class="ex">${e.exchange||''}</div></td><td style="text-align:right">${e.qty}</td><td style="text-align:right">\u20b9${(+e.entry).toFixed(2)}</td><td style="text-align:right">\u20b9${(+e.exit).toFixed(2)}</td><td class="${c}" style="text-align:right">${e.pnl>=0?'+':''}\u20b9${(+e.pnl).toFixed(2)}</td></tr>`;
+    }).join('');
+    box.innerHTML=hd+`<table class="dpnl-tbl"><thead><tr><th>Time</th><th>Symbol</th><th>Qty</th><th>Entry</th><th>Exit</th><th>P&amp;L</th></tr></thead><tbody>${rows}</tbody></table>`;
+    box.style.display='block';
+}
+function haDpnlCloseDay(){const b=document.getElementById('haDpnlDetails');if(b){b.style.display='none';b.innerHTML='';}}
+function haDpnlShowTip(evt,i){
+    const t=document.getElementById('haDpnlTip');if(!t||!_haDpnlPts)return;
+    const d=_haDpnlPts[i];if(!d)return;
+    t.innerHTML=`<div style="font-weight:700;margin-bottom:2px">${dpnlLabel(d.date)}</div>`
+        +`<div>Day: <b style="color:${d.pnl>=0?'#3dd7b0':'#ff8a95'}">${dpnlINR(d.pnl)}</b></div>`
+        +`<div>Cumulative: <b style="color:#b3a8f5">${dpnlINR(d.cum)}</b></div>`
+        +`<div style="opacity:.8">${d.trades} trade${d.trades===1?'':'s'}</div>`;
+    const wrap=t.parentElement.getBoundingClientRect();
+    t.classList.add('show');
+    const tx=evt.clientX-wrap.left, ty=evt.clientY-wrap.top;
+    t.style.left=Math.min(Math.max(tx+12,4),wrap.width-t.offsetWidth-4)+'px';
+    t.style.top=Math.max(ty-t.offsetHeight-12,0)+'px';
+}
+function haDpnlHideTip(){const t=document.getElementById('haDpnlTip');if(t)t.classList.remove('show');}
+window.addEventListener('resize',()=>{if(_haDpnlCache&&_haDpnlCache.length)haDrawDailyPnl();});
+
+// Restore running state on load (in case the heikin bot is already running)
+(async()=>{
+    try{
+        const d=await(await fetch('/api/habot/state')).json();
+        if(d.status==='running'){
+            document.getElementById('haBtnStart').disabled=true;
+            document.getElementById('haBtnStart').innerHTML='<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><polygon points="3,1 13,8 3,15"/></svg> Running...';
+            document.getElementById('haBtnStop').disabled=false;
+            haLockConfig(true);haConnectSSE();
         }
     }catch{}
 })();

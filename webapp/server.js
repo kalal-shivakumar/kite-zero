@@ -931,6 +931,8 @@ app.post('/api/config', (req, res) => {
             Variety: config.Variety || existing.Variety || 'regular',
             MarketProtection: config.MarketProtection ?? existing.MarketProtection ?? 2,
             ExitTrade: config.ExitTrade || existing.ExitTrade || 'yes',
+            OffsetPoints: config.OffsetPoints ?? existing.OffsetPoints ?? 5,
+            MaxRetryCountOnBar: config.MaxRetryCountOnBar ?? existing.MaxRetryCountOnBar ?? 10,
             SLCandlesLookback: config.SLCandlesLookback ?? existing.SLCandlesLookback ?? 1,
             SLTriggerOffset: config.SLTriggerOffset ?? existing.SLTriggerOffset ?? 0.5
         };
@@ -1015,6 +1017,8 @@ app.post('/api/bot/start', async (req, res) => {
         Variety: config.variety || 'regular',
         MarketProtection: config.marketProtection || 2,
         ExitTrade: config.exitTrade || 'yes',
+        OffsetPoints: config.offsetPoints ?? 5,
+        MaxRetryCountOnBar: config.maxRetryCountOnBar ?? 10,
         SLCandlesLookback: config.slCandlesLookback || 1,
         SLTriggerOffset: config.slTriggerOffset || 0.5
     };
@@ -1028,8 +1032,8 @@ app.post('/api/bot/start', async (req, res) => {
     fs.writeFileSync(inputJsonPath, JSON.stringify(inputData, null, 4));
     console.log(`Config saved to input.json for user ${uid}`);
 
-    // Spawn Long-Short-Combined.ps1
-    const scriptPath = path.join(__dirname, '..', 'Long-Short-Combined.ps1');
+    // Spawn Regular-Long-Short-30Min.ps1 (offset candle-color logic; reads OffsetPoints/MaxRetryCountOnBar from input.json)
+    const scriptPath = path.join(__dirname, '..', 'Regular-Long-Short-30Min.ps1');
     const cleanupFlag = config.cleanupPosition === true ? 'yes' : 'no';
     const proc = spawn('pwsh', ['-NoProfile', '-File', scriptPath, '-AccessToken', req.session.accessToken, '-CleanupPosition', cleanupFlag], {
         cwd: path.join(__dirname, '..'),
@@ -1649,6 +1653,399 @@ app.get('/api/regularbot/stream', (req, res) => {
     req.on('close', () => {
         const set = regularSSEClients.get(uid);
         if (set) { set.delete(res); if (set.size === 0) regularSSEClients.delete(uid); }
+    });
+});
+
+// ══════════════════════════════════════════════════════════════
+// HEIKINASHI HEDGE BOT — Spawns HeikinAshi-Long-Short-Combined-Simple.ps1
+// Same config/input.json contract as the main bot; only the script differs.
+// ══════════════════════════════════════════════════════════════
+const haProcesses = new Map(); // userId → { proc, status, logs }
+const haSSEClients = new Map(); // userId → Set<res>
+
+function broadcastHaSSE(userId, event, data) {
+    const clients = haSSEClients.get(userId);
+    if (!clients) return;
+    const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+    for (const res of clients) {
+        try { res.write(payload); } catch { clients.delete(res); }
+    }
+}
+
+app.post('/api/habot/start', async (req, res) => {
+    if (!req.session.accessToken || !req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    const uid = req.session.userId;
+
+    // Stop existing heikin process
+    if (haProcesses.has(uid)) {
+        const prev = haProcesses.get(uid);
+        if (prev.proc && !prev.proc.killed) {
+            try {
+                process.platform === 'win32'
+                    ? require('child_process').execSync(`taskkill /pid ${prev.proc.pid} /T /F`, { stdio: 'ignore' })
+                    : prev.proc.kill('SIGTERM');
+            } catch {}
+        }
+        haProcesses.delete(uid);
+    }
+
+    const config = req.body;
+
+    // Optional fresh start — remove any stale saved position before launching
+    if (config.cleanupPosition === true) {
+        try { fs.unlinkSync(path.join(__dirname, '..', 'PlacedOrders', 'Position.json')); } catch {}
+    }
+
+    // Write config to the SHARED input.json (same fields as the main bot)
+    const inputJsonPath = path.join(__dirname, '..', 'input.json');
+    const inputData = {
+        API_Key: req.session.apiKey,
+        API_Secret: '',
+        TradingSymbol: config.tradingSymbol || 'Nifty',
+        InstrumentToken: config.instrumentToken || 0,
+        TimeFrame: config.timeFrame || '30second',
+        CandlesToShow: config.candlesToShow || 10,
+        FullMode: config.fullMode === true || config.fullMode === 'true',
+        IndexChoosen: config.indexChoosen || 'Nifty',
+        NoOfLotsPurchaseAtaTime: config.noOfLots || 1,
+        AmountToTrade: config.amountToTrade || 0,
+        Product: config.product || 'NRML',
+        StartTime: config.startTime || '09:16:01',
+        StopTime: config.stopTime || '15:30:00',
+        Order_type: config.orderType || 'MARKET',
+        ModeOfTrading: config.modeOfTrading || 'Option_Buyer',
+        ATMOffset: config.atmOffset || 1,
+        Variety: config.variety || 'regular',
+        MarketProtection: config.marketProtection || 2,
+        ExitTrade: config.exitTrade || 'yes',
+        SLCandlesLookback: config.slCandlesLookback || 1,
+        SLTriggerOffset: config.slTriggerOffset || 0.5
+    };
+    try {
+        const existing = JSON.parse(fs.readFileSync(inputJsonPath, 'utf8'));
+        if (existing.API_Secret) inputData.API_Secret = existing.API_Secret;
+    } catch {}
+    fs.writeFileSync(inputJsonPath, JSON.stringify(inputData, null, 4));
+    console.log(`Config saved to input.json for heikin bot (user ${uid})`);
+
+    // Spawn HeikinAshi-Long-Short-Combined-Simple.ps1 (reads input.json + accesstoken.json itself)
+    const scriptPath = path.join(__dirname, '..', 'HeikinAshi-Long-Short-Combined-Simple.ps1');
+    const proc = spawn('pwsh', ['-NoProfile', '-File', scriptPath], {
+        cwd: path.join(__dirname, '..'),
+        env: { ...process.env },
+        stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    const entry = { proc, status: 'running', startTime: new Date().toISOString(), logs: [] };
+    haProcesses.set(uid, entry);
+
+    const logLine = (msg, level = 'info') => {
+        const ts = new Date().toISOString().replace('T', ' ').substring(0, 23);
+        const logEntry = { ts, level, msg: msg.trim() };
+        entry.logs.push(logEntry);
+        if (entry.logs.length > 500) entry.logs = entry.logs.slice(-300);
+        broadcastHaSSE(uid, 'log', logEntry);
+    };
+
+    proc.stdout.on('data', (data) => {
+        const raw = data.toString().replace(/\x1b\[[0-9;]*[A-Za-z]/g, '').replace(/\x1b\[\?[0-9;]*[A-Za-z]/g, '');
+        const lines = raw.split('\n').filter(l => l.trim());
+        for (const line of lines) logLine(line);
+    });
+
+    proc.stderr.on('data', (data) => {
+        const raw = data.toString().replace(/\x1b\[[0-9;]*[A-Za-z]/g, '').replace(/\x1b\[\?[0-9;]*[A-Za-z]/g, '');
+        const lines = raw.split('\n').filter(l => l.trim());
+        for (const line of lines) logLine(line, 'error');
+    });
+
+    proc.on('close', (code) => {
+        entry.status = 'stopped';
+        logLine(`Heikin bot exited with code ${code}`, code === 0 ? 'info' : 'error');
+        broadcastHaSSE(uid, 'status', { status: 'stopped' });
+    });
+
+    broadcastHaSSE(uid, 'status', { status: 'running' });
+    broadcastHaSSE(uid, 'log', { ts: new Date().toISOString().replace('T', ' ').substring(0, 23), level: 'info', msg: 'HeikinAshi-Long-Short-Combined-Simple.ps1 started' });
+
+    res.json({ success: true, message: 'Heikin bot started' });
+});
+
+app.post('/api/habot/stop', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    const uid = req.session.userId;
+    const entry = haProcesses.get(uid);
+    if (entry && entry.proc && !entry.proc.killed) {
+        try {
+            process.platform === 'win32'
+                ? require('child_process').execSync(`taskkill /pid ${entry.proc.pid} /T /F`, { stdio: 'ignore' })
+                : entry.proc.kill('SIGTERM');
+        } catch {}
+        entry.status = 'stopped';
+    }
+    haProcesses.delete(uid);
+    res.json({ success: true });
+});
+
+app.get('/api/habot/state', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    const entry = haProcesses.get(req.session.userId);
+    if (entry && entry.status === 'running') {
+        return res.json({ status: 'running', logs: entry.logs.slice(-100) });
+    }
+    res.json({ status: 'idle' });
+});
+
+// Saved position for the heikin bot (reads the shared PlacedOrders/Position.json + live LTP)
+app.get('/api/habot/position', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    const posFile = path.join(__dirname, '..', 'PlacedOrders', 'Position.json');
+    try {
+        if (!fs.existsSync(posFile)) return res.json({ exists: false });
+        const data = JSON.parse(fs.readFileSync(posFile, 'utf8'));
+        if (!data.Direction || !data.Symbol) return res.json({ exists: false });
+        const position = {
+            direction: data.Direction, symbol: data.Symbol, strike: data.Strike || 0,
+            qty: data.Qty || 0, time: data.Time || '', price: data.Price || 0,
+            optType: data.OptType || '', totalPnL: data.TotalPnL || 0,
+            optionLTP: data.OptionLTP || 0, lots: data.Lots || 1, token: data.Token || 0
+        };
+        if (req.session.accessToken && data.Symbol) {
+            try {
+                const exchange = data.Symbol.startsWith('SENSEX') ? 'BFO' : 'NFO';
+                const r = await axios.get(`${KITE_BASE_URL}/quote/ltp?i=${encodeURIComponent(exchange + ':' + data.Symbol)}`, {
+                    headers: kiteHeaders(req.session.apiKey, req.session.accessToken), timeout: 5000
+                });
+                if (r.data?.data) { for (const v of Object.values(r.data.data)) { position.liveLTP = v.last_price; break; } }
+            } catch {}
+        }
+        return res.json({ exists: true, position });
+    } catch { return res.json({ exists: false }); }
+});
+
+app.get('/api/habot/stream', (req, res) => {
+    if (!req.session.userId) return res.status(401).end();
+    const uid = req.session.userId;
+
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no'
+    });
+    res.write(':ok\n\n');
+
+    if (!haSSEClients.has(uid)) haSSEClients.set(uid, new Set());
+    haSSEClients.get(uid).add(res);
+
+    const entry = haProcesses.get(uid);
+    if (entry) {
+        res.write(`event: status\ndata: ${JSON.stringify({ status: entry.status })}\n\n`);
+        for (const log of entry.logs.slice(-50)) {
+            res.write(`event: log\ndata: ${JSON.stringify(log)}\n\n`);
+        }
+    }
+
+    req.on('close', () => {
+        const set = haSSEClients.get(uid);
+        if (set) { set.delete(res); if (set.size === 0) haSSEClients.delete(uid); }
+    });
+});
+
+// ══════════════════════════════════════════════════════════════
+// OPTION-SELLING BOT — Spawns Option-Selling-Break-out.ps1
+// Same config/input.json contract as the main bot; SELLS options on breakout
+// (LONG breakout -> short PE, SHORT breakdown -> short CE).
+// ══════════════════════════════════════════════════════════════
+const osProcesses = new Map(); // userId → { proc, status, logs }
+const osSSEClients = new Map(); // userId → Set<res>
+
+function broadcastOsSSE(userId, event, data) {
+    const clients = osSSEClients.get(userId);
+    if (!clients) return;
+    const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+    for (const res of clients) {
+        try { res.write(payload); } catch { clients.delete(res); }
+    }
+}
+
+app.post('/api/osbot/start', async (req, res) => {
+    if (!req.session.accessToken || !req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    const uid = req.session.userId;
+
+    // Stop existing option-selling process
+    if (osProcesses.has(uid)) {
+        const prev = osProcesses.get(uid);
+        if (prev.proc && !prev.proc.killed) {
+            try {
+                process.platform === 'win32'
+                    ? require('child_process').execSync(`taskkill /pid ${prev.proc.pid} /T /F`, { stdio: 'ignore' })
+                    : prev.proc.kill('SIGTERM');
+            } catch {}
+        }
+        osProcesses.delete(uid);
+    }
+
+    const config = req.body;
+
+    // Optional fresh start — remove any stale saved position before launching
+    if (config.cleanupPosition === true) {
+        try { fs.unlinkSync(path.join(__dirname, '..', 'PlacedOrders', 'Position.json')); } catch {}
+    }
+
+    // Write config to the SHARED input.json (same fields as the main bot)
+    const inputJsonPath = path.join(__dirname, '..', 'input.json');
+    const inputData = {
+        API_Key: req.session.apiKey,
+        API_Secret: '',
+        TradingSymbol: config.tradingSymbol || 'Nifty',
+        InstrumentToken: config.instrumentToken || 0,
+        TimeFrame: config.timeFrame || '30second',
+        CandlesToShow: config.candlesToShow || 10,
+        FullMode: config.fullMode === true || config.fullMode === 'true',
+        IndexChoosen: config.indexChoosen || 'Nifty',
+        NoOfLotsPurchaseAtaTime: config.noOfLots || 1,
+        AmountToTrade: config.amountToTrade || 0,
+        Product: config.product || 'NRML',
+        StartTime: config.startTime || '09:16:01',
+        StopTime: config.stopTime || '15:30:00',
+        Order_type: config.orderType || 'MARKET',
+        ModeOfTrading: config.modeOfTrading || 'Option_Seller',
+        ATMOffset: config.atmOffset || 1,
+        Variety: config.variety || 'regular',
+        MarketProtection: config.marketProtection || 2,
+        ExitTrade: config.exitTrade || 'yes',
+        SLCandlesLookback: config.slCandlesLookback || 1,
+        SLTriggerOffset: config.slTriggerOffset || 0.5
+    };
+    try {
+        const existing = JSON.parse(fs.readFileSync(inputJsonPath, 'utf8'));
+        if (existing.API_Secret) inputData.API_Secret = existing.API_Secret;
+    } catch {}
+    fs.writeFileSync(inputJsonPath, JSON.stringify(inputData, null, 4));
+    console.log(`Config saved to input.json for option-selling bot (user ${uid})`);
+
+    // Spawn Option-Selling-Break-out.ps1 (reads input.json + accesstoken.json itself)
+    const scriptPath = path.join(__dirname, '..', 'Option-Selling-Break-out.ps1');
+    const proc = spawn('pwsh', ['-NoProfile', '-File', scriptPath], {
+        cwd: path.join(__dirname, '..'),
+        env: { ...process.env },
+        stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    const entry = { proc, status: 'running', startTime: new Date().toISOString(), logs: [] };
+    osProcesses.set(uid, entry);
+
+    const logLine = (msg, level = 'info') => {
+        const ts = new Date().toISOString().replace('T', ' ').substring(0, 23);
+        const logEntry = { ts, level, msg: msg.trim() };
+        entry.logs.push(logEntry);
+        if (entry.logs.length > 500) entry.logs = entry.logs.slice(-300);
+        broadcastOsSSE(uid, 'log', logEntry);
+    };
+
+    proc.stdout.on('data', (data) => {
+        const raw = data.toString().replace(/\x1b\[[0-9;]*[A-Za-z]/g, '').replace(/\x1b\[\?[0-9;]*[A-Za-z]/g, '');
+        const lines = raw.split('\n').filter(l => l.trim());
+        for (const line of lines) logLine(line);
+    });
+
+    proc.stderr.on('data', (data) => {
+        const raw = data.toString().replace(/\x1b\[[0-9;]*[A-Za-z]/g, '').replace(/\x1b\[\?[0-9;]*[A-Za-z]/g, '');
+        const lines = raw.split('\n').filter(l => l.trim());
+        for (const line of lines) logLine(line, 'error');
+    });
+
+    proc.on('close', (code) => {
+        entry.status = 'stopped';
+        logLine(`Option-selling bot exited with code ${code}`, code === 0 ? 'info' : 'error');
+        broadcastOsSSE(uid, 'status', { status: 'stopped' });
+    });
+
+    broadcastOsSSE(uid, 'status', { status: 'running' });
+    broadcastOsSSE(uid, 'log', { ts: new Date().toISOString().replace('T', ' ').substring(0, 23), level: 'info', msg: 'Option-Selling-Break-out.ps1 started' });
+
+    res.json({ success: true, message: 'Option-selling bot started' });
+});
+
+app.post('/api/osbot/stop', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    const uid = req.session.userId;
+    const entry = osProcesses.get(uid);
+    if (entry && entry.proc && !entry.proc.killed) {
+        try {
+            process.platform === 'win32'
+                ? require('child_process').execSync(`taskkill /pid ${entry.proc.pid} /T /F`, { stdio: 'ignore' })
+                : entry.proc.kill('SIGTERM');
+        } catch {}
+        entry.status = 'stopped';
+    }
+    osProcesses.delete(uid);
+    res.json({ success: true });
+});
+
+app.get('/api/osbot/state', (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    const entry = osProcesses.get(req.session.userId);
+    if (entry && entry.status === 'running') {
+        return res.json({ status: 'running', logs: entry.logs.slice(-100) });
+    }
+    res.json({ status: 'idle' });
+});
+
+// Saved position for the option-selling bot (reads the shared PlacedOrders/Position.json + live LTP)
+app.get('/api/osbot/position', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
+    const posFile = path.join(__dirname, '..', 'PlacedOrders', 'Position.json');
+    try {
+        if (!fs.existsSync(posFile)) return res.json({ exists: false });
+        const data = JSON.parse(fs.readFileSync(posFile, 'utf8'));
+        if (!data.Direction || !data.Symbol) return res.json({ exists: false });
+        const position = {
+            direction: data.Direction, symbol: data.Symbol, strike: data.Strike || 0,
+            qty: data.Qty || 0, time: data.Time || '', price: data.Price || 0,
+            optType: data.OptType || '', totalPnL: data.TotalPnL || 0,
+            optionLTP: data.OptionLTP || 0, lots: data.Lots || 1, token: data.Token || 0
+        };
+        if (req.session.accessToken && data.Symbol) {
+            try {
+                const exchange = data.Symbol.startsWith('SENSEX') ? 'BFO' : 'NFO';
+                const r = await axios.get(`${KITE_BASE_URL}/quote/ltp?i=${encodeURIComponent(exchange + ':' + data.Symbol)}`, {
+                    headers: kiteHeaders(req.session.apiKey, req.session.accessToken), timeout: 5000
+                });
+                if (r.data?.data) { for (const v of Object.values(r.data.data)) { position.liveLTP = v.last_price; break; } }
+            } catch {}
+        }
+        return res.json({ exists: true, position });
+    } catch { return res.json({ exists: false }); }
+});
+
+app.get('/api/osbot/stream', (req, res) => {
+    if (!req.session.userId) return res.status(401).end();
+    const uid = req.session.userId;
+
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no'
+    });
+    res.write(':ok\n\n');
+
+    if (!osSSEClients.has(uid)) osSSEClients.set(uid, new Set());
+    osSSEClients.get(uid).add(res);
+
+    const entry = osProcesses.get(uid);
+    if (entry) {
+        res.write(`event: status\ndata: ${JSON.stringify({ status: entry.status })}\n\n`);
+        for (const log of entry.logs.slice(-50)) {
+            res.write(`event: log\ndata: ${JSON.stringify(log)}\n\n`);
+        }
+    }
+
+    req.on('close', () => {
+        const set = osSSEClients.get(uid);
+        if (set) { set.delete(res); if (set.size === 0) osSSEClients.delete(uid); }
     });
 });
 

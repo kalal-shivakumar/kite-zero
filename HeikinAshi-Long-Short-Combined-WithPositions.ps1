@@ -52,6 +52,85 @@
         The machine's PUBLIC IP must be whitelisted in the Kite developer console,
         otherwise order POSTs return HTTP 403 PermissionException (market data still works).
 
+    INPUT.JSON CONFIGURATION (12 points - every value below is read into a variable at startup;
+    nothing is hard-coded):
+        1.  API_Key / API_Secret      : Kite Connect app credentials. Used by KiteData.psm1 for the
+                                        login / token-exchange flow. NOTE: the live key + access_token
+                                        this script actually sends are read from accesstoken.json, not here.
+        2.  TradingSymbol             : Fallback instrument name (resolved via Resolve-KiteSymbol) used
+                                        ONLY when InstrumentToken = 0. Also shown as the dashboard title.
+        3.  InstrumentToken           : DECIDES the websocket data feed. When > 0 it wins and the bot
+                                        subscribes to this token directly (signals = its Heikin-Ashi candles).
+        4.  IndexChoosen              : Drives Get-IndexOptionConfig -> option exchange, lot size ($ix.Lot),
+                                        spot-quote key, and the CE/PE strike lists that actually get traded.
+        5.  TimeFrame                 : Candle interval, mapped to seconds ($sec, e.g. 'minute' = 60s).
+                                        Sets how ticks are bucketed into raw candles before HA conversion.
+        6.  NoOfLotsPurchaseAtaTime   : Fixed lot count ($Lots). Used for order qty only when
+                                        AmountToTrade = 0. Also defines the MaxQuantityReached cap (Lots*Lot).
+        7.  AmountToTrade             : Dynamic capital-based sizing. When > 0 it OVERRIDES fixed lots:
+                                        lots = floor(Amount / (optionLTP * lotSize)), minimum 1.
+        8.  ATMOffset                 : Strike selection. Positive = ITM, 0 = ATM, negative = OTM
+                                        (label $OffLbl). Applied inside ATM() for both CE and PE.
+        9.  Product / Order_type /    : Order parameters posted in Order(). MARKET on NFO/BFO options is
+            Variety / MarketProtection  converted by Kite to a protected LIMIT within the MarketProtection %
+                                        band; NRML = carry-forward margin; regular = standard order variety.
+        10. StartTime / StopTime      : Trading-window gate ($inWin). No new entry is placed outside this
+                                        window; signals still display but do not fire orders.
+        11. ExitTrade                 : 'yes' = stop-and-reverse (opposite signal cancels SLs, market-SELLs
+                                        the running side, then enters the reverse). 'no' = Close() is a no-op;
+                                        positions are never auto-closed and are not flipped.
+        12. CandlesToShow / FullMode /: Present in input.json but NOT used by this signal-only script
+            ModeOfTrading /             (they belong to other strategies/scripts in the repo).
+            SLCandlesLookback /
+            SLTriggerOffset
+
+    KITEDATA.PSM1 DEPENDENCY (5 points - imported at startup; provides Kite-API/market-data helpers
+    so the bot doesn't re-implement instrument lookup, option-chain fetching, or order housekeeping):
+        1. ROLE                        : Shared library. This script uses it ONLY for index config,
+                                        option-chain data, and stop-loss cleanup. The tick parser
+                                        (I16/I32/Ticks) and $sec map are inlined locally, NOT taken
+                                        from the module.
+        2. Resolve-KiteSymbol         : FALLBACK only - maps TradingSymbol -> preset token when
+                                        InstrumentToken = 0 (skipped while InstrumentToken > 0).
+        3. Get-IndexOptionConfig      : Returns the index trading config -> $ix (OptExchange, exchange,
+                                        SpotQuoteKey, SearchKeyWord, Lot). Drives strike selection,
+                                        spot lookup, order placement, and lot sizing.
+        4. Get-KiteOptionInstruments  : Builds the CE ($ce) and PE ($pe) strike/symbol lists for the
+                                        underlying at nearest expiry; consumed by ATM() to pick the
+                                        option symbol to BUY.
+        5. Cancel-AllStopLosses       : In Close(), cancels this side's TRIGGER PENDING stop-losses
+                                        BEFORE the market SELL so none are orphaned. Only reached when
+                                        ExitTrade = 'yes'.
+
+    HEIKIN-ASHI CALCULATION (5 points - standard formula, verified; computed identically in two
+    places: on candle-close and live on every tick for the forming candle):
+        1. RAW CANDLE FIRST           : LTP ticks are bucketed into a fixed-interval raw O/H/L/C
+                                        ($raw): Open = first tick of the bucket; High/Low/Close updated
+                                        per tick. HA is derived FROM this raw candle.
+        2. HA-Close = (O+H+L+C)/4     : Simple average of the raw candle's Open/High/Low/Close.
+        3. HA-Open  = (prevHA.O +     : Average of the PREVIOUS completed HA candle's Open & Close
+                      prevHA.C) / 2     (this recursion is what smooths HA). Seed on the very first
+                                        candle = (rawOpen + rawClose)/2. $haPrev updates ONLY on close,
+                                        so HA-Open stays fixed within a bucket while HA-Close moves.
+        4. HA-High = max(rawH, HA-Open, HA-Close);  HA-Low = min(rawL, HA-Open, HA-Close).
+        5. TWO-PLACE CONSISTENCY      : The forming candle reuses the same $haPrev, so its final value
+                                        equals the finalized candle. Signals compare the forming
+                                        HA-Close against the PREVIOUS completed HA candle's High/Low.
+
+    ATMOFFSET / STRIKE SELECTION (5 points - how ATM() turns the ATMOffset config into a strike):
+        1. NOT CALCULATED             : ATMOffset is a config value (input.json). What ATM() computes
+                                        is a STRIKE-INDEX SHIFT from the ATM strike.
+        2. FIND ATM                   : ATM = the strike nearest to live spot price; $ai = its index
+                                        in the ascending-sorted strike array of the chosen CE/PE list.
+        3. DIRECTION BY OPTION TYPE   : Strikes sorted ascending. CE ITM = LOWER strikes => shift down
+                                        ($off = -ATMOffset); PE ITM = HIGHER strikes => shift up
+                                        ($off = +ATMOffset).
+        4. SHIFT + CLAMP              : target index = $ai + $off, bounded to [0, count-1] so it never
+                                        runs off the strike array; the symbol at that strike is returned.
+        5. SIGN + UNIT                : ATMOffset > 0 = ITM, 0 = ATM, < 0 = OTM (label $OffLbl). Measured
+                                        in STRIKE STEPS, not points (e.g. 7 => ITM7 = 7 strikes deep; the
+                                        point distance depends on strike spacing: SENSEX 100, NIFTY 50).
+
 .NOTES
     Places REAL orders against the live account. Ctrl+C to stop.
 #>

@@ -1,0 +1,41 @@
+//@version=5
+indicator("Kalal - Short Only", overlay=true)
+
+buyQty  = input.int(1, "Buy Qty",  minval=1)
+sellQty = input.int(1, "Sell Qty", minval=1)
+
+// SHORT ONLY: SELL (enter short) when close < previous Low.
+// BUY (exit short) when close > previous High. Buy only fires while in a short position.
+// STOPLOSS BUY: exit short when the sell candle's high is taken out.
+var int pos = 0
+var float stopLevel = na  // high of the candle that gave the sell signal
+
+sellSignal = close < low[1] and pos != -1
+if sellSignal
+    stopLevel := high
+
+// Stop-loss has priority; once it fires the profit-booking exit is suppressed and vice versa.
+stopLossSignal = pos == -1 and high > stopLevel
+exitSignal     = pos == -1 and close > high[1] and not stopLossSignal
+buySignal      = stopLossSignal or exitSignal
+pos := sellSignal ? -1 : buySignal ? 0 : pos
+
+plot(pos == -1 ? stopLevel : na, title="Stop Level", color=color.orange, style=plot.style_linebr)
+
+plotshape(sellSignal,     title="Short",      location=location.abovebar, style=shape.labeldown, color=color.red,    textcolor=color.white, text="Short")
+plotshape(exitSignal,     title="Short Exit", location=location.belowbar, style=shape.labelup,   color=color.green,  textcolor=color.white, text="Short Exit")
+plotshape(stopLossSignal, title="Stoploss",   location=location.belowbar, style=shape.labelup,   color=color.maroon, textcolor=color.white, text="Stoploss Triggered")
+
+// Webhook JSON for Delta Exchange. Indicators can't use strategy.order placeholders, so side/qty are built here.
+buyMsg  = '{"symbol":"{{ticker}}","side":"buy","qty":"'  + str.tostring(buyQty)  + '","trigger_time":"{{timenow}}","strategy_id":"9cf2817c0406ca0b253a547e4f7d0e8d"}'
+sellMsg = '{"symbol":"{{ticker}}","side":"sell","qty":"' + str.tostring(sellQty) + '","trigger_time":"{{timenow}}","strategy_id":"9cf2817c0406ca0b253a547e4f7d0e8d"}'
+
+if sellSignal
+    alert(sellMsg, alert.freq_once_per_bar)
+
+if buySignal
+    alert(buyMsg, alert.freq_once_per_bar)
+
+alertcondition(sellSignal,     "SELL Signal",     "SELL: Close below previous Low (enter short)")
+alertcondition(exitSignal,     "BUY Signal",      "BUY: Close above previous High (exit short)")
+alertcondition(stopLossSignal, "STOPLOSS Signal", "STOPLOSS BUY: Sell candle high taken out")
