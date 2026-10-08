@@ -997,8 +997,11 @@ app.post('/api/bot/start', async (req, res) => {
 
     // Write config to input.json
     const inputJsonPath = path.join(__dirname, '..', 'input.json');
+    // Read existing input.json first so a stale/lost session apiKey never blanks out a working API_Key.
+    let existingCfg = {};
+    try { existingCfg = JSON.parse(fs.readFileSync(inputJsonPath, 'utf8')); } catch {}
     const inputData = {
-        API_Key: req.session.apiKey,
+        API_Key: req.session.apiKey || existingCfg.API_Key || '',
         API_Secret: '',
         TradingSymbol: config.tradingSymbol || 'Nifty',
         InstrumentToken: config.instrumentToken || 0,
@@ -1023,11 +1026,8 @@ app.post('/api/bot/start', async (req, res) => {
         SLTriggerOffset: config.slTriggerOffset || 0.5
     };
 
-    // Read existing input.json to preserve API_Secret
-    try {
-        const existing = JSON.parse(fs.readFileSync(inputJsonPath, 'utf8'));
-        if (existing.API_Secret) inputData.API_Secret = existing.API_Secret;
-    } catch {}
+    // Preserve API_Secret from existing input.json (already read into existingCfg above)
+    if (existingCfg.API_Secret) inputData.API_Secret = existingCfg.API_Secret;
 
     fs.writeFileSync(inputJsonPath, JSON.stringify(inputData, null, 4));
     console.log(`Config saved to input.json for user ${uid}`);
@@ -1300,8 +1300,10 @@ app.post('/api/sweepbot/start', async (req, res) => {
 
     // Write config to separate file so it doesn't conflict with main bot
     const inputJsonPath = path.join(__dirname, '..', 'Liquidity-sweep-input.json');
+    let existingSweepCfg = {};
+    try { existingSweepCfg = JSON.parse(fs.readFileSync(inputJsonPath, 'utf8')); } catch {}
     const inputData = {
-        API_Key: req.session.apiKey,
+        API_Key: req.session.apiKey || existingSweepCfg.API_Key || '',
         API_Secret: '',
         TradingSymbol: resolvedSymbol,
         InstrumentToken: config.instrumentToken || 0,
@@ -1323,10 +1325,7 @@ app.post('/api/sweepbot/start', async (req, res) => {
     };
 
     // Preserve API_Secret from existing sweep config or main input.json
-    try {
-        const existing = JSON.parse(fs.readFileSync(inputJsonPath, 'utf8'));
-        if (existing.API_Secret) inputData.API_Secret = existing.API_Secret;
-    } catch {}
+    if (existingSweepCfg.API_Secret) inputData.API_Secret = existingSweepCfg.API_Secret;
     if (!inputData.API_Secret) {
         try {
             const main = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'input.json'), 'utf8'));
@@ -1502,8 +1501,10 @@ app.post('/api/regularbot/start', async (req, res) => {
 
     // Write config to the SHARED input.json (same fields as the main bot)
     const inputJsonPath = path.join(__dirname, '..', 'input.json');
+    let existingRegularCfg = {};
+    try { existingRegularCfg = JSON.parse(fs.readFileSync(inputJsonPath, 'utf8')); } catch {}
     const inputData = {
-        API_Key: req.session.apiKey,
+        API_Key: req.session.apiKey || existingRegularCfg.API_Key || '',
         API_Secret: '',
         TradingSymbol: config.tradingSymbol || 'Nifty',
         InstrumentToken: config.instrumentToken || 0,
@@ -1525,10 +1526,7 @@ app.post('/api/regularbot/start', async (req, res) => {
         SLCandlesLookback: config.slCandlesLookback || 1,
         SLTriggerOffset: config.slTriggerOffset || 0.5
     };
-    try {
-        const existing = JSON.parse(fs.readFileSync(inputJsonPath, 'utf8'));
-        if (existing.API_Secret) inputData.API_Secret = existing.API_Secret;
-    } catch {}
+    if (existingRegularCfg.API_Secret) inputData.API_Secret = existingRegularCfg.API_Secret;
     fs.writeFileSync(inputJsonPath, JSON.stringify(inputData, null, 4));
     console.log(`Config saved to input.json for regular bot (user ${uid})`);
 
@@ -1698,8 +1696,10 @@ app.post('/api/habot/start', async (req, res) => {
 
     // Write config to the SHARED input.json (same fields as the main bot)
     const inputJsonPath = path.join(__dirname, '..', 'input.json');
+    let existingHaCfg = {};
+    try { existingHaCfg = JSON.parse(fs.readFileSync(inputJsonPath, 'utf8')); } catch {}
     const inputData = {
-        API_Key: req.session.apiKey,
+        API_Key: req.session.apiKey || existingHaCfg.API_Key || '',
         API_Secret: '',
         TradingSymbol: config.tradingSymbol || 'Nifty',
         InstrumentToken: config.instrumentToken || 0,
@@ -1721,10 +1721,7 @@ app.post('/api/habot/start', async (req, res) => {
         SLCandlesLookback: config.slCandlesLookback || 1,
         SLTriggerOffset: config.slTriggerOffset || 0.5
     };
-    try {
-        const existing = JSON.parse(fs.readFileSync(inputJsonPath, 'utf8'));
-        if (existing.API_Secret) inputData.API_Secret = existing.API_Secret;
-    } catch {}
+    if (existingHaCfg.API_Secret) inputData.API_Secret = existingHaCfg.API_Secret;
     fs.writeFileSync(inputJsonPath, JSON.stringify(inputData, null, 4));
     console.log(`Config saved to input.json for heikin bot (user ${uid})`);
 
@@ -1895,8 +1892,10 @@ app.post('/api/osbot/start', async (req, res) => {
 
     // Write config to the SHARED input.json (same fields as the main bot)
     const inputJsonPath = path.join(__dirname, '..', 'input.json');
+    let existingOsCfg = {};
+    try { existingOsCfg = JSON.parse(fs.readFileSync(inputJsonPath, 'utf8')); } catch {}
     const inputData = {
-        API_Key: req.session.apiKey,
+        API_Key: req.session.apiKey || existingOsCfg.API_Key || '',
         API_Secret: '',
         TradingSymbol: config.tradingSymbol || 'Nifty',
         InstrumentToken: config.instrumentToken || 0,
@@ -1918,10 +1917,7 @@ app.post('/api/osbot/start', async (req, res) => {
         SLCandlesLookback: config.slCandlesLookback || 1,
         SLTriggerOffset: config.slTriggerOffset || 0.5
     };
-    try {
-        const existing = JSON.parse(fs.readFileSync(inputJsonPath, 'utf8'));
-        if (existing.API_Secret) inputData.API_Secret = existing.API_Secret;
-    } catch {}
+    if (existingOsCfg.API_Secret) inputData.API_Secret = existingOsCfg.API_Secret;
     fs.writeFileSync(inputJsonPath, JSON.stringify(inputData, null, 4));
     console.log(`Config saved to input.json for option-selling bot (user ${uid})`);
 
