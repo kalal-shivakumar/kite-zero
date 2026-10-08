@@ -13,6 +13,12 @@ PlacedOrders/Long-Exit-*.txt
 PlacedOrders/Short-Entry-*.txt
 PlacedOrders/Short-Exit-*.txt
 
+# HA position-trading bot runtime state (its audit log HA-PositionTrading-log.csv stays tracked)
+PlacedOrders/HA-PositionTrading*.json
+PlacedOrders/HA-PositionTrading*.tmp
+PlacedOrders/HA-PositionTrading*.lock
+PlacedOrders/HA-PositionTrading.dryrun*
+
 # Backtest output
 BACK-Test/*.csv
 
