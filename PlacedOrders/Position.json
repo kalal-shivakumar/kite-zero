@@ -1,0 +1,13 @@
+{
+  "Direction": "SHORT",
+  "Qty": 60,
+  "OptType": "PE",
+  "Strike": 74200.0,
+  "Price": 573.2,
+  "TotalPnL": 6070.000000000004,
+  "Token": 283279109,
+  "Symbol": "SENSEX26O1574200PE",
+  "Lots": 3,
+  "Time": "2026-10-15_12-47-21",
+  "OptionLTP": 194.6
+}

@@ -223,6 +223,7 @@ function Get-IntervalSeconds([string]$Interval) {
         '10minute' { return 600 }
         '15minute' { return 900 }
         '30minute' { return 1800 }
+        '35minute' { return 2100 }
         '60minute' { return 3600 }
         default    { return 60 }
     }
